@@ -12,7 +12,7 @@ dependencies = [
   "anthropic>=2.4,<3",
   "cryptography>=45",
   "tzdata",
-  "mcp",
+  "mcp>=2",
 ]
 
 [dependency-groups]

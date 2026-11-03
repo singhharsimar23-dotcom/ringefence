@@ -346,6 +346,19 @@ class Executor:
     # ---------------------------------------------------------------------------------------------
     # background
     # ---------------------------------------------------------------------------------------------
+    def poll_one(self, tenant: str, transfer_id: str) -> bool:
+        """A webhook said this transfer changed: GET it and apply, exactly as the poller would. False if not ours."""
+        ln = next((x for x in store.lines_in_states(self.L, (*INFLIGHT, "PAID"))
+                   if x["tenant"] == tenant and x.get("transfer_id") == transfer_id), None)
+        if ln is None:
+            return False
+        try:
+            t = self.awx.for_tenant(tenant).get(f"/transfers/{transfer_id}")
+        except (AwxError, AwxTimeout):
+            return True  # the poller will get it
+        self._apply(ln, t, "STATUS")
+        return True
+
     def poll_inflight(self) -> None:
         """GET each in-flight transfer by id (and PAID ones of live runs, for late returns); apply forward moves."""
         paid = [ln for ln in store.lines_in_states(self.L, ("PAID",))

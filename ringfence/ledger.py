@@ -32,7 +32,7 @@ KINDS = {
     "FEE_CHARGED", "FEE_CREDIT", "BENEFICIARY_QUARANTINED", "CALLBACK_CONFIRMED",
     "SIMULATED", "AGENT_NOTE",
     # additions beyond the spec's list (spec 4.4 is not exhaustive for these)
-    "KILL_SWITCH", "MANDATE_SIGNED", "RESET", "HOLD", "ALERT",
+    "KILL_SWITCH", "MANDATE_SIGNED", "RESET", "HOLD", "ALERT", "WEBHOOK",
 }
 
 # a payload carrying any of these keys is a bug: secrets must never reach the ledger

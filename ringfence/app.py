@@ -20,13 +20,13 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
-from . import copy, inbox, seed, setup_demo, store, verify
+from . import copy, inbox, rules, seed, setup_demo, store, track, verify, webhooks
 from .agent import loop
 from .agent.tools import funding_state
 from .awx import Awx, AwxError, build_backend
@@ -169,7 +169,7 @@ class Engine:
             names = {k: c.name for k, c in seed.contractors(t).items()}
             lines = [{"contractor_id": ln["contractor_id"], "name": names[ln["contractor_id"]], "amount": ln["amount"],
                       "currency": ln["currency"], "state": ln["state"], "pill": copy.pill(ln["state"], run["state"]),
-                      "request_id": ln["request_id"]} for ln in store.get_lines(self.L, rid, t, round=run["round"])]
+                      "request_id": ln["request_id"], "track": f"/track/{track.token(t, rid, ln['contractor_id'])}"} for ln in store.get_lines(self.L, rid, t, round=run["round"])]
             run = {**run, "lines": lines}
         req = funding_state(self.o, rid, t) if run and run["state"] == "AWAITING_FUNDS" else None
         ccys = sorted({ln["currency"] for ln in lines} | ({req["currency"]} if req else set()))
@@ -212,6 +212,10 @@ class TenantUser(Who):
 class Confirm(TenantUser):
     qid: int
     ref: str = "phone callback"
+
+
+class Rule(TenantUser):
+    text: str = Field(max_length=600)
 
 
 class Kill(Who):
@@ -335,6 +339,41 @@ def create_app(E: Engine) -> FastAPI:
             E.results[name] = r = E.sim.run(name, tenant)
             return {"result": r}
         return act(job)
+
+    @app.post("/api/rules/draft")
+    def rule_draft(b: Rule):
+        user(b.user)
+        def job():
+            E.o.ensure_mandates()
+            return {"draft": rules.draft(E.L, b.tenant, b.text)}
+        return act(job)
+
+    @app.post("/api/rules/sign")
+    def rule_sign(b: Rule):
+        u = user(b.user)
+        def job():
+            E.o.ensure_mandates()
+            return {"version": rules.sign(E.L, b.tenant, b.text, b.user, u["role"]).mandate.version}
+        return act(job)
+
+    @app.get("/track/{tok}")
+    def track_page(tok: str):
+        return FileResponse(STATIC / "track.html")
+
+    @app.get("/api/track/{tok}")
+    def track_data(tok: str):
+        found = track.lookup(E.L, tok)
+        if found is None:
+            raise HTTPException(404, "This link is not valid.")
+        return found
+
+    @app.post("/webhooks/airwallex")
+    async def webhook(request: Request):
+        secret = os.environ.get("AWX_WEBHOOK_SECRET", "")
+        raw = await request.body()
+        headers = {k: request.headers.get(k, "") for k in ("x-timestamp", "x-signature")}
+        code, why = E.call(lambda: webhooks.handle(E.L, E.o.ex, secret, headers, raw))
+        return PlainTextResponse(why, status_code=code)
 
     @app.get("/api/proof")
     def proof():

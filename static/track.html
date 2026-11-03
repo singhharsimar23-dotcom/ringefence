@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Track your payment</title>
+<style>
+:root{color-scheme:light}
+body{font:16px/1.5 system-ui,Segoe UI,sans-serif;background:#f5f6f8;color:#1c2330;margin:0;display:grid;place-items:center;min-height:100vh}
+main{background:#fff;border:1px solid #d9dde4;border-radius:10px;padding:28px 32px;max-width:420px;width:calc(100% - 32px)}
+h1{font-size:15px;font-weight:600;color:#55607a;margin:0 0 18px}
+.amt{font-size:30px;font-weight:650;margin:2px 0 4px}
+.pill{display:inline-block;padding:2px 12px;border-radius:99px;background:#e8edf7;color:#1f3a8a;font-weight:600;font-size:14px}
+.pill.ok{background:#e3f3ea;color:#17613a}.pill.bad{background:#fbe9e7;color:#9a2a1c}
+p{color:#55607a;margin:14px 0 0}
+</style></head>
+<body><main id="m"><h1>Your payment</h1><p>Loading.</p></main>
+<script>
+const ETA={"Paid":"Sent to your bank. It can take up to one working day to show.","Sent":"On its way to your bank.",
+"On its way":"Approved and being sent.","Planned":"Waiting for your employer to confirm the payroll.","Needs OK":"Waiting for your employer to approve.",
+"Held":"Paused by your employer. They will tell you when it resumes.","Returned":"Your bank sent it back. Your employer will be asked to pay again."};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+fetch("/api/"+location.pathname.replace(/^\//,"")).then(r=>r.ok?r.json():Promise.reject()).then(d=>{
+ const cls=d.status==="Paid"?"ok":d.status==="Returned"?"bad":"";
+ document.getElementById("m").innerHTML=`<h1>${esc(d.employer)} paying ${esc(d.name)}</h1>
+ <div class="amt">${esc(d.amount)} ${esc(d.currency)}</div><span class="pill ${cls}">${esc(d.status)}</span>
+ <p>${esc(ETA[d.status]||"We will update this page when it changes.")}</p><p>Pay date ${esc(d.pay_date)}.</p>`;
+}).catch(()=>{document.getElementById("m").innerHTML="<h1>Your payment</h1><p>This link is not valid.</p>"});
+</script></body></html>
