@@ -1,8 +1,16 @@
 import pytest
 from fastapi.testclient import TestClient
+from invariants import assert_invariants
 
 from ringfence.app import Engine, create_app
 from ringfence.setup_demo import setup
+
+
+@pytest.fixture(autouse=True)
+def _invariants(L, fake):
+    yield
+    assert_invariants(L, fake)
+
 
 
 @pytest.fixture

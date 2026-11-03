@@ -1,11 +1,19 @@
 import pytest
 from helpers import acct
+from invariants import assert_invariants
 
 from ringfence import copy, store
 from ringfence.agent import loop
 from ringfence.orchestrator import Orchestrator
 from ringfence.scenarios import SCENARIOS, Simulator
 from ringfence.setup_demo import setup
+
+
+@pytest.fixture(autouse=True)
+def _invariants(L, fake):
+    yield
+    assert_invariants(L, fake)
+
 
 
 @pytest.fixture
