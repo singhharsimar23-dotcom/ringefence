@@ -49,6 +49,7 @@ def test_topup_pulls_on_metal_then_the_matcher_closes_the_request(world, L, monk
     r = sim.run("metal_topup")
     assert r["ok"], r["summary"]
     pull = L.entries(kind="METAL_PULL")[0]["payload"]
+    assert 0 < metal.Decimal(pull["usdz"]) < metal.Decimal(pull["aud"]) / 10  # testnet scale: 1 USDZ = USD 10
     assert pull["tx"] == TX and pull["explorer_url"].endswith(TX) and pull["bind_tx"] == "0x" + "d" * 64
     req = L.entries(kind="FUNDING_REQUESTED", tenant="harbour")[-1]["payload"]
     pull_args = next(a for a in calls if "pull" in a)

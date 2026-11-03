@@ -45,7 +45,8 @@ strikes = 0
 while st.get("funded_usdz", 0) < target:
     rc, out = m.runner(["fund", st["principal"], "--network", "testnet"], d)
     if rc == 0:
-        st["funded_usdz"] = st.get("funded_usdz", 0) + 100
+        got = re.search(r"with (\d+) \*USDZ", out)  # the faucet's grant shrinks as a client keeps asking
+        st["funded_usdz"] = st.get("funded_usdz", 0) + (int(got.group(1)) if got else 0)
         strikes = 0
         save()
         print(f"[faucet] funded Harbour's account, total granted {st['funded_usdz']} USDZ")

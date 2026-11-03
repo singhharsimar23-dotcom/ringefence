@@ -20,6 +20,8 @@ from .config import ROOT
 
 log = logging.getLogger("ringfence.metal")
 PIN = "0.3.3"
+# The faucet tops an account up to about 100 USDZ and no further, so the demo shortfall is scaled: 1 USDZ stands for USD 10.
+USD_PER_USDZ = Decimal(os.environ.get("RF_METAL_USD_PER_USDZ", "10"))
 EXPLORER = "https://testnet.metalntwx.com/tx/"
 NET = ["--network", "testnet"]
 SECRETS = ("METAL_RPC_URL", "METAL_RPC_SECRET")
@@ -101,7 +103,7 @@ class Metal:
         """Mandate then pull. Returns the METAL_PULL payload (already in the ledger)."""
         c = self.cfg()
         usd = fx.get_quote(quote_c, "USD", req["currency"], buy_amount=Decimal(req["amount"])).sell_amount  # read only: a quote, no conversion
-        usdz = usd.quantize(Decimal("0.01"), rounding=ROUND_UP)  # USDZ is treated as USD 1:1; rounded up so the pull never undershoots
+        usdz = (usd / USD_PER_USDZ).quantize(Decimal("0.01"), rounding=ROUND_UP)  # rounded up so the pull never undershoots
         ref = re.sub(r"[^A-Za-z0-9-]", "-", req["reference"])[:40]
         rd = self.dir / "runs" / ref
         owner = str(self.dir / "owner.json")
