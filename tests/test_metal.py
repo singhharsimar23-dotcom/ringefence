@@ -139,3 +139,4 @@ def test_lookalike_wallet_is_flagged_then_refused_on_chain(world, L):
     assert r["ok"] and fake in r["summary"], r["summary"]
     row = L.entries(kind="METAL_REFUSED")[-1]["payload"]
     assert row["code"] == "mandate_payee_not_listed" and row["to"] == fake and row["flag"] == "address_poisoning"
+    assert "lookalike wallet" in str(copy.timeline_row(L.entries(kind="METAL_REFUSED")[-1]))

@@ -279,6 +279,8 @@ def timeline_row(e: dict) -> dict | None:
             row = ("Observe", "[SIMULATED] " + row[1])
     elif k == "METAL_PULL":
         row = ("Act", f"Pulled {p['usdz']} USDZ from {T}'s Metal treasury under its mandate (Metal testnet, tx {p['tx'][:10]}).")
+    elif k == "METAL_REFUSED" and p.get("flag") == "address_poisoning":
+        row = ("Decide", f"Ringfence flagged a lookalike wallet ({p['to'][:10]}…{p['to'][-4:]}). Metal refused to pay it: {p.get('code')}.")
     elif k == "METAL_REFUSED":
         row = ("Decide", f"Metal refused a pull of {p['usdz']} USDZ above {T}'s mandate: {p.get('code')}.")
     elif k == "RESET":
