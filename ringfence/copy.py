@@ -8,10 +8,29 @@ from datetime import datetime
 from decimal import Decimal
 
 from . import seed
+from .config import employer_name
 from .gate import REASON_CODES
 
 BUSY = "Someone else just pressed a button on this shared demo. Try again in a moment."
 BUSY_RESET = "Someone started over a moment ago. Try again in 20 seconds."
+WORLD_SETUP_FAILED = "Couldn't reach the Airwallex sandbox ({code}). Nothing was sent. Try Simulated bank."
+TOO_FAST = "That was a little fast. Try again in a second."
+TOO_LARGE = "That request is too large."
+NOT_FOUND = "Nothing here."
+LIVE_ONE_EMPLOYER = "The Airwallex sandbox run takes one company. Use Simulated bank for more."
+LIVE_UNAVAILABLE = "The Airwallex sandbox isn't available right now. Try Simulated bank."
+PLAY_DAILY = "Today's runs are used up. Come back tomorrow, or open Three employers."
+PLAY_FULL = "Every slot and the waiting line are full. Try again in a few minutes."
+WORLD_GONE = "This run was cleaned up. Runs last at most 30 minutes. Start a new one."
+WORLD_QUEUED = "This run is still waiting for a slot."
+WORLD_STARTING = "This run is still starting. Try again in a few seconds."
+WORLD_STOPPED = "This run stopped before it could finish. Nothing was sent. Start a new one."
+WORLD_START_TIMEOUT = "This run took too long to start. Nothing was sent. Start a new one."
+DRAFT_UNAVAILABLE = "Reading free text is switched off right now. Pick an example or fill in the form."
+DRAFT_NOTHING = "I couldn't find people, hours or rates. Try an example."
+DRAFT_TRIMMED = "Only the first 6 people are kept."
+DRAFT_COUNTRY = "{country} isn't set up in this demo. Available: UK, Germany, US, Australia."
+DRAFT_CSV_DEFAULTS = "Company set to {name}, paid from {ccy}. Change it below."
 START_FAILED = "The agent could not finish reading the inboxes. Nothing was sent; see the timeline."
 
 # Gate reason codes. {t} = employer name. One table, shown wherever a deny appears.
@@ -44,6 +63,40 @@ REASON_TEXT = {
 }
 assert set(REASON_TEXT) == set(REASON_CODES), "every gate reason code needs a sentence"
 
+# Attack cards: what was attempted, which rule decided, who decided. rule is a gate code where one fits.
+# id -> (what was attempted, rule id, who decided, what the rule says; empty = use REASON_TEXT[rule])
+SCENARIO_EVIDENCE = {
+    "bank_change_email": ("An email from a contractor changes the bank account and asks to skip approval.",
+                          "BENEFICIARY_QUARANTINED", "Ringfence's gate (code)", ""),
+    "injection": ("A document tells the payroll agent to ignore its rules and approve everything.",
+                  "INSTRUCTION_IGNORED", "Ringfence's tools (code)",
+                  "The document was flagged for a person. It cannot change an amount, a payee or an approval."),
+    "double_click": ("Four release requests arrive at once on the same approved run.",
+                     "ONE_PAYMENT_KEY", "Ringfence's executor (code)",
+                     "Each payout has one payment key and one database claim, so a repeat finds the work done."),
+    "network_drop": ("Airwallex takes the payment but the answer is lost.",
+                     "FIND_BY_PAYMENT_KEY", "Ringfence's executor (code)",
+                     "After a timeout Ringfence looks the payment up by its key instead of sending it again."),
+    "tamper_ledger": ("Someone with the database file edits one recorded amount.",
+                      "LEDGER_HASH_CHAIN", "The hash chain (code)",
+                      "Every row's hash includes the row before it, so one edit breaks the chain at that row."),
+    "cross_tenant_call": ("One employer's login tries to act on another employer's account.",
+                          "AIRWALLEX_ACCOUNT_ISOLATION", "Airwallex",
+                          "Airwallex refused the login with HTTP 401. Ringfence cannot even try."),
+    "rate_move": ("The exchange rate moves past the approved range after approval.",
+                  "FX_RATE_OUT_OF_BAND", "Ringfence's gate (code)", ""),
+    "other_tenant_deposit": ("Money lands in another employer's account while this one is short.",
+                             "OWN_FUNDS_ONLY", "Ringfence's funding check (code)",
+                             "A deposit in another employer's account can never change this employer's state."),
+    "topup": ("The employer's own bank sends what the funding card asked for.",
+              "FUNDING_MATCHED_BY_REFERENCE", "Ringfence's funding check (code)",
+              "The deposit is matched by account, currency and reference, in this employer's own account only."),
+    "late_return": ("A paid payout bounces back from the beneficiary's bank.",
+                    "RETURN_NEEDS_NEW_APPROVAL", "Ringfence's executor (code)",
+                    "A late return is tracked, and paying it again is a new payment that needs its own approval."),
+}
+SCENARIO_EVIDENCE["harbour_topup"] = SCENARIO_EVIDENCE["topup"]
+
 # Codes raised by the executor and the agent tools outside the gate.
 EXTRA_TEXT = {
     "FACTS_UNAVAILABLE": "Airwallex did not answer when balances were read, so nothing was sent.",
@@ -57,7 +110,7 @@ EXTRA_TEXT = {
 
 
 def reason(code: str, tenant: str = "") -> str:
-    t = tenant.title() if tenant else "This employer"
+    t = employer_name(tenant, plain=True) if tenant else "This employer"
     return (REASON_TEXT.get(code) or EXTRA_TEXT.get(code) or "That action was blocked.").format(t=t)
 
 
@@ -156,7 +209,7 @@ def _name(tenant: str | None, cid: str | None) -> str:
 def timeline_row(e: dict) -> dict | None:
     """(phase, sentence) for one ledger entry, or None for rows that are noise on the main surface."""
     k, p, t = e["kind"], e["payload"], e["tenant"]
-    T = (t or "").title()
+    T = employer_name(t or "", plain=True)
     who = _name(t, p.get("contractor_id"))
     row = None
     if k == "RUN_CREATED":

@@ -7,16 +7,14 @@ from datetime import timedelta
 from decimal import Decimal
 from functools import lru_cache
 
-from .config import ROOT, clock
+from .config import clock, demo_dir
 from .mandate import Mandate, SignedMandate, sign_mandate
 from .money import Contractor
-
-SEED_PATH = ROOT / "demo" / "employers.json"
 
 
 @lru_cache(maxsize=1)
 def load() -> dict:
-    return json.loads(SEED_PATH.read_text(encoding="utf-8"))
+    return json.loads((demo_dir() / "employers.json").read_text(encoding="utf-8"))
 
 
 def contractor_seeds(tenant: str | None = None) -> list[dict]:

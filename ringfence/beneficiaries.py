@@ -6,13 +6,16 @@ this tenant's registry, never taken from the model or from an email.
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 from . import seed
 from .awx import AwxError, TenantClient
 from .config import var_dir
 
-NICK_PREFIX = "rf:"
+# A playground world shares one Airwallex account with other worlds: its nicknames carry the world id so a
+# beneficiary made for someone else's "ada" is never reused (it could hold a different bank).
+NICK_PREFIX = "rf:" + (os.environ["RF_WORLD"][:6] + ":" if os.environ.get("RF_WORLD") else "")
 
 
 def _bank_details(bank: dict, ccy: str, account_name: str) -> dict:

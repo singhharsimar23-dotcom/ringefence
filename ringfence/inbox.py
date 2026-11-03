@@ -13,11 +13,11 @@ from decimal import Decimal
 from pathlib import Path
 
 from . import seed
-from .config import ROOT, var_dir
+from .config import demo_dir, var_dir
 from .money import MoneyError, parse_amount
 
-INBOX = ROOT / "demo" / "inbox"
-HISTORY = ROOT / "demo" / "history"
+INBOX = demo_dir() / "inbox"  # constants so tests can monkeypatch them; a world sets RF_DEMO before start
+HISTORY = demo_dir() / "history"
 
 
 class TimesheetError(ValueError):
