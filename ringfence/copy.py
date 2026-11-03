@@ -11,6 +11,9 @@ from . import seed
 from .gate import REASON_CODES
 
 BUSY = "Someone else just pressed a button on this shared demo. Try again in a moment."
+BUSY_RESET = "Someone started over a moment ago. Try again in 20 seconds."
+START_FAILED = "The agent could not finish reading the inboxes. Nothing was sent; see the timeline."
+AGENT_CAPPED = "Offline rules (daily Claude limit reached)"
 
 # Gate reason codes. {t} = employer name. One table, shown wherever a deny appears.
 REASON_TEXT = {

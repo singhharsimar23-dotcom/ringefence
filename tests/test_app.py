@@ -1,7 +1,11 @@
+import threading
+from concurrent.futures import Future
+
 import pytest
 from fastapi.testclient import TestClient
 from invariants import assert_invariants
 
+from ringfence import copy
 from ringfence.app import Engine, create_app
 from ringfence.setup_demo import setup
 
@@ -31,6 +35,13 @@ def cycle(E, n=1):
         E.call(E._autopilot)
 
 
+def start(c, E, user="maya"):
+    """/api/start only queues the job; E.call is a barrier behind it on the single worker."""
+    r = c.post("/api/start", json={"user": user})
+    E.call(lambda: None)
+    return r
+
+
 def lane(c, t):
     return c.get("/api/state").json()["lanes"][t]
 
@@ -42,8 +53,8 @@ def test_empty_state_offers_the_start_action(c):
     assert c.get("/").status_code == 200
 
 
-def test_start_puts_each_employer_in_its_own_state_and_harbour_gets_a_funding_card(c):
-    assert c.post("/api/start", json={}).json()["ok"]
+def test_start_puts_each_employer_in_its_own_state_and_harbour_gets_a_funding_card(c, E):
+    assert start(c, E).json()["ok"]
     assert lane(c, "kestrel")["state"] == "READY"
     assert lane(c, "northwind")["state"] == "AWAITING_APPROVAL" and lane(c, "northwind")["text"]["action"] == "approve"
     h = lane(c, "harbour")
@@ -51,8 +62,8 @@ def test_start_puts_each_employer_in_its_own_state_and_harbour_gets_a_funding_ca
     assert lane(c, "northwind")["approve_label"].startswith("Approve ")
 
 
-def test_only_the_named_approver_can_approve(c):
-    c.post("/api/start", json={})
+def test_only_the_named_approver_can_approve(c, E):
+    start(c, E)
     r = c.post("/api/approve", json={"tenant": "northwind", "user": "maya"})
     assert r.status_code == 409 and "may not approve" in r.json()["detail"]
     assert c.post("/api/approve", json={"tenant": "northwind", "user": "nobody"}).status_code == 422
@@ -61,7 +72,7 @@ def test_only_the_named_approver_can_approve(c):
 
 
 def test_the_whole_story_runs_to_done_through_the_api_and_the_proof_passes(c, E, fake):
-    c.post("/api/start", json={})
+    start(c, E)
     c.post("/api/scenario/other_tenant_deposit")
     assert lane(c, "harbour")["state"] == "AWAITING_FUNDS"  # another employer's money changes nothing
     assert c.post("/api/scenario/harbour_topup").json()["result"]["ok"]
@@ -87,7 +98,7 @@ def test_cert_is_404_until_the_proof_page_issued_it(c):
 
 
 def test_kill_switch_pauses_release_and_resume_continues(c, E):
-    c.post("/api/start", json={})
+    start(c, E)
     assert c.post("/api/kill", json={"on": True, "user": "maya"}).json()["ok"]
     s = c.get("/api/state").json()
     assert s["kill"] == {"on": True, "by": "Maya", "ts": s["kill"]["ts"]}
@@ -99,8 +110,8 @@ def test_kill_switch_pauses_release_and_resume_continues(c, E):
     assert lane(c, "kestrel")["state"] == "DONE"
 
 
-def test_every_scenario_endpoint_answers_and_unknown_ones_404(c):
-    c.post("/api/start", json={})
+def test_every_scenario_endpoint_answers_and_unknown_ones_404(c, E):
+    start(c, E)
     assert c.post("/api/scenario/cross_tenant_call").json()["result"]["ok"]
     assert c.post("/api/scenario/bank_change_email").json()["result"]["ok"]
     assert c.post("/api/scenario/nope").status_code == 404
@@ -109,15 +120,15 @@ def test_every_scenario_endpoint_answers_and_unknown_ones_404(c):
 
 
 def test_reset_clears_the_take(c, E):
-    c.post("/api/start", json={})
+    start(c, E)
     c.post("/api/scenario/cross_tenant_call")
     assert c.post("/api/reset", json={}).json()["ok"]
     s = c.get("/api/state").json()
     assert all(ln["state"] is None for ln in s["lanes"].values()) and all(x["last"] is None for x in s["scenarios"])
 
 
-def test_ledger_rows_are_linkable_and_carry_no_secrets(c):
-    c.post("/api/start", json={})
+def test_ledger_rows_are_linkable_and_carry_no_secrets(c, E):
+    start(c, E)
     rows = c.get("/api/ledger", params={"seqs": "1,2,3"}).json()
     assert [r["seq"] for r in rows] == [1, 2, 3] and all("hash" in r for r in rows)
 
@@ -133,7 +144,7 @@ def test_rules_endpoints_draft_without_applying_and_only_the_tenants_approver_si
 
 
 def test_track_links_are_per_contractor_and_unknown_tokens_are_404(c, E):
-    c.post("/api/start", json={"user": "maya"})
+    start(c, E)
     link = lane(c, "kestrel")["lines"][0]["track"]
     got = c.get("/api/" + link.lstrip("/")).json()
     assert got["employer"] == "Kestrel" and "balances" not in got
@@ -161,3 +172,44 @@ def test_public_mode_spaces_out_operator_buttons_and_shows_the_banner_flag(E, mo
 def test_private_mode_has_no_throttle(c):
     assert c.get("/api/state").json()["public"] is False
     assert all(c.post("/api/autosettle", json={"user": "maya", "on": True}).status_code == 200 for _ in range(3))
+
+
+def test_start_returns_at_once_and_lanes_fill_in_with_agent_notes(c, E):
+    import time
+    gate = threading.Event()
+    E.q.put((lambda: gate.wait(5), Future()))  # hold the worker so we can see that start does not wait for it
+    r = c.post("/api/start", json={})
+    assert r.status_code == 200 and r.json() == {"ok": True, "queued": True}
+    assert lane(c, "northwind")["state"] is None
+    gate.set()
+    end = time.time() + 5
+    while time.time() < end and any(ln["agent_note"] is None for ln in c.get("/api/state").json()["lanes"].values()):
+        time.sleep(0.05)
+    s = c.get("/api/state").json()
+    assert s["agent_busy"] is None and s["model"] is None
+    assert all(ln["agent_note"]["mode"] == "offline agent" and ln["agent_note"]["headline"] for ln in s["lanes"].values())
+    assert lane(c, "kestrel")["state"] == "READY"
+
+
+def test_a_failed_start_sets_the_error_and_an_alert_and_the_worker_survives(c, E, monkeypatch):
+    def boom(t):
+        raise RuntimeError("x")
+    monkeypatch.setattr(E, "tick", boom)
+    start(c, E)
+    assert c.get("/api/state").json()["error"] == copy.START_FAILED
+    assert any(e["kind"] == "ALERT" for e in E.L.entries())
+    assert E.call(lambda: 1) == 1
+
+
+def test_daily_claude_cap_forces_the_rules_engine(c, E, monkeypatch):
+    class Boom:
+        model = "claude-haiku-5-5"
+
+        def create(self, *a):
+            raise AssertionError("Claude must not be called past the cap")
+    E.llm = Boom()
+    monkeypatch.setenv("RF_LLM_DAILY_CAP", "0")
+    s = c.get("/api/state").json()
+    assert s["agent_capped"] is True and s["model"] == "claude-haiku-5-5"
+    start(c, E)
+    assert lane(c, "northwind")["agent_note"]["mode"] == "offline agent"

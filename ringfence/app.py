@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import datetime as dt
 import json
 import logging
 import os
@@ -30,7 +31,7 @@ from . import copy, inbox, rules, seed, setup_demo, store, track, verify, webhoo
 from .agent import loop
 from .agent.tools import funding_state
 from .awx import Awx, AwxError, build_backend
-from .config import EMPLOYERS, clock, tenants, var_dir
+from .config import EMPLOYERS, clock, env, tenants, var_dir
 from .executor import INFLIGHT
 from .ledger import Ledger
 from .orchestrator import Orchestrator, Refused
@@ -61,14 +62,40 @@ class Engine:
         self.autosettle, self.error, self.ver = True, "", 0
         self._ready_since: dict[str, float] = {}
         self._docs_seen: dict[str, set[str]] = {}
+        self.agent_busy: str | None = None
+        self.notes: dict[str, dict] = {}
+        self.llm_day, self.llm_ticks = "", 0  # shortcut: in memory, resets on restart; upgrade to a ledger count if abused
         threading.Thread(target=self._work, name="money-worker", daemon=True).start()
 
     # -- plumbing ----------------------------------------------------------------------------------------
     def rid(self) -> str:
         return self.o.run_id(loop.pay_date())
 
+    def _capped(self) -> bool:
+        """True once today's Claude ticks pass RF_LLM_DAILY_CAP; then the rules engine takes the rest of the day."""
+        if not self.llm:
+            return False
+        day = dt.datetime.now(dt.UTC).date().isoformat()
+        if day != self.llm_day:
+            self.llm_day, self.llm_ticks = day, 0
+        return self.llm_ticks >= int(env("RF_LLM_DAILY_CAP", "300"))
+
     def tick(self, tenant: str):
-        return loop.run_tick(self.o, tenant, llm=self.llm, mode=None if self.llm else "scripted")
+        capped = self._capped()
+        use_llm = self.llm and not capped
+        if use_llm:
+            self.llm_ticks += 1
+        self.agent_busy = tenant
+        self.ver += 1
+        try:
+            r = loop.run_tick(self.o, tenant, llm=self.llm if use_llm else None, mode=None if use_llm else "scripted")
+        finally:
+            self.agent_busy = None
+            self.ver += 1
+        self.notes[tenant] = {"headline": copy.agent_line(r.headline) or f"{tenant.title()}: review finished",
+                              "explanation": copy.agent_line(r.explanation) or "", "mode": r.mode,
+                              "at": dt.datetime.now(dt.UTC).isoformat()}
+        return r
 
     @property
     def agent_mode(self) -> str:
@@ -98,7 +125,8 @@ class Engine:
     def _guard(self, fn) -> None:
         try:
             fn()
-            self.error = ""
+            if self.error != copy.START_FAILED:  # a failed start stays visible until the next start
+                self.error = ""
         except (AwxError, OSError) as e:
             log.warning("worker step failed: %s", type(e).__name__)
             self.error = "Airwallex didn't answer. Ringfence is checking whether any payment went through; nothing will be paid twice."
@@ -150,7 +178,8 @@ class Engine:
         naive = self.cache["naive"]
         return {
             "run_id": rid, "pay_date": seed.load()["pay_date"], "now": now.isoformat(), "backend": self.backend,
-            "agent": self.agent_mode, "error": self.error, "autosettle": self.autosettle, "head": self.L.head()[0],
+            "agent": self.agent_mode, "agent_busy": self.agent_busy, "agent_capped": self._capped(),
+            "model": getattr(self.llm, "model", None), "error": self.error, "autosettle": self.autosettle, "head": self.L.head()[0],
             "kill": {"on": bool(kill["on_"]), "by": kill["by"], "ts": kill["ts"]},
             "users": [{"id": k, **v, "label": _user_label(k, v)} for k, v in users.items()],
             "naive": None if naive is None else {
@@ -179,6 +208,7 @@ class Engine:
             "tenant": t, "name": name, "tz": tenants(fake=True)[t].display_tz, "state": run["state"] if run else None,
             "text": text, "lines": lines, "diff": d, "funding": req, "wallet": {c: bal[c] for c in ccys if c in bal},
             "approve_label": f"Approve {copy.totals(d['totals'])} (bound to this exact batch)" if d else "",
+            "agent_note": self.notes.get(t),
             "path": {"ccys": ccys, "fx": [{"sell": g["sell"], "buy": g["buy"]} for g in (d or {}).get("fx", [])]},
         }
 
@@ -290,10 +320,17 @@ def create_app(E: Engine) -> FastAPI:
     def start(b: Who):
         user(b.user)
 
-        def job():
-            ticks = [E.tick(t) for t in EMPLOYERS]
-            return {"agent": E.agent_mode, "notes": [{"tenant": r.tenant, "headline": r.headline} for r in ticks]}
-        return act(job)
+        def guarded_job():
+            E.error = ""
+            try:
+                for t in EMPLOYERS:
+                    E.tick(t)
+            except Exception:
+                log.exception("start failed")
+                E.error = copy.START_FAILED
+                E.L.append("ALERT", {"kind": "start_failed", "detail": copy.START_FAILED}, None, None)
+        E.q.put((guarded_job, Future()))
+        return {"ok": True, "queued": True}
 
     @app.post("/api/approve")
     def approve(b: TenantUser):
