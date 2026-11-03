@@ -11,7 +11,7 @@ if [[ "${2:-}" == "--first" ]]; then
   tar -c -C var cert_key.pem registry.json | ssh "$T" 'sudo -u ringfence tar -x -C /var/lib/ringfence/var && sudo chmod 600 /var/lib/ringfence/var/cert_key.pem'
 fi
 ssh "$T" 'set -e; cd /opt/ringfence
-  sudo -u ringfence env UV_CACHE_DIR=/var/lib/ringfence/.cache/uv /usr/local/bin/uv sync --frozen --no-dev -q
+  sudo -u ringfence env UV_HTTP_TIMEOUT=180 UV_CACHE_DIR=/var/lib/ringfence/.cache/uv /usr/local/bin/uv sync --frozen --no-dev -q
   sudo install -m644 deploy/ringfence.service /etc/systemd/system/ringfence.service
   sudo systemctl daemon-reload && sudo systemctl enable -q ringfence && sudo systemctl restart ringfence
   sleep 4; systemctl is-active ringfence && curl -s -o /dev/null -w "local /api/state %{http_code}\n" http://127.0.0.1:8000/api/state'
