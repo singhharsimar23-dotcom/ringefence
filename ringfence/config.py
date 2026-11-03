@@ -23,6 +23,11 @@ def var_dir() -> Path:
     return p
 
 
+def demo_dir() -> Path:
+    """Seed registry, inbox templates and history. A playground world points RF_DEMO at its own copy."""
+    return Path(os.environ.get("RF_DEMO") or ROOT / "demo")
+
+
 def env(name: str, default: str | None = None) -> str:
     if os.environ.get(name):
         return os.environ[name]
@@ -53,7 +58,21 @@ _DEFS = [
     ("kestrel", "Kestrel Labs", "AWX_EMPLOYER_B", "America/New_York"),
     ("harbour", "Harbour Foods", "AWX_EMPLOYER_C", "Australia/Sydney"),
 ]
-EMPLOYERS = ("northwind", "kestrel", "harbour")
+_ALL = ("northwind", "kestrel", "harbour")
+# RF_TENANTS narrows the employer set for a playground world; unset means the three-employer demo.
+EMPLOYERS = tuple(t for t in _ALL if t in os.environ["RF_TENANTS"].split(",")) if os.environ.get("RF_TENANTS") else _ALL
+
+
+def custom_name(tenant: str) -> str | None:
+    """The employer's name from this world's seed, or None (the three-employer demo has none)."""
+    from . import seed  # lazy: seed imports config
+    return (seed.load().get("employers", {}).get(tenant) or {}).get("name")
+
+
+def employer_name(tenant: str, plain: bool = False) -> str:
+    """Display name. plain=True keeps the short demo form ("Northwind") where the UI used .title() before."""
+    t = tenant or ""
+    return custom_name(t) or (t.title() if plain else next((n for k, n, _, _ in _DEFS if k == t), t.title()))
 
 
 def tenants(fake: bool = False) -> dict[str, Tenant]:

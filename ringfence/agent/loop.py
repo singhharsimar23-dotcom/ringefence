@@ -6,11 +6,12 @@ else the scripted agent. A refusal, max_tokens, or two API errors fall back to t
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
 from datetime import date
 
 from .. import inbox, seed, store
-from ..config import env
+from ..config import custom_name, employer_name, env
 from ..orchestrator import Orchestrator
 from . import prompts, scripted
 from .tools import ToolBox
@@ -63,7 +64,7 @@ def pay_date() -> date:
 
 
 def _observation(tb: ToolBox) -> str:
-    return json.dumps({"employer": tb.tenant, "run": tb._get_run(), "new_documents": len(
+    return json.dumps({"employer": custom_name(tb.tenant) or tb.tenant, "run": tb._get_run(), "new_documents": len(
         [d for d in inbox.all_docs(tb.tenant) if d.id not in inbox.seen_ids(tb.o.L, tb.tenant)])}, default=str)
 
 
@@ -72,8 +73,15 @@ def _claude(tb: ToolBox, llm, res: TickResult) -> bool:
     msgs: list[dict] = [{"role": "user", "content": _observation(tb) + "\nHandle this employer's payroll run now."}]
     errors = 0
     for _ in range(MAX_MODEL_CALLS):
+        t0 = time.monotonic()
         try:
             r = llm.create(prompts.SYSTEM, prompts.TOOLS, msgs)
+            u = getattr(r, "usage", None)
+            tb.o.awx.log_event(
+                "claude", tb.tenant, model=getattr(llm, "model", "test"), ms=round((time.monotonic() - t0) * 1000),
+                input_tokens=getattr(u, "input_tokens", None), output_tokens=getattr(u, "output_tokens", None),
+                tools=[b.name for b in r.content if b.type == "tool_use"],
+                text="".join(getattr(b, "text", "") for b in r.content if b.type == "text")[:600])
         except getattr(llm, "errors", ()) as e:
             errors += 1
             res.note = f"api error: {type(e).__name__}"
@@ -113,16 +121,19 @@ def run_tick(orch: Orchestrator, tenant: str, llm=None, mode: str | None = None)
             orch.create_run(tenant, pay_date())
         except (inbox.TimesheetError, KeyError, OSError) as e:
             orch.L.append("ALERT", {"kind": "timesheet_rejected", "detail": str(e)[:200]}, None, tenant)
-            return TickResult(tenant, None, "offline agent", f"{tenant.title()}: timesheet rejected",
+            return TickResult(tenant, None, "offline agent", f"{employer_name(tenant, plain=True)}: timesheet rejected",
                               "The timesheet did not pass the strict check, so no run was created.", "HOLD")
     tb = ToolBox(orch, tenant, rid)
     res = TickResult(tenant, rid, "claude" if llm else "offline agent")
     if llm is None or not _claude(tb, llm, res):
         if llm is not None:  # fell back mid-tick: restart the tick with the rules; tools are idempotent
             res.mode, tb.finished = "offline agent", None
+        t0 = time.monotonic()
         scripted.run(tb)
+        orch.awx.log_event("rules_engine", tenant, ms=round((time.monotonic() - t0) * 1000),
+                           text="The rules engine read this employer's inbox; no model was called.")
     if tb.finished is None:  # a tick without finish_tick still leaves a trace
-        tb.finished = {"headline": f"{tenant.title()}: tick ended", "explanation": "The agent did not finish its note.",
+        tb.finished = {"headline": f"{employer_name(tenant, plain=True)}: tick ended", "explanation": "The agent did not finish its note.",
                        "next_step": "HOLD"}
         tb._note(kind="finish_tick", generic=True, **tb.finished)
     res.headline, res.explanation, res.next_step = tb.finished.values()

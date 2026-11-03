@@ -6,7 +6,7 @@ import hashlib
 import hmac
 
 from . import copy, seed, store
-from .config import EMPLOYERS, get_key
+from .config import EMPLOYERS, employer_name, get_key
 from .ledger import Ledger
 
 
@@ -25,7 +25,7 @@ def lookup(L: Ledger, tok: str) -> dict | None:
             for ln in store.get_lines(L, r["run_id"], t, round=run["round"]):
                 if hmac.compare_digest(token(t, r["run_id"], ln["contractor_id"]), tok):
                     c = seed.contractors(t)[ln["contractor_id"]]
-                    return {"employer": t.title(), "name": c.name, "amount": ln["amount"], "currency": ln["currency"],
+                    return {"employer": employer_name(t, plain=True), "name": c.name, "amount": ln["amount"], "currency": ln["currency"],
                             "pay_date": run.get("pay_date", ""), "status": copy.pill(ln["state"], run["state"]),
                             "state": ln["state"]}
     return None

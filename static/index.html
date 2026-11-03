@@ -5,13 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ringfence</title>
 <link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/play.css">
 </head>
 <body>
 <header class="top">
   <span class="brand">Ringfence</span>
   <span class="live" id="live"></span>
   <nav class="tabs" aria-label="Pages">
-    <a href="#/" id="tab-pay">Pay</a>
+    <a href="#/" id="tab-try">Try it</a>
+    <a href="#/demo" id="tab-pay">Three employers</a>
     <a href="#/rules" id="tab-rules">Rules</a>
     <a href="#/proof" id="tab-proof">Proof</a>
   </nav>
@@ -41,7 +43,9 @@
 <div id="errbar" class="bar red" hidden></div>
 
 <main>
-<section id="view-pay">
+<section id="view-try" hidden></section>
+<section id="view-pay" hidden>
+  <div class="problem" id="problem"></div>
   <div class="shell has-activity" id="shell">
     <div class="content">
       <div class="intro" id="intro" hidden></div>
@@ -72,11 +76,13 @@
 <dialog id="dlg-approve" aria-labelledby="ap-title"></dialog>
 <dialog id="dlg-rows" aria-labelledby="rows-title"></dialog>
 <dialog id="dlg-ask" aria-labelledby="ask-title"></dialog>
+<dialog id="dlg-keys" aria-labelledby="keys-title"></dialog>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="caption"><span class="chip" id="cap-n"></span><span id="cap-t"></span></div>
 <div id="certprint" class="certprint"></div>
 
 <script src="/static/copy.js"></script>
+<script src="/static/play.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

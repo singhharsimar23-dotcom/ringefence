@@ -10,7 +10,7 @@ import argparse
 import time
 
 from . import beneficiaries as ben
-from . import fx
+from . import fx, seed
 from .awx import Awx, build_backend
 from .config import EMPLOYERS
 
@@ -19,18 +19,27 @@ NEEDED_GA = {"kestrel": ("US", "USD"), "harbour": ("AU", "AUD")}
 DRAIN_TENANTS = ("northwind", "harbour")  # the tenants that must start with AUD 0
 
 
+def plan(t: str) -> tuple[list[tuple[str, str]], bool]:
+    """(global accounts to ensure, drain AUD?) for one employer: the world seed says so, else the demo constants."""
+    e = seed.load().get("employers", {}).get(t)
+    if e is None:
+        return ([NEEDED_GA[t]] if t in NEEDED_GA else []), t in DRAIN_TENANTS
+    return [tuple(g) for g in e.get("global_accounts", [])], bool(e.get("drain_aud"))
+
+
 def setup(awx: Awx, drain: bool = True) -> dict:
     reg = ben.load_registry()
     for t in EMPLOYERS:
         c = awx.for_tenant(t)
         gas = ben.paged(c, "/global_accounts")
-        need = NEEDED_GA.get(t)
-        if need and not any(ben.ga_record(g)["currency"] == need[1] for g in gas):
-            gas.append(c.post("/global_accounts/create", {
-                "request_id": f"rf-ga-{t}-{need[1].lower()}", "country_code": need[0], "nick_name": f"{t} {need[1]}",
-                "required_features": [{"currency": need[1], "transfer_method": "LOCAL"}]}))
+        needs, drain_aud = plan(t)
+        for country, ccy in needs:
+            if not any(ben.ga_record(g)["currency"] == ccy for g in gas):
+                gas.append(c.post("/global_accounts/create", {
+                    "request_id": f"rf-ga-{t}-{ccy.lower()}", "country_code": country, "nick_name": f"{t} {ccy}",
+                    "required_features": [{"currency": ccy, "transfer_method": "LOCAL"}]}))
         reg["tenants"][t] = {**ben.ensure_beneficiaries(c, t), "gas": [ben.ga_record(g) for g in gas]}
-        if drain and t in DRAIN_TENANTS:
+        if drain and drain_aud:
             sold = fx.drain(c, "AUD", "USD", f"rf-drain-{t}-{int(time.time())}")
             reg["tenants"][t]["drained_aud"] = str(sold)
     ben.save_registry(reg)
