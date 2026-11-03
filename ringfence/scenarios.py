@@ -2,18 +2,21 @@
 Backend-agnostic: uses only /simulation/* endpoints that both the fake and the live sandbox have."""
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import sqlite3
 import threading
 from decimal import Decimal
 
-from . import copy, store
-from .awx import Awx
+from . import copy, metal, store
+from .awx import Awx, AwxError
 from .config import EMPLOYERS, ROOT, employer_name
 from .executor import INFLIGHT
 from .ledger import Ledger
 from .orchestrator import Orchestrator, Refused
+
+log = logging.getLogger("ringfence.scenarios")
 
 
 def pay_out(awx: Awx, L: Ledger, run_id: str, tenant: str) -> int:
@@ -70,9 +73,13 @@ WORLD_SCENARIOS = {  # only in a playground world; the three-employer demo keeps
     "topup": ("Send the top-up", "The employer's bank sends exactly what the funding card asked for.", None),
     "injection": ("Hidden instructions", "A document tells the payroll agent to ignore its rules.", "northwind"),
 }
-ALL_SCENARIOS = {**SCENARIOS, **WORLD_SCENARIOS}
+METAL_SCENARIOS = {  # only with RF_METAL=1 in the three-employer demo (ringfence/metal.py)
+    "metal_topup": ("Pay the shortfall from Metal", "Harbour's mandate on Metal lets the platform pull exactly the shortfall in stablecoin.", "harbour"),
+    "metal_overpull": ("Agent over-pulls on Metal", "The agent asks Metal for more than Harbour's mandate allows.", "harbour"),
+}
+ALL_SCENARIOS = {**SCENARIOS, **WORLD_SCENARIOS, **METAL_SCENARIOS}
 WORLD_CARDS = ("topup", "late_return", "bank_change_email", "injection", "double_click", "cross_tenant_call")
-DECISIVE = ("GATE_DENY", "BENEFICIARY_QUARANTINED", "ALERT", "RECONCILED", "SIMULATED", "INTENT")
+DECISIVE = ("METAL_PULL", "METAL_REFUSED", "GATE_DENY", "BENEFICIARY_QUARANTINED", "ALERT", "RECONCILED", "SIMULATED", "INTENT")
 # New bank details a world's bank-change email asks for, by how the current bank is identified.
 NEW_BANKS = {
     "sort_code": "Bank: Barclays\nSort code: 200000\nAccount number: 99999901",
@@ -85,7 +92,7 @@ NEW_BANKS = {
 def scenario_cards() -> dict:
     """The tests offered on this page: a world offers its own set, the demo its nine."""
     if not os.environ.get("RF_WORLD"):
-        return SCENARIOS
+        return {**SCENARIOS, **METAL_SCENARIOS} if metal.enabled() else SCENARIOS
     return {k: ALL_SCENARIOS[k] for k in WORLD_CARDS if k != "cross_tenant_call" or len(EMPLOYERS) > 1}
 
 
@@ -96,6 +103,7 @@ class Simulator:
     def __init__(self, orch: Orchestrator, run_id, agent_tick):
         self.o, self.L, self.awx, self._rid, self._tick = orch, orch.L, orch.awx, run_id, agent_tick
         self._tamper: tuple[int, str] | None = None
+        self.metal = metal.Metal()
 
     def run(self, name: str, tenant: str | None = None) -> dict:
         title, _, default = ALL_SCENARIOS[name]
@@ -305,6 +313,40 @@ class Simulator:
                 "summary": f"[SIMULATED] Harbour's bank sent {req['amount']} {req['currency']} with reference {req['reference']}.",
                 "defence": "The deposit is matched by account, currency and reference, in Harbour's own account only.",
                 "seqs": self._seqs(before)}
+
+    def _metal_topup(self, tenant: str) -> dict:
+        before, run_id = self._head(), self._rid()
+        reqs = self.L.entries(run_id=run_id, kind="FUNDING_REQUESTED", tenant=tenant)
+        if not reqs or self._state(tenant) != "AWAITING_FUNDS":
+            return {"ok": False, "summary": f"{employer_name(tenant, plain=True)} has no open funding request.", "defence": "", "seqs": []}
+        req = reqs[-1]["payload"]
+        try:
+            pay = self.metal.pay_shortfall(self.L, run_id, tenant, req, self.awx.for_tenant(tenant))
+        except (metal.MetalError, AwxError) as e:
+            log.warning("metal top-up failed: %s", metal.scrub(str(e)))
+            return {"ok": False, "summary": copy.METAL_FALLBACK, "defence": "", "seqs": []}
+        top_up(self.awx, self.L, run_id, tenant, req)  # [SIMULATED] Airwallex credit; the existing matcher closes the request
+        self.metal.recycle_later(pay)
+        return {"ok": True, "tenant": tenant, "links": [{"label": "Metal pull", "url": pay["explorer_url"]}],
+                "summary": f"Harbour's mandate paid {pay['usdz']} USDZ on Metal testnet (real; testnet scale, 1 USDZ = USD 10). [SIMULATED] Airwallex then credited {req['amount']} {req['currency']} to Harbour's own account.",
+                "defence": "Two locks: Metal enforces the mandate (cap, payee, one pull); Ringfence matches the deposit by account, currency and reference.",
+                "seqs": self._seqs(before, "METAL_PULL")}
+
+    def _metal_overpull(self, tenant: str) -> dict:
+        before, run_id = self._head(), self._rid()
+        pulls = self.L.entries(run_id=run_id, kind="METAL_PULL", tenant=tenant)
+        if not pulls:
+            return {"ok": False, "summary": "Pay the shortfall from Metal first; the over-pull targets that mandate.", "defence": "", "seqs": []}
+        try:
+            ev = self.metal.over_pull(self.L, run_id, tenant, pulls[-1]["payload"])
+        except metal.MetalError as e:
+            log.warning("metal over-pull failed: %s", metal.scrub(str(e)))
+            return {"ok": False, "summary": copy.METAL_FALLBACK, "defence": "", "seqs": []}
+        return {"ok": ev["code"] == "mandate_cap_exceeded", "tenant": tenant,
+                "links": [{"label": "Refusal on chain", "url": ev["explorer_url"]}] if ev["explorer_url"] else [],
+                "summary": f"Metal refused a pull of {ev['usdz']} USDZ: {ev['code']}. The refusal is recorded on chain.",
+                "defence": "The mandate lives on Metal, so even a compromised agent cannot pull more than Harbour signed.",
+                "seqs": self._seqs(before, "METAL_REFUSED")}
 
     def _late_return(self, tenant: str) -> dict:
         before, run_id = self._head(), self._rid()

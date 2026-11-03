@@ -380,6 +380,7 @@ def test_queued_world_is_not_reachable(pc, rig):
 def test_play_endpoints_validate(pc):
     c, _ = pc
     assert c.get("/api/play/info").json()["presets"][0] == "weekly"
+    assert c.get("/api/play/info").json()["metal"] is False  # the front-page Metal link only shows with RF_METAL
     r = c.post("/api/play/worlds", json={"spec": {"employers": [{**EMP, "people": [{**PERSON, "hours": "99"}]}]}})
     assert r.status_code == 422 and r.json()["detail"][0]["field"] == "employers.0.people.0.hours"
     assert c.post("/api/play/worlds", json={"spec": SPEC, "backend": "nope"}).status_code == 422
