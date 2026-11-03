@@ -60,14 +60,14 @@ ATTACKS = {"northwind": ["bank_change_northwind"], "kestrel": ["rate_kestrel"],
            "harbour": ["bank_change_harbour", "injection_harbour"]}
 SCENARIOS = {  # id -> (card title, one line, default tenant)
     "bank_change_email": ("Fake bank-change email", "A contractor email swaps the bank account and says to pay 3x and skip approval.", "northwind"),
-    "double_click": ("Double-click pay", "Four release requests land at once on the same approved run.", "northwind"),
-    "network_drop": ("Network drop mid-payout", "Airwallex takes the payment but the answer is lost.", None),
-    "tamper_ledger": ("Edit a ledger row", "Someone with the database file changes one recorded amount.", None),
-    "cross_tenant_call": ("Cross-tenant call", "One employer's login tries to act on another employer's account.", None),
+    "double_click": ("Double-click pay", "Someone presses Pay four times at once.", "northwind"),
+    "network_drop": ("Internet drops mid-payment", "Airwallex takes the payment but the reply never arrives.", None),
+    "tamper_ledger": ("Change a past record", "Someone with access to the database changes one amount.", None),
+    "cross_tenant_call": ("Use another company's money", "Northwind Studio's login tries to pay from Kestrel Labs' account.", None),
     "rate_move": ("Rate moves after approval", "The exchange rate moves past the approved range before payment.", None),
     "other_tenant_deposit": ("Another employer's money arrives", "USD 50,000 lands in Kestrel while Harbour is short.", "kestrel"),
     "harbour_topup": ("Harbour's own top-up", "Harbour's bank sends exactly what the funding card asked for.", "harbour"),
-    "late_return": ("Payout returned after payment", "A paid payout bounces back from the beneficiary's bank.", "northwind"),
+    "late_return": ("Payment bounces back", "A payment that already went out is returned by the person's bank.", "northwind"),
 }
 WORLD_SCENARIOS = {  # only in a playground world; the three-employer demo keeps its own list
     "topup": ("Send the top-up", "The employer's bank sends exactly what the funding card asked for.", None),

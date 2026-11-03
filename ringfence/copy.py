@@ -284,7 +284,7 @@ def timeline_row(e: dict) -> dict | None:
     elif k == "METAL_REFUSED":
         row = ("Decide", f"The blockchain blocked a payment of {p['usdz']} coins: more than {T} allowed.")
     elif k == "RESET":
-        row = ("Observe", "New take: the previous one is archived and still verifiable.")
+        row = ("Observe", "Started again. The previous run is saved.")
     if row is None:
         return None
     return {"seq": e["seq"], "ts": e["ts"], "tenant": t, "phase": row[0], "text": row[1], "kind": k,
