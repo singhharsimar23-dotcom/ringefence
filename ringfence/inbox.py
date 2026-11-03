@@ -8,10 +8,12 @@ from __future__ import annotations
 import csv
 import io
 import json
+from dataclasses import dataclass
 from decimal import Decimal
+from pathlib import Path
 
 from . import seed
-from .config import ROOT
+from .config import ROOT, var_dir
 from .money import MoneyError, parse_amount
 
 INBOX = ROOT / "demo" / "inbox"
@@ -64,3 +66,28 @@ def diff_flags(tenant: str, amounts: dict[str, Decimal]) -> tuple[bool, bool]:
     """(diff_empty, any_new_or_changed): identical to last run / a contractor not seen before."""
     last = history(tenant)
     return amounts == last, any(c not in last for c in amounts)
+
+
+# -- documents the agent reads (all UNTRUSTED text) ---------------------------------------------------
+@dataclass(frozen=True)
+class Doc:
+    id: str
+    source: str
+    text: str
+
+
+def drop_dir(tenant: str) -> Path:
+    p = var_dir() / "inbox" / tenant
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def all_docs(tenant: str) -> list[Doc]:
+    """The baseline timesheet plus anything dropped at runtime (a scenario, or a real mail bridge)."""
+    docs = [Doc(f"ts-{tenant}", "timesheet", (INBOX / f"{tenant}_timesheet.csv").read_text(encoding="utf-8"))]
+    docs += [Doc(f.stem, "email", f.read_text(encoding="utf-8")[:4000]) for f in sorted(drop_dir(tenant).glob("*.txt"))]
+    return docs
+
+
+def seen_ids(L, tenant: str) -> set[str]:
+    return {e["payload"]["read_doc"] for e in L.entries(tenant=tenant, kind="AGENT_NOTE") if "read_doc" in e["payload"]}

@@ -179,7 +179,10 @@ class Orchestrator:
                "note": note[:200], "over_25pct": abs(new_rate - old) / old > Decimal("0.25")}
         with self.L.tx() as tx:
             run = store.get_run(tx, run_id, tenant)
-            store.set_run(tx, run_id, tenant, rate_requests=[*run.get("rate_requests", []), req])
+            old_reqs = run.get("rate_requests", [])
+            if any((r["doc_id"], r["contractor_id"]) == (doc_id, cid) for r in old_reqs):
+                return req  # the same email again
+            store.set_run(tx, run_id, tenant, rate_requests=[*old_reqs, req])
             tx.append("PROPOSAL", {"kind": "rate_change", **req}, run_id, tenant)
         return req
 
