@@ -152,7 +152,7 @@ function nextAction() {
 function renderRail() {
   const cur = stepNow();
   $("#rail").innerHTML = T.steps.map((s, i) => {
-    const done = i + 1 < cur || cur === 4, here = i + 1 === cur && cur < 4;
+    const done = i + 1 < cur || cur === 4, here = i + 1 === cur;
     return `<li class="${done ? "done" : ""}" ${here ? 'aria-current="step"' : ""}><span class="n">${done ? ICON.check : i + 1}</span><span class="lbl">${esc(s)}</span></li>`;
   }).join("");
   const n = nextAction();
@@ -186,6 +186,7 @@ function fundingHtml(f, t) {
 }
 function noteHtml(t, l) {
   const n = l.agent_note;
+  if (l.state === "DONE") return ""; // the note describes the last tick, which is stale once paid
   if (S.agent_busy === t) return `<div class="note" aria-busy="true"><div class="skel" style="width:70%"></div><div class="skel"></div></div>`;
   if (!n) return `<div class="note"><p class="muted">${T.noNote}</p></div>`;
   const long = n.explanation.length > 100, open = expanded[t];
