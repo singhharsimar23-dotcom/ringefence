@@ -214,13 +214,13 @@ def test_a_failed_start_sets_the_error_and_an_alert_and_the_worker_survives(c, E
 
 def test_daily_claude_cap_forces_the_rules_engine(c, E, monkeypatch):
     class Boom:
-        model = "claude-haiku-5-5"
+        model = "claude-sonnet-5-5"
 
         def create(self, *a):
             raise AssertionError("Claude must not be called past the cap")
     E.llm = Boom()
     monkeypatch.setenv("RF_LLM_DAILY_CAP", "0")
     s = c.get("/api/state").json()
-    assert s["agent_capped"] is True and s["model"] == "claude-haiku-5-5"
+    assert s["agent_capped"] is True and s["model"] == "claude-sonnet-5-5"
     start(c, E)
     assert lane(c, "northwind")["agent_note"]["mode"] == "offline agent"
