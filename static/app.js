@@ -1,7 +1,6 @@
 "use strict";
 const $ = (s, el = document) => el.querySelector(s);
 const TENANTS = ["northwind", "kestrel", "harbour"];
-const NAMES = { northwind: "Northwind", kestrel: "Kestrel", harbour: "Harbour" };
 const qs = new URLSearchParams(location.search);
 const PRESENT = qs.get("present") === "1";
 if (PRESENT) document.body.classList.add("present");
@@ -20,6 +19,7 @@ const mid = (s, a = 9, b = 4) => (String(s).length > a + b + 1 ? `${String(s).sl
 const modelName = (m) => { const p = String(m).replace("claude-", "").split("-"); return `${cap(p[0])} ${p.slice(1).join(".")}`.trim(); };
 const roleLabel = (u) => (u.role === "operator" ? "Operator" : `${cap(u.tenant)} Finance`);
 const me = () => localStorage.getItem("rf_user") || "maya";
+const nm = (t) => ((S && S.employers && S.employers[t]) || {}).name || cap(String(t));  // display names come from /api/state
 const hasRunNow = () => S && TENANTS.some((t) => S.lanes[t].state);
 
 /* ---------- plumbing ---------- */
@@ -28,7 +28,11 @@ async function api(path, body) {
   const r = await fetch(path, opt);
   let j = null;
   try { j = await r.json(); } catch (_) { /* non-JSON error page */ }
-  if (!r.ok) { const e = new Error((j && j.detail) || `Request failed (${r.status}).`); e.status = r.status; throw e; }
+  if (!r.ok) {
+    const d = j && j.detail;  // a list of {field, message} comes from the playground form checks
+    const e = new Error(Array.isArray(d) ? d.map((x) => x.message || x.msg).join(" ") : d || `Request failed (${r.status}).`);
+    e.status = r.status; e.detail = d; throw e;
+  }
   return j;
 }
 let toastTimer;
@@ -46,6 +50,7 @@ async function doAct(path, body, okMsg) {
 
 /* ---------- refresh ---------- */
 async function refresh() {
+  if (view === "try") return;  // the demo's state is not needed on the playground pages
   if (qs.get("state") === "loading") return render();
   try {
     if (qs.get("state") === "error") throw new Error("fixture");
@@ -72,11 +77,13 @@ function connect() {
 
 /* ---------- render ---------- */
 function render() {
-  for (const v of ["pay", "rules", "proof"]) {
+  document.body.classList.toggle("v-try", view === "try");
+  for (const v of ["try", "pay", "rules", "proof"]) {
     $(`#view-${v}`).hidden = view !== v;
     if (view === v) $(`#tab-${v}`).setAttribute("aria-current", "page"); else $(`#tab-${v}`).removeAttribute("aria-current");
   }
   renderStatic();
+  if (view === "try") return;  // the playground draws itself (play.js)
   if (!S) {
     $("#lanes").innerHTML = TENANTS.map(() => `<div class="lane" aria-busy="true"><div class="skel" style="width:60%"></div><div class="skel"></div><div class="skel" style="width:40%"></div></div>`).join("");
     return;
@@ -135,16 +142,16 @@ function stepNow() {
   return 3;
 }
 function nextAction() {
-  if (S.agent_busy) return { text: `${S.agent === "offline agent" || S.agent_capped ? T.rulesReading : T.claudeReading} ${NAMES[S.agent_busy]}'s inbox` };
+  if (S.agent_busy) return { text: `${S.agent === "offline agent" || S.agent_capped ? T.rulesReading : T.claudeReading} ${nm(S.agent_busy)}'s inbox` };
   if (!hasRunNow()) return pendingStart && !S.error ? { text: T.preparing } : { label: T.start, act: "start" };
   if (TENANTS.some((t) => !S.lanes[t].state)) return pendingStart && !S.error ? { text: T.preparing } : { label: T.again, act: "start" };
   pendingStart = false;
   for (const t of TENANTS) {
     const l = S.lanes[t], a = l.text.action;
-    if (a === "approve") return { label: `Review ${NAMES[t]}`, act: "review", t };
-    if (a === "review") return { label: `${T.reviewReturned}: ${NAMES[t]}`, act: "review", t };
-    if (a === "copy_funding" && l.funding) return { label: `Fund ${NAMES[t]}`, copy: l.funding.reference };
-    if (a === "resume") return { label: `Resume ${NAMES[t]}`, act: "resume", t };
+    if (a === "approve") return { label: `Review ${nm(t)}`, act: "review", t };
+    if (a === "review") return { label: `${T.reviewReturned}: ${nm(t)}`, act: "review", t };
+    if (a === "copy_funding" && l.funding) return { label: `Fund ${nm(t)}`, copy: l.funding.reference };
+    if (a === "resume") return { label: `Resume ${nm(t)}`, act: "resume", t };
   }
   if (stepNow() === 4) return { label: T.seeProof, act: "proof" };
   return { text: "Money is moving. Ringfence checks each payment with Airwallex." };
@@ -181,7 +188,7 @@ function sums(lines) {  // BigInt cents: no floats near money
 function fundingHtml(f, t) {
   if (!f) return "";
   const acct = f.account_number || f.iban || "";
-  const rows = [["Pay into", `${NAMES[t]}'s own ${f.currency} account`], ["Account", acct], [(f.routing_type || "Routing").toUpperCase(), f.routing_value || ""], ["Reference", f.reference], [T.fundNeed, fmtMoney(f.currency, f.amount)]];
+  const rows = [["Pay into", `${nm(t)}'s own ${f.currency} account`], ["Account", acct], [(f.routing_type || "Routing").toUpperCase(), f.routing_value || ""], ["Reference", f.reference], [T.fundNeed, fmtMoney(f.currency, f.amount)]];
   return `<div class="funding" aria-label="${T.fundTitle}">${rows.filter((r) => r[1]).map((r) => `<div class="row"><span>${esc(r[0])}</span><span class="num">${esc(r[1])}${["Account", "Reference", T.fundNeed].includes(r[0]) ? " " + copyBtn(r[0] === T.fundNeed ? f.amount : r[1]) : ""}</span></div>`).join("")}</div>`;
 }
 function noteHtml(t, l) {
@@ -233,9 +240,9 @@ function renderCards() {
 }
 
 /* activity */
-const CHIPS = [["all", T.fAll], ["northwind", "Northwind"], ["kestrel", "Kestrel"], ["harbour", "Harbour"], ["blocked", T.fBlocked]];
+const chips = () => [["all", T.fAll], ...TENANTS.map((t) => [t, nm(t)]), ["blocked", T.fBlocked]];
 function renderTimeline() {
-  $("#chips").innerHTML = CHIPS.map(([k, v]) => `<button data-act="filter" data-k="${k}" aria-pressed="${filter === k}">${v}</button>`).join("");
+  $("#chips").innerHTML = chips().map(([k, v]) => `<button data-act="filter" data-k="${k}" aria-pressed="${filter === k}">${v}</button>`).join("");
   const rows = TL.filter((r) => filter === "all" || (filter === "blocked" ? r.blocked : r.tenant === filter));
   $("#tlcount").textContent = `${rows.length} of ${TL.length}`;
   const ol = $("#tl");
@@ -282,7 +289,7 @@ function openApprove(t) {
   const l = S.lanes[t], d = $("#dlg-approve"), who = S.users.find((u) => u.id === me()), sw = switchTarget(l);
   const base = sw ? switchLabel(sw, T.andApprove) : T.holdToApprove;
   d.innerHTML = `<header><h2 id="ap-title">${esc(l.name)}: ${T.approveFor}</h2><button class="quiet" data-close aria-label="${T.close}">${T.close}</button></header>
-    <div class="body"><p class="muted">Acting as ${esc(who ? `${cap(who.id)} (${roleLabel(who)})` : me())}. Only ${esc(NAMES[t])} ${T.onlyFinance}${l.diff ? ` Approver: ${esc(l.diff.approver_role.split(":").pop())}.` : ""}</p>${diffHtml(l.diff)}
+    <div class="body"><p class="muted">Acting as ${esc(who ? `${cap(who.id)} (${roleLabel(who)})` : me())}. Only ${esc(nm(t))} ${T.onlyFinance}${l.diff ? ` Approver: ${esc(l.diff.approver_role.split(":").pop())}.` : ""}</p>${diffHtml(l.diff)}
     <div class="diff-row"><strong>Total</strong><strong class="num">${esc(l.diff ? totalsText(l.diff.totals) : "")}</strong></div></div>
     <footer><button data-close>${T.close}</button><button class="primary hold" id="hold-ok" ${l.diff ? "" : "disabled"}><span class="fill"></span><span class="lbl">${esc(base)}</span></button></footer>`;
   const bk = d.querySelector(".body");
@@ -290,17 +297,19 @@ function openApprove(t) {
     bk.insertAdjacentHTML("beforeend", `<div class="diff-row"><span>Confirm ${esc(b.name)}'s new details by phone (someone other than the requester)</span><button data-act="confirm" data-t="${t}" data-q="${b.id}" ${sw ? `data-sw="${esc(sw.id)}"` : ""}>${esc(sw ? switchLabel(sw, T.andConfirm) : T.confirmCall)}</button></div>`);
   });
   d.showModal();
-  holdToApprove($("#hold-ok"), t, sw, base);
+  holdToApprove($("#hold-ok"), base, () => {
+    closeDlg($("#dlg-approve"));
+    if (sw) { localStorage.setItem("rf_user", sw.id); whoKey = ""; }
+    doAct("/api/approve", { tenant: t }, `Approved ${nm(t)}.`);
+  });
 }
-function holdToApprove(btn, t, sw, base) {
+function holdToApprove(btn, base, onDone) {
   const fill = btn.querySelector(".fill"), label = btn.querySelector(".lbl");
   let start = 0, raf = 0, done = false;
   const tick = () => {
     const p = Math.min(1, (performance.now() - start) / 800); fill.style.clipPath = `inset(0 ${100 - p * 100}% 0 0)`;
     if (p >= 1) {
-      done = true; cancelAnimationFrame(raf); closeDlg($("#dlg-approve"));
-      if (sw) { localStorage.setItem("rf_user", sw.id); whoKey = ""; }
-      doAct("/api/approve", { tenant: t }, `Approved ${NAMES[t]}.`); return;
+      done = true; cancelAnimationFrame(raf); onDone(); return;
     }
     raf = requestAnimationFrame(tick);
   };
@@ -333,7 +342,7 @@ function renderRules() {
   if (el.dataset.ready !== t) {
     el.dataset.ready = t; RULE = null;
     el.innerHTML = `<div class="two"><div class="panel" data-t="${t}"><header><h2>${T.rulesTitle}</h2>
-      <select id="rule-t" aria-label="Employer">${TENANTS.map((x) => `<option value="${x}" ${x === t ? "selected" : ""}>${esc(NAMES[x])}</option>`).join("")}</select></header>
+      <select id="rule-t" aria-label="Employer">${TENANTS.map((x) => `<option value="${x}" ${x === t ? "selected" : ""}>${esc(nm(x))}</option>`).join("")}</select></header>
       <p class="muted">${T.rulesHint}</p>
       <textarea id="rule-text" rows="4" maxlength="600" aria-label="Rule">${esc(RULE_TEXT)}</textarea>
       <div class="chips" aria-label="Examples">${T.examples.map((x, i) => `<button data-act="example" data-i="${i}">${esc(x)}</button>`).join("")}</div>
@@ -347,7 +356,7 @@ function renderRules() {
     <h3>Last week's payments under this rule</h3>
     <table><tbody>${rp.lines.map((l) => `<tr><td>${esc(l.name)}</td><td class="r num">${money(l.currency, l.amount)}</td><td>${ok(l.was)}</td><td>${ok(l.now)}</td></tr>`).join("")}</tbody></table>
     <p>${rp.newly_blocked.length ? `Would have blocked ${rp.newly_blocked.length} line${rp.newly_blocked.length === 1 ? "" : "s"} that went through last week.` : "Nothing that went through last week would be blocked."}</p>
-    <p class="muted">Nothing changes until ${esc(NAMES[d.tenant])} finance signs it.</p>
+    <p class="muted">Nothing changes until ${esc(nm(d.tenant))} finance signs it.</p>
     <div class="actions"><button class="primary" data-act="rule-sign">Sign as ${esc(u ? cap(u.id) : me())}</button></div>`;
 }
 
@@ -363,26 +372,26 @@ function renderProof() {
   const isoBad = TENANTS.filter((t) => !P.report.probes.filter((p) => p.from === t).every((p) => p.ok) || !P.report.tenants[t].checks.every((k) => k.ok));
   const certBad = TENANTS.filter((t) => !P.certs[t].valid);
   const items = [
-    [isoBad.length === 0, `${T.isolation} ${isoBad.length ? T.fail.toUpperCase() : T.pass.toUpperCase()} for ${TENANTS.length - isoBad.length} ${T.of} ${TENANTS.length} ${T.employers}${isoBad.length ? `: ${isoBad.map((t) => NAMES[t]).join(", ")}` : ""}`],
+    [isoBad.length === 0, `${T.isolation} ${isoBad.length ? T.fail.toUpperCase() : T.pass.toUpperCase()} for ${TENANTS.length - isoBad.length} ${T.of} ${TENANTS.length} ${T.employers}${isoBad.length ? `: ${isoBad.map((t) => nm(t)).join(", ")}` : ""}`],
     [ch.ok, ch.ok ? `${T.chain} (${ch.seq} entries)` : `Ledger chain broken: ${ch.reason}${ch.bad_seq ? ` at row ${ch.bad_seq}` : ""}`],
-    [certBad.length === 0, `${TENANTS.length - certBad.length} ${T.of} ${TENANTS.length} ${T.certs}${certBad.length ? `: ${certBad.map((t) => NAMES[t]).join(", ")} invalid` : ""}`],
+    [certBad.length === 0, `${TENANTS.length - certBad.length} ${T.of} ${TENANTS.length} ${T.certs}${certBad.length ? `: ${certBad.map((t) => nm(t)).join(", ")} invalid` : ""}`],
   ];
   const all = items.every((i) => i[0]);
   const verdict = `<div class="verdict-card ${all ? "" : "no"}" role="status">${all ? ICON.check : ICON.alert}${items.map((i, n) => `${n ? '<span class="sep">·</span>' : ""}<span>${esc(i[1])}</span>`).join("")}<span class="chip" style="margin-left:auto">${S ? esc(S.backend) : ""} backend</span><button data-act="reverify">${T.verifyAgain}</button></div>`;
   const panels = TENANTS.map((t) => {
     const r = P.report.tenants[t], c = P.certs[t];
-    return `<div class="panel" data-t="${t}"><header><h2>${NAMES[t]}</h2><span class="chip">${c.valid ? "Signature valid" : "Signature invalid"} · ${esc(c.result)}</span></header>
+    return `<div class="panel" data-t="${t}"><header><h2>${nm(t)}</h2><span class="chip">${c.valid ? "Signature valid" : "Signature invalid"} · ${esc(c.result)}</span></header>
       ${r.checks.map((k) => `<div class="check ${k.ok ? "ok" : "no"}">${k.ok ? ICON.check : ICON.alert}<span class="word">${k.ok ? T.pass : T.fail}</span><span>${esc(k.name)}${k.ok || !k.detail ? "" : ` <span class="bad">${esc(k.detail)}</span>`}</span></div>`).join("")}
       <div class="cols"><div><h3>Paid out</h3><p class="num">${esc(totalsText(r.totals_by_currency))}</p><p class="muted">${r.payees} payee${r.payees === 1 ? "" : "s"}${r.fee_gbp !== "0.00" ? ` · fee ${esc(fmtMoney("GBP", r.fee_gbp))}` : ""}</p></div>
       <div><h3>Debited transfers</h3>${r.debits.map((d) => `<div class="mono">${esc(d.transfer_id.slice(0, 8))} ${esc(fmtMoney(d.currency, d.amount))} ${esc(d.status || "")}</div>`).join("") || "<p>None.</p>"}</div></div>
       <div class="actions"><a class="btn" href="/api/cert/${t}">${T.download}</a><button data-act="print" data-t="${t}">${T.print}</button></div></div>`;
   }).join("");
-  const pr = `<div class="panel"><h2>${T.probesTitle}</h2>${P.report.probes.map((p) => `<div class="check ${p.ok ? "ok" : "no"}">${p.ok ? ICON.lock : ICON.alert}<span class="word">${p.ok ? T.pass : T.fail}</span><span>${esc(NAMES[p.from])} token against ${esc(NAMES[p.to] || p.to)}: HTTP ${p.status} ${esc(p.code || "")}</span></div>`).join("")}</div>`;
+  const pr = `<div class="panel"><h2>${T.probesTitle}</h2>${P.report.probes.map((p) => `<div class="check ${p.ok ? "ok" : "no"}">${p.ok ? ICON.lock : ICON.alert}<span class="word">${p.ok ? T.pass : T.fail}</span><span>${esc(nm(p.from))} token against ${esc(nm(p.to) || p.to)}: HTTP ${p.status} ${esc(p.code || "")}</span></div>`).join("")}</div>`;
   el.innerHTML = `<div class="stack">${verdict}${panels}${pr}</div>`;
 }
 function printCert(t) {
   const c = PROOF.certs[t].doc, b = c.body;
-  $("#certprint").innerHTML = `<h1>Segregation certificate: ${esc(NAMES[t])}</h1><p>Run ${esc(b.run_id)} · issued ${esc(b.issued_at)} · backend ${esc(b.backend)} · result <strong>${esc(b.result)}</strong></p>
+  $("#certprint").innerHTML = `<h1>Segregation certificate: ${esc(nm(t))}</h1><p>Run ${esc(b.run_id)} · issued ${esc(b.issued_at)} · backend ${esc(b.backend)} · result <strong>${esc(b.result)}</strong></p>
     <table><tbody>${b.checks.map((k) => `<tr><td>${k.ok ? T.pass : T.fail}</td><td>${esc(k.name)}</td></tr>`).join("")}</tbody></table>
     <p>Paid: ${esc(totalsText(b.totals_by_currency))} to ${b.payees} payees. Fee: ${esc(fmtMoney("GBP", b.fee_gbp))}.</p>
     <p class="mono">Ledger head ${b.ledger_head.seq} ${esc(b.ledger_head.hash)}<br>Signature (${esc(c.alg)}) ${esc(c.signature)}</p>`;
@@ -411,8 +420,8 @@ document.addEventListener("click", async (ev) => {
   if (act === "start") { if (await doAct("/api/start", {}, hasRunNow() ? "Checking the inboxes." : "Payroll started.")) pendingStart = true; await refresh(); }
   else if (act === "review") openApprove(t);
   else if (act === "proof") location.hash = "#/proof";
-  else if (act === "hold") await doAct("/api/hold", { tenant: t }, `Paused ${NAMES[t]}.`);
-  else if (act === "resume") await doAct("/api/resume", { tenant: t }, `Resumed ${NAMES[t]}.`);
+  else if (act === "hold") await doAct("/api/hold", { tenant: t }, `Paused ${nm(t)}.`);
+  else if (act === "resume") await doAct("/api/resume", { tenant: t }, `Resumed ${nm(t)}.`);
   else if (act === "kill") { if (await ask(T.killConfirmTitle, T.killConfirmBody, T.stopAll)) await doAct("/api/kill", { on: true }, "All payments stopped."); }
   else if (act === "unkill") await doAct("/api/kill", { on: false }, "Payments resumed.");
   else if (act === "startover") { if (await ask(T.startOverTitle, T.resetConfirm, T.startOverYes)) { await doAct("/api/reset", {}, "Started over."); TL = []; tlSeen = -1; PROOF = null; pendingStart = false; await refresh(); } }
@@ -456,7 +465,12 @@ async function runScenario(id) {
   if (r && r.result) toast(r.result.ok ? r.result.summary : `Not completed: ${r.result.summary}`);
 }
 window.addEventListener("hashchange", route);
-function route() { view = location.hash.startsWith("#/proof") ? "proof" : location.hash.startsWith("#/rules") ? "rules" : "pay"; render(); if (view === "proof") loadProof(); }
+function route() {
+  const h = location.hash;
+  view = h.startsWith("#/proof") ? "proof" : h.startsWith("#/rules") ? "rules" : h.startsWith("#/demo") ? "pay" : "try";
+  render(); if (view === "proof") loadProof(); else if (view !== "try") refresh();
+  Play.route(view === "try" ? h : null);
+}
 
 /* presenter mode: keys 1-6 run the cards, arrows move the caption, R starts over with a confirm */
 const caption = (n) => { $("#cap-n").textContent = `Step ${n + 1} of ${BEATS.length}`; $("#cap-t").textContent = BEATS[n]; };
@@ -471,5 +485,5 @@ if (PRESENT) {
   });
 }
 
-route(); refresh().then(() => { const a = qs.get("approve"); if (a && S && S.lanes[a]) openApprove(a); });  // ?approve=<tenant> opens the dialog (screenshots)
+route(); (view === "try" ? Promise.resolve() : refresh()).then(() => { const a = qs.get("approve"); if (a && S && S.lanes[a]) openApprove(a); });  // ?approve=<tenant> opens the dialog (screenshots)
 if (qs.get("nosse") !== "1") connect();  // nosse=1: one fetch, no stream (screenshots)

@@ -309,7 +309,7 @@ Spec:
 | What a judge does | What must happen |
 |---|---|
 | Empty composer, presses Read it | Button disabled until 1+ non-space char |
-| Gibberish or non-payroll text ("hello") | Draft returns `spec: null` + note "I couldn't find people, hours or rates. Try an example." Form opens empty with examples |
+| Gibberish or non-payroll text ("hello") | Draft returns `spec: null` + note "I couldn't find people, hours or rates. Try an example." The composer stays open with the notes and the example chips; no empty form opens (code behaviour, T2) |
 | Non-English text | Claude drafts it normally; names keep accents |
 | Unsupported country (India, INR) | Person left out; note "India isn't set up in this demo. Available: UK, Germany, US, Australia." |
 | 7+ people, 0 hours, 500 hours, rate 0, rate 99999 | Draft keeps first 6 + note; field errors under the cells; Run disabled until fixed |
