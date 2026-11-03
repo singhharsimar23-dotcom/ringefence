@@ -67,22 +67,23 @@ def _requests(L: Ledger, run_id: str, tenant: str, status: str) -> list[dict]:
 
 
 def match_deposits(awx: Awx, L: Ledger, run_id: str, tenant: str) -> list[dict]:
-    """Poll this tenant's own deposits; mark matching OPEN requests MATCHED. Returns the matched deposits."""
+    """Poll this tenant's own deposits; mark OPEN requests MATCHED once deposits with their reference cover them."""
     open_ = _requests(L, run_id, tenant, "OPEN")
     if not open_:
         return []
     deposits = awx.for_tenant(tenant).get("/deposits", {"page_num": 0, "page_size": 100}).get("items", [])
     out = []
     for req in open_:
-        d = next((d for d in deposits if d.get("reference") == req["reference"]
-                  and d.get("global_account_id") == req["ga_id"] and d.get("currency") == req["currency"]
-                  and d.get("status") in OK_STATUS), None)
-        if d is None:
-            continue
+        mine = [d for d in deposits if d.get("reference") == req["reference"]
+                and d.get("global_account_id") == req["ga_id"] and d.get("currency") == req["currency"]
+                and d.get("status") in OK_STATUS]
+        if sum((Decimal(str(d["amount"])) for d in mine), Decimal(0)) < Decimal(req["amount"]) or not mine:
+            continue  # a short deposit stays open: the rest may arrive under the same reference
         with L.tx() as tx:
             tx.execute("UPDATE funding_requests SET status='MATCHED' WHERE reference=?", (req["reference"],))
-            tx.append("FUNDING_MATCHED", {"reference": req["reference"], "deposit_id": d["id"],
-                                          "amount": str(d["amount"]), "currency": d["currency"],
-                                          "status": d["status"]}, run_id, tenant)
-        out.append(d)
+            tx.append("FUNDING_MATCHED", {"reference": req["reference"], "deposit_id": mine[0]["id"],
+                                          "deposit_ids": [d["id"] for d in mine],
+                                          "amount": str(sum((Decimal(str(d["amount"])) for d in mine), Decimal(0))),
+                                          "currency": req["currency"], "status": mine[0]["status"]}, run_id, tenant)
+        out.extend(mine)
     return out
