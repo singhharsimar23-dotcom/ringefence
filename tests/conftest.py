@@ -11,6 +11,7 @@ def _isolated_var(tmp_path, monkeypatch):
     monkeypatch.setenv("RF_VAR", str(tmp_path / "var"))
     monkeypatch.setenv("RF_MANDATE_KEY", "test-mandate-key")
     monkeypatch.setenv("RF_APPROVAL_KEY", "test-approval-key")
+    monkeypatch.setattr("ringfence.verify.PUB_PATH", tmp_path / "cert_pub.pem")  # tests must never touch the published key
 
 
 @pytest.fixture

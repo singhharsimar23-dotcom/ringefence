@@ -12,7 +12,7 @@ from .awx import Awx
 from .config import ROOT
 from .executor import INFLIGHT
 from .ledger import Ledger
-from .orchestrator import Orchestrator
+from .orchestrator import Orchestrator, Refused
 
 
 def pay_out(awx: Awx, L: Ledger, run_id: str, tenant: str) -> int:
@@ -57,10 +57,10 @@ ATTACKS = {"northwind": ["bank_change_northwind"], "kestrel": ["rate_kestrel"],
 SCENARIOS = {  # id -> (card title, one line, default tenant)
     "bank_change_email": ("Fake bank-change email", "A contractor email swaps the bank account and says to pay 3x and skip approval.", "northwind"),
     "double_click": ("Double-click pay", "Four release requests land at once on the same approved run.", "northwind"),
-    "network_drop": ("Network drop mid-payout", "Airwallex takes the payment but the answer is lost.", "kestrel"),
+    "network_drop": ("Network drop mid-payout", "Airwallex takes the payment but the answer is lost.", None),
     "tamper_ledger": ("Edit a ledger row", "Someone with the database file changes one recorded amount.", None),
     "cross_tenant_call": ("Cross-tenant call", "One employer's login tries to act on another employer's account.", None),
-    "rate_move": ("Rate moves after approval", "The exchange rate moves past the approved range before payment.", "northwind"),
+    "rate_move": ("Rate moves after approval", "The exchange rate moves past the approved range before payment.", None),
     "other_tenant_deposit": ("Another employer's money arrives", "USD 50,000 lands in Kestrel while Harbour is short.", "kestrel"),
     "harbour_topup": ("Harbour's own top-up", "Harbour's bank sends exactly what the funding card asked for.", "harbour"),
     "late_return": ("Payout returned after payment", "A paid payout bounces back from the beneficiary's bank.", "northwind"),
@@ -97,8 +97,28 @@ class Simulator:
                if t.get("request_id") in keys]
         return lines, got
 
-    def _not_ready(self, tenant: str, then: str) -> dict:
-        return {"ok": False, "summary": f"{tenant.title()} has no approved run waiting to be sent.", "defence": then, "seqs": []}
+    def _not_ready(self, then: str) -> dict:
+        return {"ok": False, "summary": "No employer has a run that is ready to send.", "defence": then, "seqs": []}
+
+    def _stage(self, tenant: str) -> bool:
+        """True when the run is READY. A run waiting for approval gets a [SIMULATED] approval first, so a card can act
+        on it inside one job (nothing can release it in between)."""
+        if self._state(tenant) == "AWAITING_APPROVAL":
+            role = store.latest_mandate(self.L, tenant).mandate.approver_role
+            try:
+                self.o.approve(self._rid(), tenant, "demo-approver", role)
+            except Refused:
+                return False
+            self.L.append("SIMULATED", {"what": f"[SIMULATED] approval given for {tenant.title()} to stage this test"},
+                          self._rid(), tenant)
+        return self._state(tenant) == "READY"
+
+    def _pick(self, tenant: str | None, order: tuple[str, ...]) -> str | None:
+        """The asked-for employer, else the first one that has a run waiting to be sent."""
+        for t in ([tenant] if tenant else order):
+            if self._state(t) in ("READY", "AWAITING_APPROVAL") and self._stage(t):
+                return t
+        return None
 
     # -- the six cards -----------------------------------------------------------------------------------
     def _bank_change_email(self, tenant: str) -> dict:
@@ -113,20 +133,24 @@ class Simulator:
                 "seqs": self._seqs(before, "BENEFICIARY_QUARANTINED", "ALERT", "PROPOSAL", "GATE_DENY")}
 
     def _double_click(self, tenant: str) -> dict:
-        before, state, run_id = self._head(), self._state(tenant), self._rid()
+        before, run_id = self._head(), self._rid()
+        self._stage(tenant)
+        state = self._state(tenant)
+        if state not in ("READY", "RELEASED", "DONE"):
+            return self._not_ready("Get a run approved first, then click pay four times.")
         threads = [threading.Thread(target=self.o.advance, args=(run_id, tenant)) for _ in range(4)]
         [t.start() for t in threads]
         [t.join() for t in threads]
         lines, got = self._mine(tenant)
-        ok = state == "READY" and len(got) == len(lines) == len({t["request_id"] for t in got})
-        return {"ok": ok, "summary": f"4 release clicks on a run that was {state}: {len(got)} payment(s) exist for {len(lines)} line(s).",
+        return {"ok": len(got) == len(lines) == len({t["request_id"] for t in got}), "tenant": tenant,
+                "summary": f"4 release clicks on {tenant.title()}'s run (it was {state.lower()}): {len(got)} payment(s) exist for {len(lines)} line(s).",
                 "defence": "Each payout has one payment key and one database claim, so a repeat click finds the work already done.",
                 "seqs": self._seqs(before, "INTENT", "SUBMITTED")}
 
-    def _network_drop(self, tenant: str) -> dict:
+    def _network_drop(self, tenant: str | None) -> dict:
         before = self._head()
-        if self._state(tenant) != "READY":
-            return self._not_ready(tenant, "Get a run to READY first, then drop the network.")
+        if not (tenant := self._pick(tenant, ("harbour", "northwind", "kestrel"))):
+            return self._not_ready("Get a run to the approval step first, then drop the network.")
         self.awx.inject("timeout_after_commit", "transfers/create")
         self.o.advance(self._rid(), tenant)
         lines, got = self._mine(tenant)
@@ -174,10 +198,10 @@ class Simulator:
                 "summary": "; ".join(f"{a.title()} reaching {b.title()}: HTTP {s} {c}" for a, b, s, c in probes),
                 "defence": "Airwallex itself refuses a login from one employer acting on another. Ringfence cannot even try.", "seqs": []}
 
-    def _rate_move(self, tenant: str) -> dict:
+    def _rate_move(self, tenant: str | None) -> dict:
         before = self._head()
-        if self._state(tenant) != "READY":
-            return self._not_ready(tenant, "Approve a run first, then move the rate.")
+        if not (tenant := self._pick(tenant, ("northwind",))):  # the only employer whose mandate converts currency
+            return self._not_ready("Get Northwind's run to the approval step first, then move the rate.")
         self.awx.inject("rate_shift", "fx/quotes/create", bps=200)
         state = self.o.advance(self._rid(), tenant)
         return {"ok": state == "AWAITING_APPROVAL", "tenant": tenant,

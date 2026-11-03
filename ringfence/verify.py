@@ -39,8 +39,9 @@ def _private_key() -> Ed25519PrivateKey:
     k = Ed25519PrivateKey.generate()
     p.write_bytes(k.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                                   serialization.NoEncryption()))
-    PUB_PATH.write_bytes(k.public_key().public_bytes(serialization.Encoding.PEM,
-                                                     serialization.PublicFormat.SubjectPublicKeyInfo))
+    if not PUB_PATH.exists():  # never replace the published key: it verifies every certificate already issued
+        PUB_PATH.write_bytes(k.public_key().public_bytes(serialization.Encoding.PEM,
+                                                         serialization.PublicFormat.SubjectPublicKeyInfo))
     return k
 
 
