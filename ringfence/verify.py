@@ -45,6 +45,14 @@ def _private_key() -> Ed25519PrivateKey:
     return k
 
 
+def world_pub_path() -> Path:
+    """This world's own public key (a fake world signs with a throwaway key, so the published live key cannot verify it)."""
+    out = var_dir() / "cert_pub.pem"
+    out.write_bytes(_private_key().public_key().public_bytes(serialization.Encoding.PEM,
+                                                             serialization.PublicFormat.SubjectPublicKeyInfo))
+    return out
+
+
 def sign(body: dict) -> dict:
     sig = _private_key().sign(canonical_json(body).encode())
     return {"body": body, "signature": base64.b64encode(sig).decode(), "alg": "Ed25519"}

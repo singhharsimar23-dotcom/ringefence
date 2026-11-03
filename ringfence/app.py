@@ -232,7 +232,7 @@ def create_app(E: Engine) -> FastAPI:
         """Run an operator action on the worker and turn the failures a person can fix into plain 409s."""
         try:
             return {"ok": True, **(E.call(fn) or {})}
-        except Refused as e:
+        except (Refused, PermissionError, LookupError, ValueError) as e:  # a person can fix these
             raise HTTPException(409, str(e)) from None
         except (AwxError, OSError):
             raise HTTPException(502, "Airwallex didn't answer. Nothing was changed; try again in a moment.") from None
@@ -342,9 +342,10 @@ def create_app(E: Engine) -> FastAPI:
             rep = verify.report(E.awx, E.L, E.cert_dir)
             run_id = verify.current_run_id(E.L)
             E.certs = verify.certificates(rep, run_id, E.backend)
+            pub = verify.world_pub_path() if E.backend == "fake" else None  # live certs verify against the committed key
             if rep["ok"]:  # anchors for later chain checks; a failing report must not overwrite a good anchor
                 verify.write_certs(E.certs, run_id, E.cert_dir)
-            return {"report": rep, "certs": {t: {"valid": verify.check_cert(c), "result": c["body"]["result"]}
+            return {"report": rep, "certs": {t: {"valid": verify.check_cert(c, pub), "result": c["body"]["result"], "doc": c}
                                              for t, c in E.certs.items()},
                     "balances": E.cache["balances"]}
         return act(job)
