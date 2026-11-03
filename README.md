@@ -25,7 +25,15 @@ funding card. The "Try to break it" cards run the attacks. Add `?present=1` for 
 3. `make sync`, `uv run python -m ringfence.setup_demo`, `make demo`.
 
 Anthropic key: set `ANTHROPIC_API_KEY` for the Claude agent. Without it the offline scripted agent runs and the demo
-is unchanged. The Claude path is covered by FakeLLM tests only; it has not been run against the real API.
+is unchanged. The Claude path is also tested live: `claude-sonnet-5-5` (default on the Azure demo; `RF_MODEL` overrides, `claude-opus-5-5` also works but is slower, about 70 s per start).
+
+## Live deployment (Azure)
+One Ubuntu VM, Caddy for automatic HTTPS and basic auth (everything except `/webhooks/*`, `/track/*`, `/static/*`), uvicorn on 127.0.0.1 under systemd, SQLite on the VM disk. Files are in `deploy/`.
+1. `az vm create` with `--custom-data deploy/cloud-init.yaml` in a region your subscription allows. Anthropic blocks some regions (Hong Kong returned 403), so test the key from the VM.
+2. `python deploy/push_env.py <ssh-alias>` copies the `AWX_*` and `ANTHROPIC_API_KEY` values from your environment into `/etc/ringfence/env` (root, mode 600). Nothing is printed.
+3. `bash deploy/deploy.sh <ssh-alias> --first` ships the code, then installs the unit and starts it. Set the Caddy host and basic-auth hash from `deploy/Caddyfile.tmpl`.
+4. `uv run python scripts/register_webhooks.py https://<host>/webhooks/airwallex` registers one webhook per employer and prints `AWX_WEBHOOK_SECRET=...` for the env file.
+`RF_PUBLIC=1` (set by the unit) throttles `POST /api/*` to one per second and shows a "shared sandbox" banner. Use `--backend fake` locally so only the VM drives the live sandbox accounts.
 
 ## Other entry points
 
@@ -37,7 +45,7 @@ is unchanged. The Claude path is covered by FakeLLM tests only; it has not been 
 - Plain-English rules: the **Rules** tab. Preview shows last week's payments under the new rule; the employer's own
   finance approver signs it. Rules can only change caps, auto-release and the FX band.
 - Contractor link: "Contractor link" under each payee (Show details) opens `/track/<token>`: their own payment only.
-- Webhooks: `POST /webhooks/airwallex`, verified with `AWX_WEBHOOK_SECRET`. A webhook only triggers a re-fetch; the poller stays the truth. Needs a public URL, so untested live.
+- Webhooks: `POST /webhooks/airwallex`, verified with `AWX_WEBHOOK_SECRET`. A webhook only triggers a re-fetch; the poller stays the truth. Proven live on the Azure deploy (signed events from all three employers reach the ledger).
 
 ## Tests
 

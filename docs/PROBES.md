@@ -1,7 +1,7 @@
 # Live sandbox probes (3 Nov 2026)
 
 Live results beat the spec. Each row says what was sent, what came back, and what changed in the fake or the code.
-Scripts are in `scripts/probe_*.py` and re-runnable. P0, P3 (re-verified in T1), P6 (needs a tunnel) are not yet recorded here.
+Scripts are in `scripts/probe_*.py` and re-runnable. P3 (re-verified in T1) is not yet recorded here. P0 and P6 are in the last section.
 
 | # | Question | Result | Consequence |
 |---|---|---|---|
@@ -25,4 +25,11 @@ State left on the sandbox by the probes: Harbour has an AU probe beneficiary and
 ## Live E2E from reset (3 Nov, T3 build)
 - Via the HTTP API only: reset, start, approve Northwind, Harbour top-up scenario, approve Harbour. All three lanes DONE, isolation report ok, chain ok, three certificates VALID.
 - Gap found by tests, fixed: a short or split deposit used to close the funding request and strand the run. Requests now stay open until deposits with the reference cover them.
-- P3 (PENDING deposit availability), P6 (webhooks, needs a tunnel) and the live Claude path are still unverified.
+- P3 (PENDING deposit availability) is still unverified.
+
+## Azure deploy (3 Nov)
+- P0 (Claude live): `claude-opus-5-5` and `claude-sonnet-5-5` both answer. One "Run Friday payroll" start takes about 69 s on Opus and 38 s on Sonnet; `RF_EFFORT=low` does not cut it. The demo runs Sonnet.
+- The Anthropic API returned 403 "Request not allowed" from a VM in East Asia (Hong Kong). The scripted fallback hid it until the agent mode was checked. Same key works from India South Central.
+- Student subscription policy only allows polandcentral, indonesiacentral, malaysiawest, eastasia and indiasouthcentral.
+- P6 (webhooks): `POST /webhooks/create` works under each employer token and returns `secret`; `GET /webhooks` returns it too. Events arrive signed as HMAC_SHA256(secret, x-timestamp + raw body), version 2025-02-14. Each employer has its own secret. The app accepts a comma-separated list.
+- Full live run through the public HTTPS API: all lanes DONE, isolation PASS for 3 tenants, certificates VALID.
