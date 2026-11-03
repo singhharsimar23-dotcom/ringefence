@@ -21,3 +21,15 @@ def fake():
 @pytest.fixture
 def awx(fake):
     return Awx(transport=fake.transport, tenant_map=tenants(fake=True), sleep=lambda s: None)
+
+
+@pytest.fixture
+def L():
+    from ringfence.ledger import Ledger
+    return Ledger()
+
+
+@pytest.fixture
+def ex(awx, L):
+    from ringfence.executor import Executor
+    return Executor(awx, L, sleep=lambda s: None)

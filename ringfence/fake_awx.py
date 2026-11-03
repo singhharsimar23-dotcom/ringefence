@@ -223,6 +223,9 @@ class FakeAirwallex:
             if path == "beneficiaries":
                 return _json(200, {"items": list(a.beneficiaries.values()), "has_more": False,
                                    "total_count": len(a.beneficiaries)})
+            if m := re.fullmatch(r"beneficiaries/([^/]+)", path):
+                b = a.beneficiaries.get(m[1])
+                return _json(200, b) if b else _err(404, "not_found", "beneficiary not found")
             if path == "global_accounts":
                 return _json(200, {"items": list(a.gas.values()), "has_more": False})
             if path == "deposits":
