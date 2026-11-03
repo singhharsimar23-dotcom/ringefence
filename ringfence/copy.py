@@ -10,6 +10,8 @@ from decimal import Decimal
 from . import seed
 from .gate import REASON_CODES
 
+BUSY = "Someone else just pressed a button on this shared demo. Try again in a moment."
+
 # Gate reason codes. {t} = employer name. One table, shown wherever a deny appears.
 REASON_TEXT = {
     "KILL_SWITCH": "All payouts are paused. Payments already sent are still tracked.",

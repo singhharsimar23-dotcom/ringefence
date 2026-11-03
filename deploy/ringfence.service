@@ -1,0 +1,23 @@
+[Unit]
+Description=Ringfence multi-employer payroll executor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ringfence
+WorkingDirectory=/opt/ringfence
+# root-only (600) file: AWX_*, ANTHROPIC_API_KEY, AWX_WEBHOOK_SECRET. Never committed.
+EnvironmentFile=/etc/ringfence/env
+Environment=RF_VAR=/var/lib/ringfence/var RF_PUBLIC=1 PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1
+# uvicorn stays on 127.0.0.1; Caddy is the only thing listening publicly.
+ExecStart=/opt/ringfence/.venv/bin/python -m ringfence.app --backend live --port 8000
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/ringfence /opt/ringfence
+
+[Install]
+WantedBy=multi-user.target

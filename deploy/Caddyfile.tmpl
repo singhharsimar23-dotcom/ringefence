@@ -1,0 +1,20 @@
+# Rendered by deploy.sh: __HOST__, __USER__, __HASH__ (bcrypt from `caddy hash-password`). Caddy gets the TLS cert itself.
+__HOST__ {
+	# Airwallex must reach webhooks; contractors open their own track link. Neither shows another tenant's data.
+	@open path /webhooks/* /track/* /api/track/* /static/*
+	handle @open {
+		reverse_proxy 127.0.0.1:8000
+	}
+	handle {
+		basicauth {
+			__USER__ __HASH__
+		}
+		reverse_proxy 127.0.0.1:8000
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+	}
+}
