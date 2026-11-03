@@ -1,0 +1,61 @@
+{
+  "pay_date": "2026-11-14",
+  "users": {
+    "maya": {"role": "operator", "tenant": null},
+    "priya": {"role": "finance:northwind", "tenant": "northwind"},
+    "sam": {"role": "finance:kestrel", "tenant": "kestrel"},
+    "lee": {"role": "finance:harbour", "tenant": "harbour"}
+  },
+  "fee_beneficiary": {
+    "company_name": "Ringfence Platform",
+    "address": {"country_code": "GB", "city": "London", "street_address": "1 Fee Street", "postcode": "EC1A 1BB"},
+    "bank": {"country": "GB", "currency": "GBP", "bank_name": "Barclays", "routing_type": "sort_code",
+             "routing_value": "041907", "account_number": "07371376"}
+  },
+  "contractors": [
+    {"id": "ada", "tenant": "northwind", "name": "Ada Okoye", "currency": "GBP", "method": "LOCAL", "rate": "45.00",
+     "address": {"country_code": "GB", "city": "London", "street_address": "10 Fleet Street", "postcode": "EC4A 2AB"},
+     "bank": {"country": "GB", "bank_name": "Barclays", "routing_type": "sort_code", "routing_value": "040004", "account_number": "12345601"}},
+    {"id": "lukas", "tenant": "northwind", "name": "Lukas Brandt", "currency": "EUR", "method": "LOCAL", "rate": "50.00",
+     "address": {"country_code": "DE", "city": "Berlin", "street_address": "1 Friedrichstrasse", "postcode": "10117"},
+     "bank": {"country": "DE", "bank_name": "Commerzbank", "iban": "DE89370400440532013000", "swift_code": "COBADEFFXXX"}},
+    {"id": "mia", "tenant": "northwind", "name": "Mia Tran", "currency": "AUD", "method": "LOCAL", "rate": "60.00",
+     "address": {"country_code": "AU", "city": "Sydney", "street_address": "5 George Street", "postcode": "2000", "state": "AU-NSW"},
+     "bank": {"country": "AU", "bank_name": "Commonwealth Bank", "routing_type": "bsb", "routing_value": "062000", "account_number": "12345678"}},
+
+    {"id": "noah", "tenant": "kestrel", "name": "Noah Reyes", "currency": "USD", "method": "LOCAL", "rate": "55.00",
+     "address": {"country_code": "US", "city": "New York", "street_address": "1 Broadway", "postcode": "10004", "state": "NY"},
+     "bank": {"country": "US", "bank_name": "JPMorgan Chase", "routing_type": "aba", "routing_value": "021000021", "account_number": "123456701", "category": "Checking"}},
+    {"id": "zoe", "tenant": "kestrel", "name": "Zoe Park", "currency": "USD", "method": "LOCAL", "rate": "62.50",
+     "address": {"country_code": "US", "city": "New York", "street_address": "2 Broadway", "postcode": "10004", "state": "NY"},
+     "bank": {"country": "US", "bank_name": "JPMorgan Chase", "routing_type": "aba", "routing_value": "021000021", "account_number": "123456702", "category": "Checking"}},
+
+    {"id": "ivy", "tenant": "harbour", "name": "Ivy Nguyen", "currency": "AUD", "method": "LOCAL", "rate": "35.00",
+     "address": {"country_code": "AU", "city": "Melbourne", "street_address": "1 Collins Street", "postcode": "3000", "state": "AU-VIC"},
+     "bank": {"country": "AU", "bank_name": "Commonwealth Bank", "routing_type": "bsb", "routing_value": "062000", "account_number": "22345601"}},
+    {"id": "omar", "tenant": "harbour", "name": "Omar Haddad", "currency": "AUD", "method": "LOCAL", "rate": "38.40",
+     "address": {"country_code": "AU", "city": "Melbourne", "street_address": "2 Collins Street", "postcode": "3000", "state": "AU-VIC"},
+     "bank": {"country": "AU", "bank_name": "Commonwealth Bank", "routing_type": "bsb", "routing_value": "062000", "account_number": "22345602"}},
+    {"id": "ruth", "tenant": "harbour", "name": "Ruth Adler", "currency": "AUD", "method": "LOCAL", "rate": "40.11",
+     "address": {"country_code": "AU", "city": "Melbourne", "street_address": "3 Collins Street", "postcode": "3000", "state": "AU-VIC"},
+     "bank": {"country": "AU", "bank_name": "Commonwealth Bank", "routing_type": "bsb", "routing_value": "062000", "account_number": "22345603"}}
+  ],
+  "mandates": {
+    "northwind": {
+      "currencies": ["GBP", "EUR", "AUD"], "funding_currencies": ["GBP", "EUR"],
+      "fx": "within_band", "rate_band_bps": 50, "auto_release": "never", "approver_role": "finance:northwind",
+      "per_line_cap": {"GBP": "5000.00", "EUR": "5000.00", "AUD": "5000.00"},
+      "per_run_cap": {"GBP": "20000.00", "EUR": "20000.00", "AUD": "20000.00"}
+    },
+    "kestrel": {
+      "currencies": ["USD"], "funding_currencies": ["USD"],
+      "fx": "never", "rate_band_bps": 50, "auto_release": "if_no_diff", "approver_role": "finance:kestrel",
+      "per_line_cap": {"USD": "5000.00"}, "per_run_cap": {"USD": "20000.00"}
+    },
+    "harbour": {
+      "currencies": ["AUD"], "funding_currencies": ["AUD"],
+      "fx": "never", "rate_band_bps": 50, "auto_release": "never", "approver_role": "finance:harbour",
+      "per_line_cap": {"AUD": "5000.00"}, "per_run_cap": {"AUD": "20000.00"}
+    }
+  }
+}

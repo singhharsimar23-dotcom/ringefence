@@ -97,30 +97,39 @@ class FakeAirwallex:
             bid = f"seed-{uuid.uuid4().hex[:8]}"
             a.beneficiaries[bid] = {"id": bid, "nickname": f"Seeded {i + 1}",
                                     "beneficiary": {"bank_details": {"account_number": f"9000{i:04d}"}}}
+        ga = self._make_ga("GB", "GBP", "Sandbox Business")  # every live account starts with its own GBP GA
+        a.gas[ga["id"]] = ga
         self.accounts[acct_id] = a
         return a
 
     def _nid(self, prefix: str) -> str:
         return f"{prefix}-{next(self._ids):06d}-{uuid.uuid4().hex[:8]}"
 
-    def _make_ga(self, country: str, ccy: str, nick: str) -> dict:
+    def _make_ga(self, country: str, ccy: str, nick: str, number: str | None = None) -> dict:
+        """Live shape: account_number/iban on top, routing codes only under supported_features (P11)."""
         n = next(self._ids)
         base = {"id": str(uuid.uuid4()), "status": "ACTIVE", "country_code": country, "nick_name": nick,
-                "account_name": nick, "required_features": [{"currency": ccy, "transfer_method": "LOCAL"}],
+                "account_name": "Sandbox Business", "request_id": str(uuid.uuid4()),
+                "required_features": [{"currency": ccy, "transfer_method": "LOCAL"}],
                 "account_number": f"{40000000 + n * 37:08d}"}
+        routing: list[dict] = []
         if country == "AU":
-            base.update(account_number=f"{200000000 + n * 91:09d}", routing_codes=[{"type": "bsb", "value": f"06{n % 10000:04d}"}])
+            base["account_number"] = f"{200000000 + n * 91:09d}"
+            routing = [{"type": "bsb", "value": f"06{n % 10000:04d}"}]
         elif country == "GB":
-            base.update(routing_codes=[{"type": "sort_code", "value": "041907"}])
+            routing = [{"type": "sort_code", "value": "041907"}]
         elif country == "US":
-            base.update(routing_codes=[{"type": "aba", "value": "026073150"}])
+            routing = [{"type": "ach", "value": "026073150"}]
         else:
-            base.update(iban=f"{country}89370400440532{n:06d}", routing_codes=[])
+            base["iban"] = f"{country}89370400440532{n:06d}"
+        if number:
+            base["account_number"] = number
+        base["supported_features"] = [{"currency": ccy, "transfer_method": "LOCAL", "type": "DEPOSIT",
+                                       "routing_codes": routing}]
         return base
 
     def _seed_platform_ga(self) -> None:
-        ga = self._make_ga("GB", "GBP", "Platform GBP")
-        ga.update(account_number="07371376", routing_codes=[{"type": "sort_code", "value": "041907"}])
+        ga = self._make_ga("GB", "GBP", "Platform GBP", number="07371376")
         self.accounts[self.platform].gas[ga["id"]] = ga
 
     def inject(self, kind: str, **kw: Any) -> None:
