@@ -25,7 +25,7 @@ funding card. The "Try to break it" cards run the attacks. Add `?present=1` for 
 3. `make sync`, `uv run python -m ringfence.setup_demo`, `make demo`.
 
 Anthropic key: set `ANTHROPIC_API_KEY` for the Claude agent. Without it the offline scripted agent runs and the demo
-is unchanged. The Claude path is also tested live: `claude-haiku-5-5` (the default; `RF_MODEL` overrides, `claude-sonnet-5-5` and `claude-opus-5-5` also work but are slower).
+is unchanged. The Claude path is also tested live: `claude-sonnet-5-5` (the default; `RF_MODEL` overrides; `claude-haiku-5-5` was no faster live and once held a run on its own, `claude-opus-5-5` is slower).
 
 ## Live deployment (Azure)
 One Ubuntu VM, Caddy for automatic HTTPS (public, no login), uvicorn on 127.0.0.1 under systemd, SQLite on the VM disk. Files are in `deploy/`.
