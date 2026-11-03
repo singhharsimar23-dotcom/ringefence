@@ -28,7 +28,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from sse_starlette.sse import EventSourceResponse
 
-from . import copy, inbox, play_routes, rules, seed, setup_demo, store, track, verify, webhooks
+from . import copy, inbox, metal, play_routes, rules, seed, setup_demo, store, track, verify, webhooks
 from .agent import loop
 from .agent.tools import funding_state
 from .awx import Awx, AwxError, build_backend
@@ -471,9 +471,12 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
             pub = verify.world_pub_path() if E.backend == "fake" or E.world else None  # the demo's live certs verify against the committed key; a world signs with its own
             if rep["ok"]:  # anchors for later chain checks; a failing report must not overwrite a good anchor
                 verify.write_certs(E.certs, run_id, E.cert_dir)
-            return {"report": rep, "certs": {t: {"valid": verify.check_cert(c, pub), "result": c["body"]["result"], "doc": c}
-                                             for t, c in E.certs.items()},
-                    "balances": E.cache["balances"]}
+            out = {"report": rep, "certs": {t: {"valid": verify.check_cert(c, pub), "result": c["body"]["result"], "doc": c}
+                                            for t, c in E.certs.items()},
+                   "balances": E.cache["balances"]}
+            if metal.enabled():
+                out["metal"] = metal.history(E.L)
+            return out
         return act(job)
 
     @app.get("/api/calls")

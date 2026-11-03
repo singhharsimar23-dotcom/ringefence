@@ -203,8 +203,9 @@ function noteHtml(t, l) {
 function laneHtml(t) {
   const l = S.lanes[t], x = l.text;
   const f = l.funding;
+  const metalOn = t === "harbour" && S.scenarios.some((s) => s.id === "metal_topup");
   const act = { approve: `<button class="primary" data-act="review" data-t="${t}" ${busy ? "disabled" : ""}>${T.review}</button>`,
-    copy_funding: `<button class="primary" data-copy="${esc(f ? f.reference : "")}">${T.copyFunding}</button>`,
+    copy_funding: `${metalOn ? `<button class="primary" data-act="scenario" data-id="metal_topup" ${busy ? "disabled" : ""}>${T.metalPay}</button>` : ""}<button ${metalOn ? "" : 'class="primary"'} data-copy="${esc(f ? f.reference : "")}">${T.copyFunding}</button>`,
     review: `<button class="primary" data-act="review" data-t="${t}">${T.reviewReturned}</button>`,
     proof: `<a class="btn primary" href="#/proof">${T.openProof}</a>`,
     resume: `<button class="primary" data-act="resume" data-t="${t}">${T.resume}</button>` }[x.action] || "";
@@ -240,7 +241,7 @@ function renderCards() {
     const r = s.last, tamperOn = id === "tamper_ledger" && r && r.bad_seq != null;  // only the edit result carries bad_seq
     return `<div class="card" data-id="${id}"><div class="title"><span>${esc(s.title)}</span>${PRESENT && i !== undefined ? `<span class="key">${i + 1}</span>` : ""}</div>
       <p class="line">${esc(s.line)}${SIMULATED_CARDS.has(id) ? ` <span class="chip sim">${T.simulated}</span>` : ""}</p>
-      ${r ? `<div class="result"><div class="verdict ${r.ok ? "ok" : "no"}">${r.ok ? ICON.check : ICON.alert}<span>${esc(r.summary)}</span></div><p>${esc(r.defence || "")}</p>${Play.evidenceHtml(r, `data-act="rows" data-id="${id}"`)}${(r.seqs || []).length && !r.evidence ? `<button class="link" data-act="rows" data-id="${id}">${T.viewRows}</button>` : ""}</div>` : ""}
+      ${r ? `<div class="result"><div class="verdict ${r.ok ? "ok" : "no"}">${r.ok ? ICON.check : ICON.alert}<span>${esc(r.summary)}</span></div><p>${esc(r.defence || "")}</p>${Play.evidenceHtml(r, `data-act="rows" data-id="${id}"`)}${(r.links || []).map((k) => `<a class="link" href="${esc(k.url)}" target="_blank" rel="noopener">${esc(k.label)}</a>`).join(" ")}${(r.seqs || []).length && !r.evidence ? `<button class="link" data-act="rows" data-id="${id}">${T.viewRows}</button>` : ""}</div>` : ""}
       <div class="acts"><button data-act="scenario" data-id="${id}" ${busy ? "disabled" : ""}>${tamperOn ? T.restore : T.runTest}</button></div></div>`;
   };
   $("#cards").innerHTML = CARD_ORDER.map(card).join("");
@@ -395,7 +396,8 @@ function renderProof() {
       <div class="actions"><a class="btn" href="/api/cert/${t}">${T.download}</a><button data-act="print" data-t="${t}">${T.print}</button></div></div>`;
   }).join("");
   const pr = `<div class="panel"><h2>${T.probesTitle}</h2>${P.report.probes.map((p) => `<div class="check ${p.ok ? "ok" : "no"}">${p.ok ? ICON.lock : ICON.alert}<span class="word">${p.ok ? T.pass : T.fail}</span><span>${esc(nm(p.from))} token against ${esc(nm(p.to) || p.to)}: HTTP ${p.status} ${esc(p.code || "")}</span></div>`).join("")}</div>`;
-  el.innerHTML = `<div class="stack">${verdict}${panels}${pr}</div>`;
+  const mt = (P.metal || []).length ? `<div class="panel"><h2>${T.metalProof}</h2>${P.metal.map((m) => `<div class="check ${m.kind === "METAL_PULL" ? "ok" : "no"}">${m.kind === "METAL_PULL" ? ICON.check : ICON.lock}<span>${esc(m.what)}: ${esc(m.usdz)} USDZ${m.code ? ` (${esc(m.code)})` : ""} ${m.explorer_url ? `<a class="link" href="${esc(m.explorer_url)}" target="_blank" rel="noopener">tx ${esc(String(m.tx).slice(0, 10))}</a>` : ""}${m.mandate ? ` <span class="mono">mandate ${esc(String(m.mandate).slice(0, 10))}</span>` : ""}</span></div>`).join("")}</div>` : "";
+  el.innerHTML = `<div class="stack">${verdict}${panels}${pr}${mt}</div>`;
 }
 function printCert(t) {
   const c = PROOF.certs[t].doc, b = c.body;
