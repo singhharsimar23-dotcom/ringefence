@@ -121,7 +121,10 @@ main{padding:var(--s4) var(--s5) var(--s6)}
 .amount .ccy{font-weight:500;font-size:14px}
 .fxpath{color:var(--muted);font-size:12px;line-height:16px;display:flex;align-items:center;gap:var(--s1)}
 .lines{list-style:none;padding:0;max-height:320px;overflow:auto;border-top:1px solid var(--line)}
-.lines li{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:var(--s2);align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.lines li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s1) var(--s2);align-items:center;padding:var(--s2) 0;border-bottom:1px solid var(--line)}
+.lines li>.num{text-align:right}
+.lines li>.pill{justify-self:start}
+.lines li>a.btn{justify-self:end}
 .lines .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lines .detail{grid-column:1/-1}
 .lines a.btn{min-height:28px;width:28px;padding:0}
@@ -129,7 +132,8 @@ main{padding:var(--s4) var(--s5) var(--s6)}
 body.details .detail{display:block}
 .funding{border:1px solid var(--line-strong);border-style:dashed;border-radius:var(--r-sm);padding:var(--s3);display:grid;gap:var(--s2);background:var(--bg)}
 .funding .row{display:flex;justify-content:space-between;gap:var(--s2);align-items:center}
-.funding .row>span:first-child{color:var(--muted)}
+.funding .row>span:first-child{color:var(--muted);white-space:nowrap}
+.funding .row>.num{display:flex;gap:var(--s2);align-items:center;justify-content:flex-end;flex-wrap:wrap;text-align:right;min-width:0;overflow-wrap:anywhere}
 .funding button{min-height:24px;padding:0 var(--s2);font-size:12px}
 .wallet{display:flex;gap:var(--s2);flex-wrap:wrap}
 .lane-body{display:grid;gap:var(--s3)}
@@ -251,7 +255,7 @@ body.present .activity,body.present #act-btn{display:none!important}
  .cols{grid-template-columns:1fr}
  .rail{gap:var(--s1)}
  .rail li .lbl{display:none}
- .rail li[aria-current="step"] .lbl,.rail li.done .lbl{display:inline}
+ .rail li[aria-current="step"] .lbl{display:inline}
  .rail li+li::before{width:8px}
  .next{width:100%}.next button{width:100%}
  .bar{padding:4px var(--s3)}
@@ -281,3 +285,6 @@ body.present .activity,body.present #act-btn{display:none!important}
  .certprint td{border-top:1px solid #999;padding:2mm 0}
  .certprint .mono{font-size:9pt}
 }
+#tl li.empty{display:block;border-left-color:transparent}
+
+.top .tools :is(.agent,button):empty{display:none}
