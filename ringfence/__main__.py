@@ -1,6 +1,6 @@
 """python -m ringfence [--backend fake|live] <command>
 
-setup | run <tenant> | approve <tenant> <approver> <role> | release <tenant> | poll | status | demo | reset
+setup | run <tenant> | approve <tenant> <approver> <role> | release <tenant> | poll | reconcile | status [tenant] | demo | reset
 `demo` is the whole story in one process, so it also works on the in-memory fake.
 Stepwise commands need the live sandbox (the fake lives and dies with one process).
 """
@@ -26,8 +26,17 @@ def _rid(o: Orchestrator) -> str:
     return o.run_id(PAY_DATE)
 
 
-def status(o: Orchestrator) -> None:
+def reconcile(o: Orchestrator) -> None:
+    """Lines left UNKNOWN (a call that may or may not have landed) are looked up by their stored request_id, then everything is polled."""
+    for ln in store.lines_in_states(o.L, ("UNKNOWN", "HOLD_UNKNOWN")):
+        print(f"{ln['tenant']} {ln['contractor_id']}: {o.ex.reconcile_line(ln['run_id'], ln['tenant'], ln['contractor_id'])}")
+    o.poll()
+
+
+def status(o: Orchestrator, tenant: str | None = None) -> None:
     for r in o.runs():
+        if tenant and r["tenant"] != tenant:
+            continue
         lines = store.get_lines(o.L, r["run_id"], r["tenant"], round=r["round"])
         print(f"{r['tenant']:<10} {r['run_id']}  {r['state']:<18} " +
               " ".join(f"{ln['contractor_id']}:{ln['state']}" for ln in lines))
@@ -72,7 +81,7 @@ def demo(o: Orchestrator, sleep=time.sleep) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(prog="ringfence")
     ap.add_argument("--backend", choices=["fake", "live"])
-    ap.add_argument("cmd", choices=["setup", "run", "approve", "release", "poll", "status", "demo", "reset"])
+    ap.add_argument("cmd", choices=["setup", "run", "approve", "release", "poll", "reconcile", "status", "demo", "reset"])
     ap.add_argument("args", nargs="*")
     a = ap.parse_args()
     if a.backend == "fake":  # a throwaway world: never touch the live ledger or registry
@@ -104,8 +113,11 @@ def main() -> int:
             case "poll":
                 o.poll()
                 status(o)
-            case "status":
+            case "reconcile":
+                reconcile(o)
                 status(o)
+            case "status":
+                status(o, a.args[0] if a.args else None)
     except (Refused, IndexError) as e:
         sys.exit(f"refused: {e}")
     return 0
