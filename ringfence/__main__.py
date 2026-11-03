@@ -10,6 +10,7 @@ import argparse
 import os
 import sys
 import tempfile
+import time
 from datetime import date
 
 from . import scenarios, setup_demo, store
@@ -34,22 +35,34 @@ def status(o: Orchestrator) -> None:
     print(f"ledger: {'OK' if v.ok else 'BROKEN'}")
 
 
-def demo(o: Orchestrator) -> None:
-    """Kestrel auto-releases; Northwind waits for approval; Harbour is short, is funded, then approved."""
-    for t in EMPLOYERS:
-        rid = o.create_run(t, PAY_DATE)
-        print(f"{t}: {o.submit(rid, t)}")
+def demo(o: Orchestrator, sleep=time.sleep) -> None:
+    """Kestrel auto-releases; Northwind waits for approval; Harbour is short, is funded, then approved.
+    State-driven and resumable: re-running continues each run from wherever it stopped."""
     rid = _rid(o)
-    for t in ("northwind", "harbour"):
-        if store.get_run(o.L, rid, t)["state"] == "AWAITING_FUNDS":
-            req = next(e["payload"] for e in o.L.entries(run_id=rid, kind="FUNDING_REQUESTED", tenant=t))
-            scenarios.top_up(o.awx, o.L, rid, t, req)
-            print(f"{t}: [SIMULATED] top-up {req['amount']} {req['currency']} ref {req['reference']}")
-            print(f"{t}: {o.advance(rid, t)}")
-        role = store.latest_mandate(o.L, t).mandate.approver_role
-        print(f"{t}: approve -> {o.approve(rid, t, f'{t}-approver', role)}")
     for t in EMPLOYERS:
-        print(f"{t}: {o.advance(rid, t)}")
+        if store.get_run(o.L, rid, t) is None:
+            print(f"{t}: {o.submit(o.create_run(t, PAY_DATE), t)}")
+    for _ in range(30):
+        states = {t: store.get_run(o.L, rid, t)["state"] for t in EMPLOYERS}
+        if all(s in ("RELEASED", "DONE") for s in states.values()):
+            break
+        for t, s in states.items():
+            if s == "AWAITING_FUNDS":
+                req = next(e["payload"] for e in o.L.entries(run_id=rid, kind="FUNDING_REQUESTED", tenant=t))
+                if not any(e["payload"].get("reference") == req["reference"]
+                           for e in o.L.entries(run_id=rid, kind="SIMULATED", tenant=t)):
+                    scenarios.top_up(o.awx, o.L, rid, t, req)
+                    print(f"{t}: [SIMULATED] top-up {req['amount']} {req['currency']} ref {req['reference']}")
+            elif s == "AWAITING_APPROVAL":
+                role = store.latest_mandate(o.L, t).mandate.approver_role
+                print(f"{t}: approve -> {o.approve(rid, t, f'{t}-approver', role)}")
+                continue
+            new = o.advance(rid, t)
+            if new != s:
+                print(f"{t}: {s} -> {new}")
+        sleep(2)
+    else:
+        sys.exit("demo did not settle in 30 ticks; rerun to resume")
     for t in EMPLOYERS:
         scenarios.pay_out(o.awx, o.L, rid, t)
     o.poll()
@@ -82,7 +95,7 @@ def main() -> int:
     try:
         match a.cmd:
             case "demo":
-                demo(o)
+                demo(o, sleep=(lambda _: None) if a.backend == "fake" else time.sleep)
             case "run":
                 rid = o.create_run(a.args[0], PAY_DATE)
                 print(f"{rid}: {o.submit(rid, a.args[0])}")
