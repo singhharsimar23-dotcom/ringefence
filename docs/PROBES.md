@@ -39,3 +39,10 @@ State left on the sandbox by the probes: Harbour has an AU probe beneficiary and
 - Northwind: Haiku flagged Ada's combined bank-change-plus-"pay 3x, skip approval" email and did not record a quarantined bank change. Nothing was applied, so it is the safe direction. The offline agent does quarantine it.
 - Speed: ticks run one after another on the single money worker. Northwind 22 s, Kestrel 12 s, Harbour 18 s; all three in about 50 s. This is not under the 20 s target. `RF_EFFORT=low` made no difference (49 s). Start returns at once and lanes fill in as each tick lands. Sonnet was 38 s per start on the live VM earlier, so Haiku stays the default.
 - Live on the VM, Haiku was no faster (42 s and 50 s for a start, against 38 s on Sonnet) and in 1 of 2 live starts it called `hold_run` on Northwind ("no matching AUD balance"), although the code had priced the run and the gate was happy. That strands the demo path, so the default is back to `claude-sonnet-5-5`.
+
+## P12: playground live world (3 Nov, public VM, playground account ending ...ONA)
+- "Weekly pay, three countries" through `scripts/probe_12.py`: draft by Claude, one live world, run to PAID, re-check, proof.
+- Timings: world create to ready about 4 s; ready to the first agent result (a proposal and a diff awaiting approval) about 12 s; approve to all three lines PAID about 12 s (ledger and Airwallex agree, the sandbox advances the transfers itself).
+- Re-check of the first transfer returned the same status as the ledger (PAID). `/api/proof` for the world: isolation not applicable with one employer, ledger chain ok, certificate valid against the world's own key.
+- Live e2e (`scripts/e2e_demo.py`) against the public URL after the deploy: all three lanes DONE, proof report ok. `free -m` after a live world: 365 MB used, 522 MB available, swap 0.
+- Only one live world runs at a time (`RF_PLAY_LIVE_MAX=1`); a second request waits in the queue. A world left waiting for approval holds the slot until its 20-minute idle timeout.
