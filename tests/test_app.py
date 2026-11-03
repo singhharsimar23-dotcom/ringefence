@@ -224,3 +224,9 @@ def test_daily_claude_cap_forces_the_rules_engine(c, E, monkeypatch):
     assert s["agent_capped"] is True and s["model"] == "claude-sonnet-5-5"
     start(c, E)
     assert lane(c, "northwind")["agent_note"]["mode"] == "offline agent"
+
+
+def test_inbox_shows_what_the_agent_read_and_rejects_other_names(c):
+    docs = c.get("/api/inbox/harbour").json()
+    assert docs[0]["source"] == "timesheet" and docs[0]["text"].startswith("contractor_id")
+    assert c.get("/api/inbox/..%2Fsecrets").status_code == 404

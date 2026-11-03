@@ -76,6 +76,7 @@ WORLD_SCENARIOS = {  # only in a playground world; the three-employer demo keeps
 METAL_SCENARIOS = {  # only with RF_METAL=1 in the three-employer demo (ringfence/metal.py)
     "metal_topup": ("Pay the shortfall from Metal", "Harbour's mandate on Metal lets the platform pull exactly the shortfall in stablecoin.", "harbour"),
     "metal_overpull": ("Agent over-pulls on Metal", "The agent asks Metal for more than Harbour's mandate allows.", "harbour"),
+    "metal_poison": ("Lookalike wallet email", "An email gives a new settlement wallet that matches the real one's first 6 and last 4 characters.", "harbour"),
 }
 ALL_SCENARIOS = {**SCENARIOS, **WORLD_SCENARIOS, **METAL_SCENARIOS}
 WORLD_CARDS = ("topup", "late_return", "bank_change_email", "injection", "double_click", "cross_tenant_call")
@@ -346,6 +347,23 @@ class Simulator:
                 "links": [{"label": "Refusal on chain", "url": ev["explorer_url"]}] if ev["explorer_url"] else [],
                 "summary": f"Metal refused a pull of {ev['usdz']} USDZ: {ev['code']}. The refusal is recorded on chain.",
                 "defence": "The mandate lives on Metal, so even a compromised agent cannot pull more than Harbour signed.",
+                "seqs": self._seqs(before, "METAL_REFUSED")}
+
+    def _metal_poison(self, tenant: str) -> dict:
+        before, run_id = self._head(), self._rid()
+        pulls = self.L.entries(run_id=run_id, kind="METAL_PULL", tenant=tenant)
+        if not pulls:
+            return {"ok": False, "summary": "Pay the shortfall from Metal first; the scam targets that mandate.", "defence": "", "seqs": []}
+        try:
+            fake = metal.lookalike(self.metal.cfg()["settlement"])
+            ev = self.metal.poisoned_pull(self.L, run_id, tenant, pulls[-1]["payload"], fake)
+        except metal.MetalError as e:
+            log.warning("metal poisoned pull failed: %s", metal.scrub(str(e)))
+            return {"ok": False, "summary": copy.METAL_FALLBACK, "defence": "", "seqs": []}
+        return {"ok": ev["code"] == "mandate_payee_not_listed", "tenant": tenant,
+                "links": [{"label": "Refusal on chain", "url": ev["explorer_url"]}] if ev["explorer_url"] else [],
+                "summary": f"Ringfence flagged {fake} as a lookalike of the real wallet {ev['real']}. Pushed to the chain anyway, Metal refused it: {ev['code']}.",
+                "defence": "Ringfence compares the whole address, not the first and last characters a person checks. The mandate names one payee, so the chain refuses any other.",
                 "seqs": self._seqs(before, "METAL_REFUSED")}
 
     def _late_return(self, tenant: str) -> dict:

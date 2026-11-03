@@ -102,7 +102,10 @@ SCENARIO_EVIDENCE["metal_topup"] = ("Harbour is short, so the platform pulls the
 SCENARIO_EVIDENCE["metal_overpull"] = ("The agent asks Metal to pull 1.00 more than the mandate allows.",
                                        "METAL_MANDATE_CAP", "Metal (on-chain mandate)",
                                        "Metal refused the pull and wrote the refusal on chain. Ringfence's own gate is a second lock.")
-METAL_FALLBACK = "Metal testnet didn't answer; using the simulated top-up."
+SCENARIO_EVIDENCE["metal_poison"] = ("An email asks the platform to send Harbour's money to a lookalike wallet (address poisoning).",
+                                     "METAL_MANDATE_PAYEE", "Ringfence (code), then Metal (on-chain mandate)",
+                                     "Ringfence compares the whole address and flags the lookalike. The mandate names one payee, so the chain refuses it too.")
+METAL_FALLBACK ="Metal testnet didn't answer; using the simulated top-up."
 
 # Codes raised by the executor and the agent tools outside the gate.
 EXTRA_TEXT = {

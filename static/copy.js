@@ -49,6 +49,17 @@ const T = {
   loadError: "The page could not reach Ringfence. Check that the server is running, then reload.",
   actingAs: "Acting as", demoOnly: "demo only",
   simulated: "[SIMULATED]", metalPay: "Pay the shortfall from Harbour's Metal treasury", metalProof: "Metal testnet (real transactions)",
+  chainTitle: "Harbour's ringfence, enforced on chain",
+  chainSub: "Harbour signs a mandate on Metal testnet: one pull, capped at the shortfall, payable only to the platform. Ringfence's gate is the first lock. The chain is the second.",
+  chainNet: "Metal testnet", chainSteps: ["Mandate signed", "Shortfall pulled", "Over-pull refused", "Lookalike wallet refused"],
+  chainWait: ["Signed by Harbour when it comes up short", "Exactly the shortfall, once", "Ask for 1 USDZ more than the cap", "An email swaps in a wallet that looks the same"],
+  chainNeedRun: "Run Friday payroll first. Harbour comes up short on AUD.", chainReady: "Harbour is short. Pay it from its Metal treasury.",
+  chainOver: "Now ask Metal for more than the mandate allows.", chainDone: "Both locks held. Every step is a real testnet transaction.", chainPoison: "Now try the address-poisoning email.",
+  chainScale: "Testnet scale: 1 USDZ stands for USD 10. The Airwallex credit that follows is [SIMULATED].",
+  metalShort: "Pay the shortfall on Metal", metalOver: "Pull more than the cap", metalPoison: "Send to the lookalike wallet", rerun: "Run it again", viewTx: "View on explorer",
+  proofCheck: "Checked against Airwallex's own records", sigOk: "Certificate signed", sigBad: "Signature invalid", debits: "Transfers",
+  inboxBtn: "What the agent read", inboxTitle: "What the agent read", inboxNote: "Untrusted input. The agent reads it; code decides what is paid.",
+  whyHeld: "Why it held",
   metalHome: "New: a payroll shortfall paid on Metal testnet under an on-chain mandate", metalTry: "Try it in the demo",
   live: "Live · Airwallex sandbox", offline: "Offline demo", offlineRules: "Offline rules",
   agentCapped: "Offline rules (daily Claude limit reached)",
@@ -87,9 +98,9 @@ const BEATS = [
   "Proof: each employer's money stayed in its own account. Edit one ledger row and verification fails there.",
 ];
 
-const SIMULATED_CARDS = new Set(["bank_change_email", "network_drop", "tamper_ledger", "rate_move", "other_tenant_deposit", "harbour_topup", "late_return", "metal_topup"]);
+const SIMULATED_CARDS = new Set(["bank_change_email", "network_drop", "tamper_ledger", "rate_move", "other_tenant_deposit", "harbour_topup", "late_return"]);
 const CARD_ORDER = ["bank_change_email", "double_click", "network_drop", "tamper_ledger", "cross_tenant_call", "rate_move"];
-const EVENT_ORDER = ["other_tenant_deposit", "harbour_topup", "metal_topup", "metal_overpull", "late_return"];
+const EVENT_ORDER = ["other_tenant_deposit", "harbour_topup", "late_return"];
 
 const clock = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
 const clockSec = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "");
