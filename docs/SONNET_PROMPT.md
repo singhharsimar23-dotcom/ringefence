@@ -26,8 +26,8 @@ You are building Ringfence v2 in this repo (branch `build`). Read `CLAUDE.md`, t
 
 **Known state (3 Nov):**
 - `AWX_PLAYGROUND_ACCOUNT=acct_zQZEjmRrNWSCAIfGsxjONA` is set locally and on the VM.
-- The owner still has to link that account to the API key. Until then, login returns 403 `login_as_unauthorized`, so the playground must report `live: false` and run on Simulated bank. Re-check with `python scripts/awx.py GET /balances/current --as acct_zQZEjmRrNWSCAIfGsxjONA`.
-- `METAL_RPC_URL` isn't set yet. T5 waits for it.
+- The playground account is linked to the API key, and login works (verified 3 Nov). The live playground is available.
+- `METAL_RPC_SECRET` is set. `METAL_RPC_URL` (the endpoint id URL) is pending from the owner; see spec section 8, item 4.
 
 **Report back at each tier gate:**
 - What was built, and the test count before and after
