@@ -25,15 +25,16 @@ funding card. The "Try to break it" cards run the attacks. Add `?present=1` for 
 3. `make sync`, `uv run python -m ringfence.setup_demo`, `make demo`.
 
 Anthropic key: set `ANTHROPIC_API_KEY` for the Claude agent. Without it the offline scripted agent runs and the demo
-is unchanged. The Claude path is also tested live: `claude-sonnet-5-5` (default on the Azure demo; `RF_MODEL` overrides, `claude-opus-5-5` also works but is slower, about 70 s per start).
+is unchanged. The Claude path is also tested live: `claude-haiku-5-5` (the default; `RF_MODEL` overrides, `claude-sonnet-5-5` and `claude-opus-5-5` also work but are slower).
 
 ## Live deployment (Azure)
-One Ubuntu VM, Caddy for automatic HTTPS and basic auth (everything except `/webhooks/*`, `/track/*`, `/static/*`), uvicorn on 127.0.0.1 under systemd, SQLite on the VM disk. Files are in `deploy/`.
+One Ubuntu VM, Caddy for automatic HTTPS (public, no login), uvicorn on 127.0.0.1 under systemd, SQLite on the VM disk. Files are in `deploy/`.
 1. `az vm create` with `--custom-data deploy/cloud-init.yaml` in a region your subscription allows. Anthropic blocks some regions (Hong Kong returned 403), so test the key from the VM.
 2. `python deploy/push_env.py <ssh-alias>` copies the `AWX_*` and `ANTHROPIC_API_KEY` values from your environment into `/etc/ringfence/env` (root, mode 600). Nothing is printed.
-3. `bash deploy/deploy.sh <ssh-alias> --first` ships the code, then installs the unit and starts it. Set the Caddy host and basic-auth hash from `deploy/Caddyfile.tmpl`.
+3. `bash deploy/deploy.sh <ssh-alias> --first` ships the code, then installs the unit and starts it. `deploy.sh` does not render the Caddyfile. Install it with:
+   `sed 's/__HOST__/<host>/' deploy/Caddyfile.tmpl | ssh <ssh-alias> 'sudo tee /etc/caddy/Caddyfile >/dev/null && sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy'`
 4. `uv run python scripts/register_webhooks.py https://<host>/webhooks/airwallex` registers one webhook per employer and prints `AWX_WEBHOOK_SECRET=...` for the env file.
-`RF_PUBLIC=1` (set by the unit) throttles `POST /api/*` to one per second and shows a "shared sandbox" banner. Use `--backend fake` locally so only the VM drives the live sandbox accounts.
+The demo is public. `RF_PUBLIC=1` (set by the unit) throttles `POST /api/*` to one per second (Start over: one per 20 s) and shows a "shared sandbox" banner. Claude ticks are capped per UTC day by `RF_LLM_DAILY_CAP` (default 300); past the cap the offline rules take over. Use `--backend fake` locally so only the VM drives the live sandbox accounts.
 
 ## Other entry points
 

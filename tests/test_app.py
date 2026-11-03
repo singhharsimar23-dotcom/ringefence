@@ -169,6 +169,17 @@ def test_public_mode_spaces_out_operator_buttons_and_shows_the_banner_flag(E, mo
     assert pc.post("/webhooks/airwallex", content=b"{}").status_code == 401  # webhooks are never throttled
 
 
+def test_public_reset_has_its_own_20_second_gap(E, monkeypatch):
+    import ringfence.app as app_mod
+    monkeypatch.setenv("RF_PUBLIC", "1")
+    monkeypatch.setattr(app_mod, "PUBLIC_GAP_S", 0.0)
+    pc = TestClient(create_app(E))
+    assert pc.post("/api/reset", json={"user": "maya"}).status_code == 200
+    r = pc.post("/api/reset", json={"user": "maya"})
+    assert r.status_code == 429 and r.json()["detail"] == copy.BUSY_RESET
+    assert pc.post("/api/autosettle", json={"user": "maya", "on": True}).status_code == 200
+
+
 def test_private_mode_has_no_throttle(c):
     assert c.get("/api/state").json()["public"] is False
     assert all(c.post("/api/autosettle", json={"user": "maya", "on": True}).status_code == 200 for _ in range(3))
