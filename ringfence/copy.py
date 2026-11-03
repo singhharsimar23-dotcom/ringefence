@@ -96,16 +96,16 @@ SCENARIO_EVIDENCE = {
                     "A late return is tracked, and paying it again is a new payment that needs its own approval."),
 }
 SCENARIO_EVIDENCE["harbour_topup"] = SCENARIO_EVIDENCE["topup"]
-SCENARIO_EVIDENCE["metal_topup"] = ("Harbour is short, so the platform pulls the shortfall from Harbour's Metal treasury.",
-                                    "METAL_MANDATE", "Metal (on-chain mandate)",
-                                    "Harbour signed a mandate on Metal: one pull, exactly the shortfall, only to the platform's address.")
-SCENARIO_EVIDENCE["metal_overpull"] = ("The agent asks Metal to pull 1.00 more than the mandate allows.",
-                                       "METAL_MANDATE_CAP", "Metal (on-chain mandate)",
-                                       "Metal refused the pull and wrote the refusal on chain. Ringfence's own gate is a second lock.")
+SCENARIO_EVIDENCE["metal_topup"] = ("Harbour Foods is short, so we take the missing amount from its crypto wallet.",
+                                    "METAL_MANDATE", "The Metal blockchain",
+                                    "Harbour Foods allowed one payment: the exact missing amount, once, to us only.")
+SCENARIO_EVIDENCE["metal_overpull"] = ("The agent tries to take 1 coin more than Harbour Foods allowed.",
+                                       "METAL_MANDATE_CAP", "The Metal blockchain",
+                                       "The blockchain refused and recorded the refusal. Our own checks would have stopped it too.")
 SCENARIO_EVIDENCE["metal_poison"] = ("An email asks the platform to send Harbour's money to a lookalike wallet (address poisoning).",
-                                     "METAL_MANDATE_PAYEE", "Ringfence (code), then Metal (on-chain mandate)",
-                                     "Ringfence compares the whole address and flags the lookalike. The mandate names one payee, so the chain refuses it too.")
-METAL_FALLBACK ="Metal testnet didn't answer; using the simulated top-up."
+                                     "METAL_MANDATE_PAYEE", "Our checks, then the Metal blockchain",
+                                     "We compare the whole address, not just the start and end, so the fake is caught. The blockchain only pays the one wallet Harbour Foods named, so it refuses too.")
+METAL_FALLBACK = "The Metal blockchain didn't answer, so we used the simulated top-up."
 
 # Codes raised by the executor and the agent tools outside the gate.
 EXTRA_TEXT = {
@@ -246,7 +246,7 @@ def timeline_row(e: dict) -> dict | None:
     elif k == "FUNDING_MATCHED":
         row = ("Observe", f"Received {money(p['currency'], p['amount'])} in {T}'s own account, reference {p['reference']}.")
     elif k == "APPROVED":
-        row = ("Decide", "Auto-approved: nothing changed since last run and it is within the mandate." if p.get("auto_release")
+        row = ("Decide", "Auto-approved: nothing changed since last week and it is within the agreed limits." if p.get("auto_release")
                else f"{p['approver']} approved this exact batch for {T}.")
     elif k == "GATE_DENY":
         label = "The agent's proposal was rejected" if p.get("source") == "agent_tool" else "Blocked"
@@ -278,11 +278,11 @@ def timeline_row(e: dict) -> dict | None:
         if not row[1].startswith("[SIMULATED]"):
             row = ("Observe", "[SIMULATED] " + row[1])
     elif k == "METAL_PULL":
-        row = ("Act", f"Pulled {p['usdz']} USDZ from {T}'s Metal treasury under its mandate (Metal testnet, tx {p['tx'][:10]}).")
+        row = ("Act", f"Paid {p['usdz']} test coins from {T}'s crypto wallet on the Metal blockchain.")
     elif k == "METAL_REFUSED" and p.get("flag") == "address_poisoning":
-        row = ("Decide", f"Ringfence flagged a lookalike wallet ({p['to'][:10]}…{p['to'][-4:]}). Metal refused to pay it: {p.get('code')}.")
+        row = ("Decide", f"Blocked a fake lookalike wallet ({p['to'][:10]}…{p['to'][-4:]}). The blockchain refused it too.")
     elif k == "METAL_REFUSED":
-        row = ("Decide", f"Metal refused a pull of {p['usdz']} USDZ above {T}'s mandate: {p.get('code')}.")
+        row = ("Decide", f"The blockchain blocked a payment of {p['usdz']} coins: more than {T} allowed.")
     elif k == "RESET":
         row = ("Observe", "New take: the previous one is archived and still verifiable.")
     if row is None:

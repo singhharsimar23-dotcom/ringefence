@@ -328,8 +328,8 @@ class Simulator:
             return {"ok": False, "summary": copy.METAL_FALLBACK, "defence": "", "seqs": []}
         top_up(self.awx, self.L, run_id, tenant, req)  # [SIMULATED] Airwallex credit; the existing matcher closes the request
         self.metal.recycle_later(pay)
-        return {"ok": True, "tenant": tenant, "links": [{"label": "Metal pull", "url": pay["explorer_url"]}],
-                "summary": f"Harbour's mandate paid {pay['usdz']} USDZ on Metal testnet (real; testnet scale, 1 USDZ = USD 10). [SIMULATED] Airwallex then credited {req['amount']} {req['currency']} to Harbour's own account.",
+        return {"ok": True, "tenant": tenant, "links": [{"label": "Open on blockchain", "url": pay["explorer_url"]}],
+                "summary": f"Paid {pay['usdz']} test coins from Harbour Foods' crypto wallet (1 coin = USD 10). [SIMULATED] Its bank then received {req['amount']} {req['currency']}.",
                 "defence": "Two locks: Metal enforces the mandate (cap, payee, one pull); Ringfence matches the deposit by account, currency and reference.",
                 "seqs": self._seqs(before, "METAL_PULL")}
 
@@ -337,15 +337,15 @@ class Simulator:
         before, run_id = self._head(), self._rid()
         pulls = self.L.entries(run_id=run_id, kind="METAL_PULL", tenant=tenant)
         if not pulls:
-            return {"ok": False, "summary": "Pay the shortfall from Metal first; the over-pull targets that mandate.", "defence": "", "seqs": []}
+            return {"ok": False, "summary": "Press Pay from crypto wallet first.", "defence": "", "seqs": []}
         try:
             ev = self.metal.over_pull(self.L, run_id, tenant, pulls[-1]["payload"])
         except metal.MetalError as e:
             log.warning("metal over-pull failed: %s", metal.scrub(str(e)))
             return {"ok": False, "summary": copy.METAL_FALLBACK, "defence": "", "seqs": []}
         return {"ok": ev["code"] == "mandate_cap_exceeded", "tenant": tenant,
-                "links": [{"label": "Refusal on chain", "url": ev["explorer_url"]}] if ev["explorer_url"] else [],
-                "summary": f"Metal refused a pull of {ev['usdz']} USDZ: {ev['code']}. The refusal is recorded on chain.",
+                "links": [{"label": "Open on blockchain", "url": ev["explorer_url"]}] if ev["explorer_url"] else [],
+                "summary": f"Blocked. The blockchain refused to pay {ev['usdz']} coins, more than Harbour Foods allowed.",
                 "defence": "The mandate lives on Metal, so even a compromised agent cannot pull more than Harbour signed.",
                 "seqs": self._seqs(before, "METAL_REFUSED")}
 
@@ -353,7 +353,7 @@ class Simulator:
         before, run_id = self._head(), self._rid()
         pulls = self.L.entries(run_id=run_id, kind="METAL_PULL", tenant=tenant)
         if not pulls:
-            return {"ok": False, "summary": "Pay the shortfall from Metal first; the scam targets that mandate.", "defence": "", "seqs": []}
+            return {"ok": False, "summary": "Press Pay from crypto wallet first.", "defence": "", "seqs": []}
         try:
             fake = metal.lookalike(self.metal.cfg()["settlement"])
             ev = self.metal.poisoned_pull(self.L, run_id, tenant, pulls[-1]["payload"], fake)
@@ -361,8 +361,8 @@ class Simulator:
             log.warning("metal poisoned pull failed: %s", metal.scrub(str(e)))
             return {"ok": False, "summary": copy.METAL_FALLBACK, "defence": "", "seqs": []}
         return {"ok": ev["code"] == "mandate_payee_not_listed", "tenant": tenant,
-                "links": [{"label": "Refusal on chain", "url": ev["explorer_url"]}] if ev["explorer_url"] else [],
-                "summary": f"Ringfence flagged {fake} as a lookalike of the real wallet {ev['real']}. Pushed to the chain anyway, Metal refused it: {ev['code']}.",
+                "links": [{"label": "Open on blockchain", "url": ev["explorer_url"]}] if ev["explorer_url"] else [],
+                "summary": f"Blocked. The fake wallet {fake[:10]}…{fake[-4:]} looks like the real one {ev['real'][:10]}…{ev['real'][-4:]}. We caught it, and the blockchain refused it too.",
                 "defence": "Ringfence compares the whole address, not the first and last characters a person checks. The mandate names one payee, so the chain refuses any other.",
                 "seqs": self._seqs(before, "METAL_REFUSED")}
 

@@ -218,7 +218,7 @@ function laneHtml(t) {
   const rows = l.lines.length ? `<ul class="lines">${l.lines.map((ln) => `<li><span class="nm" title="${esc(ln.name)}">${esc(ln.name)}</span><span class="num">${money(ln.currency, ln.amount)}</span>${pillHtml(ln.pill)}<a class="btn quiet" href="${esc(ln.track)}" target="_blank" rel="noopener" title="${T.contractorLink}" aria-label="${T.contractorLink}: ${esc(ln.name)}">${ICON.link}</a><span class="detail" title="${esc(ln.request_id)}">${esc(mid(ln.request_id, 10, 6))}</span>${rcHtml(ln)}</li>`).join("")}</ul>` : "";
   return `<article class="lane" data-t="${t}" aria-label="${esc(l.name)}">
     <div class="lane-head"><div class="row"><h2>${esc(l.name)}</h2><span class="mono muted" title="${esc(l.account)}">${esc(mid(l.account))}</span></div>
-      <div class="meta">${ICON.lock}<span>${T.walled}</span><span class="grow"></span><button class="link small" data-act="inbox" data-t="${t}">${T.inboxBtn}</button></div></div>
+      <div class="meta">${ICON.lock}<span>${T.about[t] || ""} · ${T.walled}</span><span class="grow"></span><button class="link small" data-act="inbox" data-t="${t}">${T.inboxBtn}</button></div></div>
     <div class="status"><span class="pill ${tone}">${ICON[TONE_ICON[x.tone]] || ICON.clock}${esc(l.state ? RUN_LABEL[l.state] : "No run")}</span><span class="txt">${esc(x.status)}</span></div>
     ${x.next ? `<p class="muted small">${esc(x.next)}</p>` : ""}
     <div class="lane-body"><div class="col">${noteHtml(t, l)}${amount}${wallet}</div><div class="col">${fundingHtml(f, t)}${rows}</div></div>
@@ -407,7 +407,7 @@ function renderProof() {
   const certBad = TENANTS.filter((t) => !P.certs[t].valid);
   const items = [
     [isoBad.length === 0, `${T.isolation} ${isoBad.length ? T.fail.toUpperCase() : T.pass.toUpperCase()} for ${TENANTS.length - isoBad.length} ${T.of} ${TENANTS.length} ${T.employers}${isoBad.length ? `: ${isoBad.map((t) => nm(t)).join(", ")}` : ""}`],
-    [ch.ok, ch.ok ? `${T.chain} (${ch.seq} entries)` : `Ledger chain broken: ${ch.reason}${ch.bad_seq ? ` at row ${ch.bad_seq}` : ""}`],
+    [ch.ok, ch.ok ? `${T.chain} (${ch.seq} records)` : `Records were changed: ${ch.reason}${ch.bad_seq ? ` at row ${ch.bad_seq}` : ""}`],
     [certBad.length === 0, `${TENANTS.length - certBad.length} ${T.of} ${TENANTS.length} ${T.certs}${certBad.length ? `: ${certBad.map((t) => nm(t)).join(", ")} invalid` : ""}`],
   ];
   const all = items.every((i) => i[0]);
