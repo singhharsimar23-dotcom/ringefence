@@ -5,6 +5,8 @@ Code computes every number; the agent (later) can only ask for a run to be creat
 """
 from __future__ import annotations
 
+import json
+import shutil
 import threading
 from datetime import date, timedelta
 from decimal import Decimal
@@ -12,7 +14,7 @@ from decimal import Decimal
 from . import beneficiaries as ben
 from . import fees, funding, fx, inbox, seed, store
 from .awx import Awx
-from .config import clock
+from .config import ROOT, clock
 from .executor import Executor, current_batch_hash
 from .ledger import Ledger
 from .mandate import Approval, make_request_id, sign_approval
@@ -160,3 +162,120 @@ class Orchestrator:
     def runs(self) -> list[dict]:
         return [store.get_run(self.L, r["run_id"], r["tenant"]) for r in
                 self.L.query("SELECT run_id, tenant FROM runs ORDER BY run_id, tenant")]
+
+    # -- untrusted proposals: quarantined or flagged, never applied ----------------------------------
+    def propose_bank_change(self, run_id: str, tenant: str, cid: str, bank: dict, doc_id: str, by: str) -> dict:
+        rec = ben.propose_bank_change(self.awx, self.L, tenant, cid, bank, doc_id, by)
+        with self.L.tx() as tx:
+            run = store.get_run(tx, run_id, tenant)
+            if run:
+                store.set_run(tx, run_id, tenant, beneficiary_editors=sorted({*run.get("beneficiary_editors", []), by}))
+        return rec
+
+    def note_rate_request(self, run_id: str, tenant: str, cid: str, new_rate: Decimal, doc_id: str, note: str) -> dict:
+        """Shown in the approval diff as 'requested by email'. The registry rate, and so the amount, never changes."""
+        old = seed.contractors(tenant)[cid].rate
+        req = {"contractor_id": cid, "old_rate": str(old), "new_rate": str(new_rate), "doc_id": doc_id,
+               "note": note[:200], "over_25pct": abs(new_rate - old) / old > Decimal("0.25")}
+        with self.L.tx() as tx:
+            run = store.get_run(tx, run_id, tenant)
+            store.set_run(tx, run_id, tenant, rate_requests=[*run.get("rate_requests", []), req])
+            tx.append("PROPOSAL", {"kind": "rate_change", **req}, run_id, tenant)
+        return req
+
+    def confirm_bank_change(self, tenant: str, qid: int, approver_id: str, role: str, ref: str) -> str:
+        """After a callback: the new beneficiary replaces the old one in this tenant's unreleased runs, and any
+        approval over the old batch goes stale through its hash."""
+        new_id = ben.confirm_callback(self.awx, self.L, tenant, qid, approver_id, role, ref)
+        cid = self.L.query("SELECT contractor_id FROM quarantine WHERE id=?", (qid,))[0]["contractor_id"]
+        with self.L.tx() as tx:
+            for run in store.runs_in(tx, ("DRAFT", "AWAITING_FUNDS", "AWAITING_APPROVAL", "READY")):
+                if run["tenant"] != tenant:
+                    continue
+                ln = store.get_line(tx, run["run_id"], tenant, cid)
+                if ln and ln["state"] in ("PLANNED", "READY"):
+                    store.set_line(tx, run["run_id"], tenant, cid, "PLANNED", beneficiary_id=new_id)
+                    if run["state"] == "READY":
+                        for other in store.get_lines(tx, run["run_id"], tenant, states=("READY",)):
+                            store.set_line(tx, run["run_id"], tenant, other["contractor_id"], "PLANNED")
+                        store.set_run(tx, run["run_id"], tenant, state="AWAITING_APPROVAL")
+        return new_id
+
+    # -- operator controls ---------------------------------------------------------------------------
+    def hold(self, run_id: str, tenant: str, reason: str, note: str = "") -> None:
+        with self.L.tx() as tx:
+            run = store.get_run(tx, run_id, tenant)
+            if run is None or run["state"] in ("RELEASING", "RELEASED", "DONE"):
+                raise Refused(f"cannot hold a run in state {run['state'] if run else 'missing'}")
+            for ln in store.get_lines(tx, run_id, tenant, states=("READY",)):
+                store.set_line(tx, run_id, tenant, ln["contractor_id"], "PLANNED")
+            store.set_run(tx, run_id, tenant, state="HELD", hold_reason=reason)
+            tx.append("HOLD", {"reason": reason, "note": note[:200]}, run_id, tenant)
+
+    def resume(self, run_id: str, tenant: str) -> str:
+        run = store.get_run(self.L, run_id, tenant)
+        if run is None or run["state"] != "HELD":
+            raise Refused("only a HELD run can be resumed")
+        with self.L.tx() as tx:
+            store.set_run(tx, run_id, tenant, state="DRAFT")
+        return self.submit(run_id, tenant)
+
+    def set_kill_switch(self, on: bool, by: str) -> None:
+        self.L.set_kill_switch(on, by)
+
+    def reset(self, by: str) -> None:
+        """Archive this take and start a clean one. Never deletes anything on Airwallex; each tenant's AUD is sold back
+        inside its own account so Harbour is short again."""
+        from . import setup_demo
+        certs = ROOT / "artifacts" / "certs"
+        dest = self.L.reset(by)
+        if certs.is_dir():
+            shutil.move(str(certs), str(dest.parent / f"{dest.stem}_certs"))
+        self.ensure_mandates()
+        setup_demo.setup(self.awx, drain=True)
+
+    # -- the approval, as a diff against last run ------------------------------------------------------
+    def diff(self, run_id: str, tenant: str) -> dict:
+        run = store.get_run(self.L, run_id, tenant)
+        names = {k: c.name for k, c in seed.contractors(tenant).items()}
+        last = inbox.history(tenant)
+        lines = store.get_lines(self.L, run_id, tenant, round=run["round"])
+        changes, same, totals = [], [], {}
+        for ln in lines:
+            cid, amt, ccy = ln["contractor_id"], Decimal(ln["amount"]), ln["currency"]
+            totals[ccy] = totals.get(ccy, Decimal(0)) + amt
+            prev = last.get(cid)
+            row = {"contractor_id": cid, "name": names[cid], "amount": str(amt), "currency": ccy, "state": ln["state"]}
+            if prev is None:
+                changes.append({**row, "kind": "new"})
+            elif prev != amt:
+                pct = ((amt - prev) / prev * 100).quantize(Decimal("0.1"))
+                changes.append({**row, "kind": "amount", "previous": str(prev), "pct": str(pct)})
+            else:
+                same.append(row)
+        bank = []
+        for r in self.L.query("SELECT * FROM quarantine WHERE tenant=? ORDER BY id", (tenant,)):
+            d = json.loads(r["data"])
+            b = d.pop("bank")
+            bank.append({"id": r["id"], "contractor_id": r["contractor_id"], "name": names.get(r["contractor_id"]),
+                         "status": r["status"], "last4": (b.get("account_number") or b.get("iban") or "")[-4:], **d})
+        open_ = run["state"] in ("DRAFT", "AWAITING_APPROVAL", "AWAITING_FUNDS")
+        legs, short = self._plan(run_id, tenant)[1:] if open_ else ([], {})
+        sm = store.latest_mandate(self.L, tenant)
+        return {"run_id": run_id, "tenant": tenant, "round": run["round"], "state": run["state"],
+                "changes": changes, "unchanged": {"count": len(same), "totals": _sum(same)},
+                "removed": [c for c in last if c not in {ln["contractor_id"] for ln in lines}],
+                "rate_requests": run.get("rate_requests", []), "bank_changes": bank,
+                "fx": [{"sell": g.sell, "buy": g.buy, "rate": str(g.quote.rate), "sell_amount": str(g.quote.sell_amount),
+                        "buy_amount": str(g.quote.buy_amount), "band_bps": sm.mandate.rate_band_bps if sm else None}
+                       for g in legs],
+                "shortfall": {k: str(v) for k, v in short.items()},
+                "totals": {k: str(v) for k, v in sorted(totals.items())},
+                "approver_role": sm.mandate.approver_role if sm else None}
+
+
+def _sum(rows: list[dict]) -> dict[str, str]:
+    out: dict[str, Decimal] = {}
+    for r in rows:
+        out[r["currency"]] = out.get(r["currency"], Decimal(0)) + Decimal(r["amount"])
+    return {k: str(v) for k, v in sorted(out.items())}

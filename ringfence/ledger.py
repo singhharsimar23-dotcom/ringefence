@@ -217,6 +217,31 @@ class Ledger:
                       (int(on), by, clock.utc_now().isoformat()))
             t.append("KILL_SWITCH", {"on": on, "by": by})
 
+    def reset(self, by: str, archive_dir: str | Path | None = None) -> Path:
+        """New take: copy the whole DB to var/archive, then start an empty chain whose first row (RESET) records the
+        archived head. Needs a trigger drop, so it is an operator action, never reachable from the agent or the API
+        beyond the reset button. Returns the archive path."""
+        arch = Path(archive_dir or var_dir() / "archive")
+        arch.mkdir(parents=True, exist_ok=True)
+        dest = arch / f"{clock.utc_now():%Y%m%dT%H%M%S%f}.db"
+        seq, head = self.head()
+        dst = sqlite3.connect(dest)
+        self.conn().backup(dst)
+        dst.close()
+        with self.tx() as t:
+            t.execute("DROP TRIGGER IF EXISTS ledger_no_update")
+            t.execute("DROP TRIGGER IF EXISTS ledger_no_delete")
+            for tbl in ("ledger", "runs", "lines", "approvals", "mandates", "beneficiaries", "quarantine",
+                        "funding_requests", "events_seen", "meta"):
+                t.execute(f"DELETE FROM {tbl}")
+            t.execute("UPDATE kill_switch SET on_=0, by=NULL, ts=NULL WHERE id=1")
+            t.execute("CREATE TRIGGER ledger_no_update BEFORE UPDATE ON ledger "
+                      "BEGIN SELECT RAISE(ABORT, 'ledger is append-only'); END")
+            t.execute("CREATE TRIGGER ledger_no_delete BEFORE DELETE ON ledger "
+                      "BEGIN SELECT RAISE(ABORT, 'ledger is append-only'); END")
+            t.append("RESET", {"by": by, "archived_as": dest.name, "archived_head": {"seq": seq, "hash": head}})
+        return dest
+
     # -- verification ------------------------------------------------------------------------
     def verify(self, anchor_dir: str | Path | None = None) -> VerifyResult:
         """Recompute the whole chain; then check every certificate head anchor in anchor_dir
