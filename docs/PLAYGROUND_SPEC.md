@@ -407,7 +407,7 @@ Design:
   2. Also create the platform settlement **account** (`account create` into `treasury/`), not a bare key: it must be able to sign the mandate that sends the USDZ back. The treasury owner key is the `--key` for `--record-refusal`.
 - New scenario `metal_topup` (only when `RF_METAL=1`, Harbour, run AWAITING_FUNDS):
   1. Read the open funding request: currency, amount and reference.
-  2. Compute the USDZ amount from a **read-only** Airwallex FX quote (AUD to USD; USDZ is treated as USD 1:1, and say so in the UI). Use Decimal, rounded **up** to cents.
+  2. Compute the USDZ amount from a **read-only** Airwallex FX quote (AUD to USD; the faucet only tops an account up to about 100 USDZ, so the demo uses 1 USDZ = USD 10 (`RF_METAL_USD_PER_USDZ`), and the summary says so). Use Decimal, rounded **up** to cents.
   3. The employer step, labelled "Harbour signs a mandate": `mandate credential create --principal <harbour acct> --payee <platform addr> --cap <usdz> --budget <usdz> --max-occurrences 1 --expires-in <seconds to act-by>`, then `mandate bind`.
   4. The agent step: `mandate pull --amount <usdz> --payment-id <funding reference>`. The payment id is our deterministic reference, so a retry says "already paid".
   5. Ledger: `METAL_PULL {tx, explorer_url, usdz, mandate_hash}` via the existing append API. `ledger.py` is off limits, so `metal.py` adds `METAL_PULL` and `METAL_REFUSED` to `ledger.KINDS` at import; the hash chain does not read KINDS.
