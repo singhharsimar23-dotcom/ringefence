@@ -15,7 +15,7 @@ from datetime import date
 
 from . import scenarios, setup_demo, store
 from .awx import build_backend
-from .config import EMPLOYERS, var_dir
+from .config import EMPLOYERS
 from .ledger import Ledger
 from .orchestrator import Orchestrator, Refused
 
@@ -77,13 +77,11 @@ def main() -> int:
     a = ap.parse_args()
     if a.backend == "fake":  # a throwaway world: never touch the live ledger or registry
         os.environ["RF_VAR"] = tempfile.mkdtemp(prefix="rf-fake-")
-    if a.cmd == "reset":
-        db = var_dir() / "ringfence.db"
-        if input(f"delete {db} (ledger, runs, approvals)? type yes: ") == "yes":
-            for f in db.parent.glob(f"{db.name}*"):
-                f.unlink()
-        return 0
     awx, _ = build_backend(a.backend)
+    if a.cmd == "reset":  # archives the ledger first; the old take stays verifiable in var/archive
+        if input("archive this take and reset runs, ledger and AUD balances? type yes: ") == "yes":
+            Orchestrator(awx, Ledger()).reset("cli")
+        return 0
     if a.cmd == "setup":
         setup_demo.setup(awx)
         return 0

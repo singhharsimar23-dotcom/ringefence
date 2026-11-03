@@ -109,3 +109,72 @@ def all_ga_keys(reg: dict) -> set[str]:
         for g in t.get("gas", []):
             out |= {k for k in (g.get("account_number"), g.get("iban")) if k}
     return out
+
+
+# -- bank-detail changes: quarantine until a DIFFERENT approver confirms by phone (BUILD_SPEC 4.9) ----------
+BANK_KEYS = {"country", "bank_name", "routing_type", "routing_value", "account_number", "iban", "swift_code", "category"}
+
+
+def _check_bank(bank: Any) -> dict:
+    ok = isinstance(bank, dict) and bank and set(bank) <= BANK_KEYS and all(isinstance(v, str) and v for v in bank.values())
+    has_acct = ok and ("iban" in bank and "swift_code" in bank or {"routing_type", "routing_value", "account_number"} <= set(bank))
+    if not (ok and has_acct and "country" in bank and "bank_name" in bank):
+        raise ValueError("bank details must be typed strings: country, bank_name and either iban+swift_code or routing+account")
+    return bank
+
+
+def propose_bank_change(awx, L, tenant: str, contractor_id: str, bank: dict, doc_id: str, requested_by: str) -> dict:
+    """Validate with this tenant's token, then QUARANTINE. Existing details stay in force; nothing is created."""
+    bank = _check_bank(bank)
+    seed_c = next((c for c in seed.contractor_seeds(tenant) if c["id"] == contractor_id), None)
+    if seed_c is None:
+        raise KeyError(f"{contractor_id} is not a contractor of {tenant}")
+    for r in L.query("SELECT id, data FROM quarantine WHERE tenant=? AND contractor_id=? AND status='ACTIVE'",
+                     (tenant, contractor_id)):
+        if json.loads(r["data"]).get("doc_id") == doc_id:
+            return {"id": r["id"], **json.loads(r["data"])}  # same document again: idempotent
+    payload = contractor_payload({**seed_c, "bank": bank})
+    try:
+        awx.for_tenant(tenant).post("/beneficiaries/validate", {"beneficiary": payload["beneficiary"],
+                                                                 "transfer_methods": payload["transfer_methods"]})
+        valid, why = True, ""
+    except AwxError as e:
+        valid, why = False, e.message
+    rec = {"doc_id": doc_id, "requested_by": requested_by, "bank": bank, "valid": valid, "validation": why}
+    with L.tx() as tx:
+        qid = tx.execute("INSERT INTO quarantine(tenant, contractor_id, status, data) VALUES(?,?,?,?)",
+                         (tenant, contractor_id, "ACTIVE", json.dumps(rec))).lastrowid
+        tx.append("BENEFICIARY_QUARANTINED", {"quarantine_id": qid, "contractor_id": contractor_id, "doc_id": doc_id,
+                                              "requested_by": requested_by, "valid": valid,
+                                              "last4": bank.get("account_number", bank.get("iban", ""))[-4:]},
+                  None, tenant)
+    return {"id": qid, **rec}
+
+
+def confirm_callback(awx, L, tenant: str, qid: int, approver_id: str, role: str, callback_ref: str) -> str:
+    """The phone call happened: a different approver types its reference. Only now is the new beneficiary created."""
+    from .store import latest_mandate  # local import: store imports nothing from here
+    rows = L.query("SELECT * FROM quarantine WHERE id=? AND tenant=? AND status='ACTIVE'", (qid, tenant))
+    if not rows:
+        raise LookupError(f"no open quarantine item {qid} for {tenant}")
+    rec = json.loads(rows[0]["data"])
+    cid, sm = rows[0]["contractor_id"], latest_mandate(L, tenant)
+    if sm is None or role != sm.mandate.approver_role:
+        raise PermissionError(f"{approver_id} ({role}) may not confirm bank changes for {tenant}")
+    if approver_id == rec["requested_by"]:
+        raise PermissionError("the person who proposed the change cannot confirm it")
+    if len(callback_ref.strip()) < 4 or not rec["valid"]:
+        raise ValueError("a phone-callback reference (4+ characters) is required, and the details must have validated")
+    seed_c = next(c for c in seed.contractor_seeds(tenant) if c["id"] == cid)
+    payload = contractor_payload({**seed_c, "bank": rec["bank"]})
+    payload["nickname"] = f"{NICK_PREFIX}{cid}:q{qid}"
+    new_id = awx.for_tenant(tenant).post("/beneficiaries/create", payload)["id"]
+    reg = load_registry()
+    reg["tenants"][tenant]["beneficiaries"][cid] = new_id
+    save_registry(reg)
+    with L.tx() as tx:
+        tx.execute("UPDATE quarantine SET status='CONFIRMED', data=? WHERE id=?",
+                   (json.dumps({**rec, "confirmed_by": approver_id, "callback_ref": callback_ref, "beneficiary_id": new_id}), qid))
+        tx.append("CALLBACK_CONFIRMED", {"quarantine_id": qid, "contractor_id": cid, "confirmed_by": approver_id,
+                                         "callback_ref": callback_ref, "beneficiary_id": new_id}, None, tenant)
+    return new_id
