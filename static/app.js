@@ -220,7 +220,7 @@ function laneHtml(t) {
     <div class="lane-head"><div class="row"><h2>${esc(l.name)}</h2><span class="mono muted" title="${esc(l.account)}">${esc(mid(l.account))}</span></div>
       <div class="meta">${ICON.lock}<span>${T.walled}</span><span class="grow"></span><button class="link small" data-act="inbox" data-t="${t}">${T.inboxBtn}</button></div></div>
     <div class="status"><span class="pill ${tone}">${ICON[TONE_ICON[x.tone]] || ICON.clock}${esc(l.state ? RUN_LABEL[l.state] : "No run")}</span><span class="txt">${esc(x.status)}</span></div>
-    <p class="muted small">${esc(x.next)}</p>
+    ${x.next ? `<p class="muted small">${esc(x.next)}</p>` : ""}
     <div class="lane-body"><div class="col">${noteHtml(t, l)}${amount}${wallet}</div><div class="col">${fundingHtml(f, t)}${rows}</div></div>
     <div class="lane-foot">${act}${hold}</div></article>`;
 }
