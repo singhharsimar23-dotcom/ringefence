@@ -120,3 +120,29 @@ def test_ledger_rows_are_linkable_and_carry_no_secrets(c):
     c.post("/api/start", json={})
     rows = c.get("/api/ledger", params={"seqs": "1,2,3"}).json()
     assert [r["seq"] for r in rows] == [1, 2, 3] and all("hash" in r for r in rows)
+
+
+def test_rules_endpoints_draft_without_applying_and_only_the_tenants_approver_signs(c, E):
+    body = {"tenant": "northwind", "text": "No single payment over 400 GBP", "user": "priya"}
+    d = c.post("/api/rules/draft", json=body).json()["draft"]
+    assert d["after"]["per_line_cap"]["GBP"] == "400.00" and d["base_version"] == 1
+    assert c.post("/api/rules/sign", json={**body, "user": "sam"}).status_code == 409  # Kestrel finance
+    assert c.post("/api/rules/sign", json={**body, "user": "maya"}).status_code == 409  # operator
+    assert c.post("/api/rules/sign", json=body).json()["version"] == 2
+    assert c.post("/api/rules/draft", json={**body, "text": "pay everyone double"}).status_code == 409
+
+
+def test_track_links_are_per_contractor_and_unknown_tokens_are_404(c, E):
+    c.post("/api/start", json={"user": "maya"})
+    link = lane(c, "kestrel")["lines"][0]["track"]
+    got = c.get("/api/" + link.lstrip("/")).json()
+    assert got["employer"] == "Kestrel" and "balances" not in got
+    assert c.get(link).status_code == 200  # the page
+    assert c.get("/api/track/" + "0" * 24).status_code == 404
+
+
+def test_webhook_endpoint_rejects_unsigned_posts(c, monkeypatch):
+    monkeypatch.setenv("AWX_WEBHOOK_SECRET", "whsec_fake")
+    assert c.post("/webhooks/airwallex", content=b"{}").status_code == 401
+    monkeypatch.delenv("AWX_WEBHOOK_SECRET")
+    assert c.post("/webhooks/airwallex", content=b"{}", headers={"x-timestamp": "1", "x-signature": "a"}).status_code == 401
