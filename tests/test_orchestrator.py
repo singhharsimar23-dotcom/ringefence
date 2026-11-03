@@ -3,6 +3,7 @@ from decimal import Decimal as D
 
 import pytest
 from helpers import acct, sim
+from invariants import assert_invariants
 from test_funding import harbour_ga
 
 from ringfence import inbox, store
@@ -10,6 +11,12 @@ from ringfence.orchestrator import Orchestrator, Refused
 from ringfence.setup_demo import setup
 
 PAY = date(2026, 11, 14)
+
+@pytest.fixture(autouse=True)
+def _invariants(L, fake):
+    yield
+    assert_invariants(L, fake)
+
 
 
 @pytest.fixture
