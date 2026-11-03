@@ -46,3 +46,9 @@ State left on the sandbox by the probes: Harbour has an AU probe beneficiary and
 - Re-check of the first transfer returned the same status as the ledger (PAID). `/api/proof` for the world: isolation not applicable with one employer, ledger chain ok, certificate valid against the world's own key.
 - Live e2e (`scripts/e2e_demo.py`) against the public URL after the deploy: all three lanes DONE, proof report ok. `free -m` after a live world: 365 MB used, 522 MB available, swap 0.
 - Only one live world runs at a time (`RF_PLAY_LIVE_MAX=1`); a second request waits in the queue. A world left waiting for approval holds the slot until its 20-minute idle timeout.
+
+## P13: Metal testnet (3 Nov, `@metalntwx/metal-agent@0.3.3`, chain 63825)
+- Mandate create, bind and a paid pull work end to end (about 10 s per transaction). Refusals come back as exit 1 with `mandate_cap_exceeded`, `mandate_payee_not_listed`, `mandate_budget_spent` or `mandate_expired`; with `--record-refusal --key <owner key>` the refusal is also written on chain. `--payment-id` makes a pull idempotent.
+- A settlement **account** signs a mandate back to Harbour's account, so the USDZ is recycled (2 USDZ out and back in the probe, including a recorded over-cap refusal).
+- Faucet: 100 USDZ per grant, 10 grants a day per IP; the edge limiter also answers 429 "retry shortly". Creating an account needs a grant for gas, so the settlement account was created once and its key copied to the VM.
+- One demo top-up pulls about 800 USDZ (AUD 1,240.17 at the quote). The VM holds 1,000 USDZ and gets it back after each pull.

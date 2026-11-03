@@ -119,12 +119,37 @@ class Metal:
         L.append("METAL_PULL", pay, run_id, tenant)
         return pay
 
+    def treasury_key(self) -> str:
+        """The platform's settlement account owner key (older setups used a plain settlement key)."""
+        t = self.dir / "treasury" / "treasury_owner.json"
+        return str(t if t.exists() else self.dir / "settlement.json")
+
+    def recycle(self, pay: dict) -> None:
+        """Send the pulled USDZ back to Harbour's account with a mandate the settlement account signs, so the testnet
+        treasury never runs dry. Plumbing, not proof: it writes no ledger row (runs on a side thread)."""
+        c, tk = self.cfg(), self.treasury_key()
+        rd = self.dir / "runs" / (pay["run_dir"] + "-back")
+        amt = pay["usdz"]
+        self.call(["mandate", "credential", "create", "--principal", c["settlement"], "--payee", c["principal"], "--cap", amt,
+                   "--budget", amt, "--max-occurrences", "1", "--expires-in", "3600", "--key", tk, "--out", "m.json"], rd)
+        self.call(["mandate", "bind", "--credential", "m.json", "--key", tk], rd)
+        self.call(["mandate", "pull", "--credential", "m.json", "--to", c["principal"], "--amount", amt,
+                   "--payment-id", pay["run_dir"] + "-back"], rd)
+
+    def recycle_later(self, pay: dict) -> None:
+        def go():
+            try:
+                self.recycle(pay)
+            except MetalError as e:
+                log.warning("metal recycle failed: %s", scrub(str(e)))
+        threading.Thread(target=go, name="metal-recycle", daemon=True).start()
+
     def over_pull(self, L, run_id: str, tenant: str, pay: dict) -> dict:
         """Ask for 1.00 more than the mandate's cap; Metal refuses and records the refusal on chain. Returns the METAL_REFUSED payload."""
         c = self.cfg()
         more = Decimal(pay["usdz"]) + 1
         r = self.call(["mandate", "pull", "--credential", "m.json", "--to", c["settlement"], "--amount", str(more),
-                       "--record-refusal", "--key", str(self.dir / "settlement.json")], self.dir / "runs" / pay["run_dir"], ok=(1,))
+                       "--record-refusal", "--key", self.treasury_key()], self.dir / "runs" / pay["run_dir"], ok=(1,))
         if not r.get("outcome", "").startswith("refused"):
             raise MetalError("Metal did not refuse the over-pull")
         ev = {"what": "Metal refused a pull above the mandate", "code": r.get("reason"), "usdz": str(more),

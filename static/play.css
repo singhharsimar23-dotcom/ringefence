@@ -42,6 +42,9 @@ body.v-try::before{content:"";position:fixed;inset:-20% -10% auto -10%;height:70
 .exs{display:flex;flex-wrap:wrap;gap:var(--s2);justify-content:center}
 .ex{font-weight:500;color:var(--muted);border-color:var(--line);font-size:13px}
 .faint{color:var(--faint);text-align:center}
+.metal-pill{justify-self:center;display:inline-flex;align-items:center;gap:var(--s2);flex-wrap:wrap;justify-content:center;padding:6px 8px 6px 14px;border:1px solid var(--line-strong);border-radius:999px;background:oklch(100% 0 0/.05);color:var(--ink);text-decoration:none;font-size:13px;line-height:18px;transition:background-color .2s,border-color .2s}
+.metal-pill .go{padding:2px 10px;border-radius:999px;background:var(--ink);color:var(--bg);font-weight:600}
+@media (hover:hover) and (pointer:fine){.metal-pill:hover{background:oklch(100% 0 0/.1)}}
 .pl-segnote{text-align:center;color:var(--faint)}
 
 /* review form */

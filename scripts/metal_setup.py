@@ -31,24 +31,28 @@ if "principal" not in st:
     save()
     print("[Harbour's finance lead] created Harbour's Metal account", st["principal"])
 if "settlement" not in st:
-    rc, out = m.runner(["key", "create", "--out", "settlement.json"], d)
-    st["settlement"] = metal.parse(out)["address"]
+    (d / "treasury").mkdir(exist_ok=True)  # an account, not a bare key, so it can sign the mandate that sends the USDZ back
+    st["settlement"] = m.call(["account", "create", "--out", "treasury_owner.json"], d / "treasury")["account"]
     save()
-    print("[platform] created the settlement address", st["settlement"])
-for p in (d / "owner.json", d / "settlement.json"):
+    print("[platform] created the settlement account", st["settlement"])
+for p in (d / "owner.json", d / "treasury" / "treasury_owner.json"):
     try:
         p.chmod(0o600)
     except OSError:
         pass
 
+strikes = 0
 while st.get("funded_usdz", 0) < target:
     rc, out = m.runner(["fund", st["principal"], "--network", "testnet"], d)
     if rc == 0:
         st["funded_usdz"] = st.get("funded_usdz", 0) + 100
+        strikes = 0
         save()
         print(f"[faucet] funded Harbour's account, total granted {st['funded_usdz']} USDZ")
     elif wait := re.search(r"retry in (\d+) s", out):
         time.sleep(int(wait.group(1)) + 2)
+    elif "429" in out and (strikes := strikes + 1) <= 15:  # the edge limiter says only "retry shortly"
+        time.sleep(65)
     else:
         sys.exit(f"faucet refused: {out.strip()[:200]}")
 print("ready: set RF_METAL=1 for the demo")

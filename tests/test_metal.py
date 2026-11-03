@@ -38,6 +38,7 @@ def world(awx, L, tmp_path):
             return 0, f"bound 0x{'c' * 64}\ntransaction 0x{'d' * 64}\n"
         return 0, "credential m.json\n"
     sim.metal = metal.Metal(runner, tmp_path)
+    sim.metal.recycle_later = sim.metal.recycle  # same steps, on this thread, so the test can look at them
     return o, sim, rid, calls
 
 
@@ -110,3 +111,14 @@ def test_cards_only_appear_with_rf_metal(monkeypatch):
     assert {"metal_topup", "metal_overpull"} <= set(scenario_cards())
     monkeypatch.setenv("RF_WORLD", "w1")
     assert not {"metal_topup", "metal_overpull"} & set(scenario_cards())
+
+
+def test_pulled_usdz_is_sent_back_by_the_settlement_account(world, L):
+    _, sim, _, calls = world
+    sim._tick("harbour")
+    assert sim.run("metal_topup")["ok"]
+    back = [a for a in calls if "credential" in a and "0xSETTLE" in a and a[a.index("--principal") + 1] == "0xSETTLE"]
+    assert back and back[0][back[0].index("--payee") + 1] == "0xPRINCIPAL"
+    pull = L.entries(kind="METAL_PULL")[0]["payload"]
+    assert back[0][back[0].index("--cap") + 1] == pull["usdz"]
+    assert not L.entries(kind="METAL_RETURNED")  # plumbing: no ledger row
