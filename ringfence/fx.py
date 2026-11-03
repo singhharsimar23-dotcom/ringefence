@@ -37,6 +37,41 @@ def convert(c: TenantClient, request_id: str, qt: Quote, *, by: str) -> dict:
                                              amt[0]: amt[1]})
 
 
+@dataclass(frozen=True)
+class Leg:
+    sell: str
+    buy: str
+    quote: Quote
+
+
+def plan(c: TenantClient, mandate, need: dict[str, Decimal], avail: dict[str, Decimal]) -> list[Leg]:
+    """Cover ONLY this tenant's shortfall per currency by selling the first mandate funding currency that has
+    spare balance. Quotes only; nothing moves. An empty list for a real shortfall makes the gate deny it."""
+    legs: list[Leg] = []
+    sold: dict[str, Decimal] = {}
+    zero = Decimal(0)
+    if mandate.fx == "never":
+        return legs
+    for cur, n in sorted(need.items()):
+        short = n - avail.get(cur, zero)
+        if short <= 0:
+            continue
+        for f in mandate.funding_currencies:
+            if f == cur:
+                continue
+            qt = get_quote(c, f, cur, buy_amount=q(short, cur))
+            if avail.get(f, zero) - need.get(f, zero) - sold.get(f, zero) >= qt.sell_amount:
+                legs.append(Leg(f, cur, qt))
+                sold[f] = sold.get(f, zero) + qt.sell_amount
+                break
+    return legs
+
+
+def leg_request_id(run_id: str, tenant: str, leg: Leg, round: int) -> str:
+    """One conversion per (run, tenant, currency, round); a duplicate means it already happened."""
+    return f"fx-{run_id}-{tenant}-{leg.buy}-r{round}"
+
+
 def drain(c: TenantClient, ccy: str, into: str, request_id: str) -> Decimal:
     """Sell this tenant's whole `ccy` balance into `into`, in the same account. Returns the amount sold."""
     bal = q(c.balances().get(ccy, Decimal(0)), ccy)

@@ -143,6 +143,11 @@ class TenantClient:
             self._awx._sleep(0.5 * 2 ** i)
         raise AssertionError("unreachable")
 
+    def transfer_by_request(self, request_id: str) -> dict | None:
+        """The way to find out whether a create landed. GET-only, so safe at any time."""
+        items = self.get("/transfers", {"request_id": request_id, "page_size": 100}).get("items", [])
+        return next((t for t in items if t.get("request_id") == request_id), None)
+
     def balances(self) -> dict[str, Decimal]:
         """This tenant's own available balances. Never sum these across tenants."""
         return {b["currency"]: Decimal(b["available_amount"]) for b in self.get("/balances/current")}
