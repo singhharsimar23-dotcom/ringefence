@@ -149,10 +149,10 @@ class Orchestrator:
         if run is None:
             raise Refused(f"no run {run_id}/{tenant}")
         if run["state"] == "AWAITING_FUNDS":
-            if funding.match_deposits(self.awx, self.L, run_id, tenant):
-                _, _, short = self._plan(run_id, tenant)
-                if not short:
-                    return self._after_pricing(run_id, tenant)
+            matched = funding.match_deposits(self.awx, self.L, run_id, tenant)
+            # re-price after a match, or when nothing is open (a deposit was reversed): ask again for what is still short
+            if matched or not funding._requests(self.L, run_id, tenant, "OPEN"):
+                return self._after_pricing(run_id, tenant)
         elif run["state"] == "READY":
             with self._money:
                 return self.ex.release(run_id, tenant)
