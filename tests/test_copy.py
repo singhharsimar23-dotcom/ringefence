@@ -98,6 +98,7 @@ def all_literals() -> dict[str, list[str]]:
     return {
         "copy.py": py_strings(ROOT / "ringfence" / "copy.py"),
         "copy.js": js_strings((ROOT / "static" / "copy.js").read_text(encoding="utf-8")),
+        "app.js": js_strings((ROOT / "static" / "app.js").read_text(encoding="utf-8")),
         "index.html": html_text((ROOT / "static" / "index.html").read_text(encoding="utf-8")),
     }
 
@@ -107,7 +108,7 @@ LITERALS = [(f, s) for f, strings in all_literals().items() for s in strings]
 
 def test_the_scan_finds_the_text_it_is_supposed_to_guard():
     found = {f for f, _ in LITERALS}
-    assert found == {"copy.py", "copy.js", "index.html"}
+    assert found == {"copy.py", "copy.js", "app.js", "index.html"}
     assert any("Run Friday payroll" in s for _, s in LITERALS) and len(LITERALS) > 150
 
 

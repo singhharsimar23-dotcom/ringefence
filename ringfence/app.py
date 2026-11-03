@@ -205,7 +205,7 @@ class Engine:
         bal = self.cache["balances"].get(t, {})
         text = copy.lane_text(name, run, d, req, now, "")
         return {
-            "tenant": t, "name": name, "tz": tenants(fake=True)[t].display_tz, "state": run["state"] if run else None,
+            "tenant": t, "name": name, "account": self.awx.tenants()[t].account_id, "tz": tenants(fake=True)[t].display_tz, "state": run["state"] if run else None,
             "text": text, "lines": lines, "diff": d, "funding": req, "wallet": {c: bal[c] for c in ccys if c in bal},
             "approve_label": f"Approve {copy.totals(d['totals'])} (bound to this exact batch)" if d else "",
             "agent_note": self.notes.get(t),
@@ -372,6 +372,7 @@ def create_app(E: Engine) -> FastAPI:
         def job():
             E.o.reset(b.user)
             E.results.clear()
+            E.notes.clear()
             E.certs.clear()
             E.sim._tamper = None
             E._ready_since.clear()

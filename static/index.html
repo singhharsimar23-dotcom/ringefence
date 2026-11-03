@@ -9,46 +9,64 @@
 <body>
 <header class="top">
   <span class="brand">Ringfence</span>
-  <span class="meta" id="meta"></span>
+  <span class="live" id="live"></span>
   <nav class="tabs" aria-label="Pages">
-    <a href="#/" id="tab-pay">Payroll</a>
+    <a href="#/" id="tab-pay">Pay</a>
     <a href="#/rules" id="tab-rules">Rules</a>
     <a href="#/proof" id="tab-proof">Proof</a>
   </nav>
-  <span class="grow"></span>
-  <span class="chip" id="agent" title="Which agent is making the proposals"></span>
-  <span class="chip sim" title="Sandbox-only actions are always marked [SIMULATED]">[SIMULATED] = sandbox only</span>
-  <label class="who">Acting as <select id="who" aria-label="Acting as (demo only)"></select><span class="chip">demo only</span></label>
-  <button id="kill" class="danger" data-act="kill">Pause all payouts</button>
-  <button id="start" class="primary" data-act="start">Run Friday payroll</button>
+  <div class="tools">
+    <span class="agent" id="agent"></span>
+    <button id="act-btn" data-act="drawer" aria-expanded="false" aria-controls="activity"></button>
+    <div class="menu" id="menu-who">
+      <button data-act="menu" data-m="who" aria-haspopup="true" aria-expanded="false" aria-label="Acting as" id="who-btn"></button>
+      <div class="pop" id="pop-who" role="menu" hidden></div>
+    </div>
+    <div class="menu" id="menu-more">
+      <button class="icon" data-act="menu" data-m="more" aria-haspopup="true" aria-expanded="false" aria-label="More" title="More">
+        <svg class="ico" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="currentColor"><circle cx="4.500" cy="10" r="1.500"/><circle cx="10" cy="10" r="1.500"/><circle cx="15.500" cy="10" r="1.500"/></svg>
+      </button>
+      <div class="pop" id="pop-more" role="menu" hidden>
+        <button role="menuitem" data-act="startover" id="m-startover"></button>
+        <button role="menuitem" data-act="presenter" id="m-presenter"></button>
+        <button role="menuitem" data-act="details" id="m-details" aria-pressed="false"></button>
+      </div>
+    </div>
+    <button id="kill" class="danger" data-act="kill"></button>
+  </div>
 </header>
 <div id="pubbar" class="bar quiet" hidden></div>
-<div id="killbar" class="bar amber" hidden></div>
+<div id="killbar" class="bar red" hidden></div>
+<div id="warnbar" class="bar amber" hidden></div>
 <div id="errbar" class="bar red" hidden></div>
 
 <main>
 <section id="view-pay">
-  <div class="naive" id="naive" hidden></div>
-  <div class="grid">
-    <div>
+  <div class="shell has-activity" id="shell">
+    <div class="content">
+      <div class="intro" id="intro" hidden></div>
+      <div class="rail-row">
+        <ol class="rail" id="rail" aria-label="Progress"></ol>
+        <div class="next" id="next"></div>
+      </div>
+      <div class="callout" id="naive" hidden></div>
       <div class="lanes" id="lanes"></div>
       <section class="break" aria-labelledby="brk">
-        <h2 id="brk">Try to break it</h2>
-        <p class="sub">Each test runs against the real agent, gate and ledger. Sandbox-only steps are marked [SIMULATED].</p>
+        <div><h2 id="brk"></h2><p class="muted" id="brk-sub"></p></div>
         <div class="cards" id="cards"></div>
-        <h3>Sandbox events [SIMULATED]</h3>
-        <div class="cards" id="events" style="margin-top:8px"></div>
+        <h3 id="ev-title"></h3>
+        <div class="cards" id="events"></div>
       </section>
     </div>
-    <aside class="timeline" aria-label="What the agent did">
-      <div class="head"><h2>What Ringfence did</h2><span><span class="chip" id="tlcount"></span> <button class="quiet" id="det" data-act="details" aria-pressed="false">Show details</button></span></div>
+    <aside class="activity" id="activity" aria-label="Activity">
+      <div class="head"><h2 id="act-title"></h2><span class="chip" id="tlcount"></span></div>
       <div class="chips" id="chips" role="group" aria-label="Filter"></div>
-      <ol id="tl"></ol>
+      <ol id="tl" aria-live="polite"></ol>
     </aside>
   </div>
 </section>
-<section id="view-rules" class="proof" hidden></section>
-<section id="view-proof" class="proof" hidden></section>
+<section id="view-rules" hidden></section>
+<section id="view-proof" hidden></section>
 </main>
 
 <dialog id="dlg-approve" aria-labelledby="ap-title"></dialog>
@@ -59,320 +77,6 @@
 <div id="certprint" class="certprint"></div>
 
 <script src="/static/copy.js"></script>
-<script>
-"use strict";
-const $ = (s, el = document) => el.querySelector(s);
-const TENANTS = ["northwind", "kestrel", "harbour"];
-const NAMES = { northwind: "Northwind", kestrel: "Kestrel", harbour: "Harbour" };
-const qs = new URLSearchParams(location.search);
-const PRESENT = qs.get("present") === "1";
-if (PRESENT) document.body.classList.add("present");
-
-let S = null, TL = [], filter = "all", view = "pay", PROOF = null, busy = false, lastVer = null;
-
-/* ---------- plumbing ---------- */
-async function api(path, body) {
-  const opt = body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
-  const r = await fetch(path, opt);
-  let j = null;
-  try { j = await r.json(); } catch (_) { /* non-JSON error page */ }
-  if (!r.ok) { const e = new Error((j && j.detail) || `Request failed (${r.status}).`); e.status = r.status; throw e; }
-  return j;
-}
-let toastTimer;
-function toast(msg) {
-  const t = $("#toast"); t.textContent = msg; t.classList.add("on");
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 4200);
-}
-const me = () => localStorage.getItem("rf_user") || "maya";
-async function doAct(path, body, okMsg) {
-  if (busy) return null;
-  busy = true; render();
-  try { const r = await api(path, { user: me(), ...body }); if (okMsg) toast(okMsg); return r; }
-  catch (e) { toast(e.status === 409 ? `${e.message} Try switching "Acting as".` : e.message); return null; }
-  finally { busy = false; await refresh(); }
-}
-
-/* ---------- refresh ---------- */
-async function refresh() {
-  if (qs.get("state") === "loading") return render();
-  try {
-    if (qs.get("state") === "error") throw new Error("fixture");
-    S = await api("/api/state");
-    const after = TL.length ? TL[TL.length - 1].seq : 0;
-    TL = TL.concat(await api(`/api/timeline?after=${after}`));
-    if (S.head < after) { TL = await api("/api/timeline?after=0"); }  // a reset restarts the ledger
-    $("#errbar").hidden = true;
-  } catch (e) {
-    $("#errbar").hidden = false; $("#errbar").textContent = T.loadError;
-  }
-  render();
-  if (view === "proof") loadProof();
-}
-function connect() {
-  let fallback = setInterval(refresh, 4000);
-  try {
-    const es = new EventSource("/events");
-    es.addEventListener("tick", (ev) => {
-      const v = ev.data; if (v === lastVer) return; lastVer = v; refresh();
-    });
-    es.onopen = () => clearInterval(fallback);
-    es.onerror = () => { clearInterval(fallback); fallback = setInterval(refresh, 4000); };
-  } catch (_) { /* polling only */ }
-}
-
-/* ---------- render ---------- */
-function render() {
-  for (const v of ["pay", "rules", "proof"]) {
-    $(`#view-${v}`).hidden = view !== v;
-    if (view === v) $(`#tab-${v}`).setAttribute("aria-current", "page"); else $(`#tab-${v}`).removeAttribute("aria-current");
-  }
-  if (!S) { $("#lanes").innerHTML = TENANTS.map(() => `<div class="lane" aria-busy="true"><div class="skel" style="width:70%"></div><div class="skel"></div><div class="skel" style="width:50%"></div></div>`).join(""); return; }
-  $("#meta").textContent = `Pay date ${S.pay_date}`; $("#meta").title = `Run ${S.run_id}`;
-  const ag = $("#agent"); ag.textContent = S.agent === "offline agent" ? "offline agent" : "Ringfence agent"; ag.title = S.agent === "offline agent" ? "Scripted fallback: no model is called" : "Claude proposes; code decides";
-  const sel = $("#who");
-  if (sel.options.length !== S.users.length) sel.innerHTML = S.users.map((u) => `<option value="${esc(u.id)}">${esc(u.label)}</option>`).join("");
-  sel.value = me();
-  const hasRun = TENANTS.some((t) => S.lanes[t].state);
-  $("#start").textContent = hasRun ? T.again : T.start; $("#start").classList.toggle("primary", !hasRun); $("#start").disabled = busy;
-  if (view === "rules") renderRules();
-  const pb = $("#pubbar"); pb.hidden = !S.public; pb.textContent = S.public ? T.publicDemo : "";
-  const kb = $("#killbar");
-  kb.hidden = !S.kill.on;
-  kb.innerHTML = S.kill.on ? `${ICON.pause}<span class="grow">All payouts are paused${S.kill.by ? ` by ${esc(S.kill.by)}` : ""}. Nothing new will be sent.</span><button data-act="unkill">${T.resumeAll}</button>` : "";
-  $("#kill").hidden = S.kill.on;
-  renderNaive(); renderLanes(); renderCards(); renderTimeline();
-}
-function renderNaive() {
-  const el = $("#naive"), n = S.naive;
-  el.hidden = !n || !S.lanes.harbour.funding;
-  if (el.hidden) return;
-  el.innerHTML = `<span>A pooled account would show</span> <s>${esc(fmtMoney(n.currency, n.amount))}</s> <span>${n.covers ? "and look funded." : "which still would not cover Harbour."}</span><span class="real">Harbour's own AUD account is the only money that counts for Harbour.</span>`;
-}
-function pillHtml(p) { return `<span class="pill ${PILL_CLASS[p] || "grey"}">${ICON[PILL_ICON[p]] || ""}${esc(p)}</span>`; }
-function copyBtn(v) { return `<button class="copy" data-copy="${esc(v)}" aria-label="Copy ${esc(v)}">Copy</button>`; }
-function fundingHtml(f) {
-  if (!f) return "";
-  const acct = f.account_number || f.iban || "";
-  const rows = [["Pay into", `${NAMES[f.tenant || ""] || ""}'s own ${f.currency} account`], ["Account", acct], [(f.routing_type || "Routing").toUpperCase(), f.routing_value || ""], ["Reference", f.reference], ["Amount", `${f.currency} ${fmtMoney(f.currency, f.amount).slice(f.currency.length + 1)}`]];
-  return `<div class="funding" aria-label="Funding details">${rows.filter((r) => r[1]).map((r) => `<div class="row"><span>${esc(r[0])}</span><span class="num">${esc(r[1])}${["Account", "Reference", "Amount"].includes(r[0]) ? " " + copyBtn(r[0] === "Amount" ? f.amount : r[1]) : ""}</span></div>`).join("")}</div>`;
-}
-function renderLanes() {
-  $("#lanes").innerHTML = TENANTS.map((t) => {
-    const l = S.lanes[t], x = l.text, tone = x.tone === "idle" ? "" : `tone-${x.tone}`;
-    const f = l.funding ? { ...l.funding, tenant: t } : null;
-    const act = { start: "", approve: `<button class="primary" data-act="review" data-t="${t}" ${busy ? "disabled" : ""}>${T.review}</button>`,
-      copy_funding: `<button class="primary" data-copy="${esc(f ? f.reference : "")}">${T.copyFunding}</button>`,
-      review: `<button class="primary" data-act="review" data-t="${t}">${T.reviewReturned}</button>`,
-      proof: `<a href="#/proof"><button class="primary" style="width:100%">${T.openProof}</button></a>`,
-      resume: `<button class="primary" data-act="resume" data-t="${t}">${T.resume}</button>`, none: "" }[x.action] || "";
-    const holdBtn = l.state && ["AWAITING_APPROVAL", "READY", "AWAITING_FUNDS"].includes(l.state) ? `<button class="quiet" data-act="hold" data-t="${t}">${T.hold}</button>` : "";
-    const path = l.path.ccys.length ? `<div class="path" aria-label="Money path">${l.path.ccys.map((c) => `<span class="node">${esc(c)} wallet</span>`).join("")}${l.path.fx.map((g) => `${ICON.arrow}<span class="node">${esc(g.sell)} to ${esc(g.buy)}</span>`).join("")}${ICON.arrow}<span class="node">payees</span></div>` : "";
-    const wallet = Object.keys(l.wallet).length ? `<div class="wallet" aria-label="Own wallet">${Object.entries(l.wallet).map(([c, a]) => `<span class="chip num">${esc(fmtMoney(c, a))}</span>`).join("")}</div>` : "";
-    const rows = l.lines.length ? `<table><tbody>${l.lines.map((ln) => `<tr><td>${esc(ln.name)}<div class="detail">${esc(ln.request_id)} <a href="${esc(ln.track)}" target="_blank" rel="noopener">Contractor link</a></div></td><td class="r num">${money(ln.currency, ln.amount)}</td><td class="r">${pillHtml(ln.pill)}</td></tr>`).join("")}</tbody></table>` : "";
-    return `<article class="lane ${tone}" data-t="${t}" aria-label="${esc(l.name)}">
-      <header><h2>${esc(l.name)}</h2><span class="chip">${esc(l.state ? RUN_LABEL[l.state] : "No run")}</span></header>
-      <p class="status">${ICON[TONE_ICON[x.tone]] || ICON.clock}<span>${esc(x.status)}</span></p>
-      <p class="next">${esc(x.next)}</p>${path}${wallet}${fundingHtml(f)}${rows}
-      <div class="foot">${act}${holdBtn}</div></article>`;
-  }).join("");
-}
-function renderCards() {
-  const byId = Object.fromEntries(S.scenarios.map((s) => [s.id, s]));
-  const card = (id, i) => {
-    const s = byId[id]; if (!s) return "";
-    const r = s.last, tamperOn = id === "tamper_ledger" && r && r.bad_seq != null;  // only the edit result carries bad_seq
-    return `<div class="card" data-id="${id}"><div class="title"><span>${esc(s.title)}</span>${PRESENT && i !== undefined ? `<span class="key">${i + 1}</span>` : ""}</div>
-      <p class="line">${esc(s.line)}${SIMULATED_CARDS.has(id) ? ` <span class="chip sim">${T.simulated}</span>` : ""}</p>
-      ${r ? `<div class="result"><div class="verdict ${r.ok ? "ok" : "no"}">${r.ok ? ICON.check : ICON.alert}<span>${esc(r.summary)}</span></div><div>${esc(r.defence || "")}</div>${(r.seqs || []).length ? `<button class="quiet" data-act="rows" data-id="${id}">${T.viewRows}</button>` : ""}</div>` : ""}
-      <div class="acts"><button data-act="scenario" data-id="${id}" ${busy ? "disabled" : ""}>${tamperOn ? T.restore : T.runTest}</button></div></div>`;
-  };
-  $("#cards").innerHTML = CARD_ORDER.map(card).join("");
-  $("#events").innerHTML = EVENT_ORDER.map((id) => card(id)).join("");
-}
-const CHIPS = [["all", "All"], ["northwind", "Northwind"], ["kestrel", "Kestrel"], ["harbour", "Harbour"], ["blocked", "Blocked only"]];
-function renderTimeline() {
-  $("#chips").innerHTML = CHIPS.map(([k, v]) => `<button data-act="filter" data-k="${k}" aria-pressed="${filter === k}">${v}</button>`).join("");
-  const rows = TL.filter((r) => filter === "all" || (filter === "blocked" ? r.blocked : r.tenant === filter));
-  $("#tlcount").textContent = `${rows.length} of ${TL.length}`;
-  const ol = $("#tl");
-  const stick = ol.scrollTop + ol.clientHeight >= ol.scrollHeight - 30;
-  ol.innerHTML = rows.length ? rows.map((r) => {
-    const d = r.detail || {};
-    const det = Object.entries(d).map(([k, v]) => `${k} ${v}`).join(" · ");
-    return `<li class="${r.blocked ? "blocked" : r.tenant ? "mine-" + r.tenant : ""}"><time>${clockSec(r.ts)}</time><span><span class="tag ${r.phase}">${r.phase}</span><br>${esc(r.text)}</span><span></span><span class="detail">${esc(det)}</span></li>`;
-  }).join("") : `<li class="empty">${T.emptyTimeline}</li>`;
-  if (stick) ol.scrollTop = ol.scrollHeight;
-}
-
-/* ---------- dialogs ---------- */
-function ask(title, body, yes) {
-  const d = $("#dlg-ask");
-  d.innerHTML = `<header><h2 id="ask-title">${esc(title)}</h2></header><div class="body"><p>${esc(body)}</p></div><footer><button data-close>${T.close}</button><button class="primary" id="ask-yes">${esc(yes)}</button></footer>`;
-  d.showModal();
-  return new Promise((res) => { $("#ask-yes").onclick = () => { d.close(); res(true); }; d.onclose = () => res(false); });
-}
-function diffHtml(d) {
-  if (!d) return `<p class="empty">Still preparing this batch.</p>`;
-  const rows = [];
-  d.changes.forEach((c) => rows.push(`<div class="diff-row ${c.kind === "amount" && Math.abs(parseFloat(c.pct)) > 25 ? "red" : ""}"><span>${esc(c.name)}: ${c.kind === "new" ? "new payee" : `was ${esc(fmtMoney(c.currency, c.previous))} (${esc(c.pct)}%)`}</span><span class="num">${money(c.currency, c.amount)}</span></div>`));
-  d.bank_changes.forEach((b) => rows.push(`<div class="diff-row red"><span>${esc(b.name)}: new bank details ending ${esc(b.last4)} (${esc(b.status.toLowerCase())})</span><span>${b.status === "PENDING" ? "Not paid until confirmed" : esc(b.status.toLowerCase())}</span></div>`));
-  d.rate_requests.forEach((r) => rows.push(`<div class="diff-row red"><span>${esc(r.name || r.contractor_id || "A contractor")} asked for a new rate. Not applied.</span><span class="num">${esc(r.new_rate || "")}</span></div>`));
-  rows.push(`<div class="diff-row fold"><span>${d.unchanged.count} unchanged</span><span class="num">${esc(totalsText(d.unchanged.totals))}</span></div>`);
-  d.fx.forEach((g) => rows.push(`<div class="diff-row"><span>Convert ${esc(g.sell)} to ${esc(g.buy)} inside this account at ${esc(g.rate)}${g.band_bps != null ? ` (limit ${g.band_bps} bps)` : ""}</span><span class="num">${esc(fmtMoney(g.buy, g.buy_amount))}</span></div>`));
-  return rows.join("");
-}
-function openApprove(t) {
-  const l = S.lanes[t], d = $("#dlg-approve"), who = S.users.find((u) => u.id === me());
-  d.innerHTML = `<header><h2 id="ap-title">${esc(l.name)}: review the batch</h2><button class="quiet" data-close aria-label="Close">${T.close}</button></header>
-    <div class="body"><p class="next">Acting as ${esc(who ? who.label : me())}. Only ${esc(l.name)} finance can approve this batch.${who && l.diff && who.role !== l.diff.approver_role ? ` <strong>${esc(who.label)} cannot. Switch "Acting as" first.</strong>` : ""}</p>${diffHtml(l.diff)}
-    <div class="diff-row"><strong>Total</strong><strong class="num">${esc(l.diff ? totalsText(l.diff.totals) : "")}</strong></div></div>
-    <footer><button data-close>${T.close}</button><button class="primary hold" id="hold-ok" ${l.diff ? "" : "disabled"}><span class="fill"></span><span>${T.holdToApprove}</span></button></footer>`;
-  const bk = d.querySelector(".body");
-  l.diff && l.diff.bank_changes.filter((b) => b.status === "PENDING").forEach((b) => {
-    bk.insertAdjacentHTML("beforeend", `<div class="diff-row"><span>Confirm ${esc(b.name)}'s new details by phone (someone other than the requester)</span><button data-act="confirm" data-t="${t}" data-q="${b.id}">${T.confirmCall}</button></div>`);
-  });
-  d.showModal();
-  holdToApprove($("#hold-ok"), t);
-}
-function holdToApprove(btn, t) {
-  const fill = btn.querySelector(".fill"), label = btn.querySelector("span:last-child");
-  let start = 0, raf = 0, done = false;
-  const tick = () => {
-    const p = Math.min(1, (performance.now() - start) / 800); fill.style.width = `${p * 100}%`;
-    if (p >= 1) { done = true; cancelAnimationFrame(raf); $("#dlg-approve").close(); doAct("/api/approve", { tenant: t }, `Approved ${NAMES[t]}.`); return; }
-    raf = requestAnimationFrame(tick);
-  };
-  const down = (e) => { if (done || btn.disabled) return; if (e.type === "keydown" && e.key !== " " && e.key !== "Enter") return; if (e.repeat) return; start = performance.now(); label.textContent = T.holding; raf = requestAnimationFrame(tick); };
-  const up = () => { if (done) return; cancelAnimationFrame(raf); fill.style.width = "0"; label.textContent = T.holdToApprove; };
-  btn.addEventListener("pointerdown", down); btn.addEventListener("keydown", down);
-  ["pointerup", "pointerleave", "keyup", "blur"].forEach((n) => btn.addEventListener(n, up));
-}
-function openRows(id) {
-  const seqs = (S.scenarios.find((s) => s.id === id).last || {}).seqs || [];
-  api(`/api/ledger?seqs=${seqs.slice(0, 50).join(",")}`).then((rows) => {
-    const d = $("#dlg-rows");
-    d.innerHTML = `<header><h2 id="rows-title">Ledger rows</h2><button class="quiet" data-close>${T.close}</button></header><div class="body">${rows.map((r) => `<div><strong>#${r.seq} ${esc(r.kind)}</strong> <span class="detail">${esc(r.hash.slice(0, 16))}</span><pre>${esc(JSON.stringify(r.payload, null, 1))}</pre></div>`).join("") || "<p>No rows.</p>"}</div>`;
-    d.showModal();
-  }).catch((e) => toast(e.message));
-}
-
-/* ---------- rules ---------- */
-let RULE = null, RULE_T = null;
-function renderRules() {
-  const el = $("#view-rules"), u = S && S.users.find((x) => x.id === me());
-  const t = RULE_T || (u && u.tenant) || "northwind";
-  if (el.dataset.ready !== t) {
-    el.dataset.ready = t;
-    el.innerHTML = `<div class="panel plain" data-t="${t}"><header><h2>Write a payment rule in plain English</h2>
-      <select id="rule-t" aria-label="Employer">${TENANTS.map((x) => `<option value="${x}" ${x === t ? "selected" : ""}>${esc(NAMES[x])}</option>`).join("")}</select></header>
-      <p>Say it the way you would to a colleague, for example: No single payment over 700 GBP. Pay without asking when nothing has changed.</p>
-      <textarea id="rule-text" rows="3" maxlength="600" aria-label="Rule"></textarea>
-      <div class="actions"><button class="primary" data-act="rule-draft">Preview the rule</button></div>
-      <div id="rule-out"></div></div>`;
-    RULE = null;
-  }
-  if (!RULE) { const o = $("#rule-out"); if (o) o.innerHTML = ""; return; }
-  const d = RULE, rp = d.replay;
-  const ok = (v) => (v ? "Allowed" : "Blocked");
-  $("#rule-out").innerHTML = `<h3>What would change</h3><ul>${d.changes.map((c) => `<li>${esc(c.text)}</li>`).join("")}</ul>
-    ${d.ignored.length ? `<p class="bad">Not understood, so not applied: ${d.ignored.map(esc).join("; ")}</p>` : ""}
-    <h3>Last week's payments under this rule</h3>
-    <table><tbody>${rp.lines.map((l) => `<tr><td>${esc(l.name)}</td><td class="r num">${money(l.currency, l.amount)}</td><td>${ok(l.was)}</td><td>${ok(l.now)}</td></tr>`).join("")}</tbody></table>
-    <p>${rp.newly_blocked.length ? `${rp.newly_blocked.length} payment(s) that went through last week would now be blocked.` : "Nothing that went through last week would be blocked."}</p>
-    <p class="hint">Nothing changes until ${esc(NAMES[d.tenant])} finance signs it.</p>
-    <div class="actions"><button class="primary" data-act="rule-sign">Sign as ${esc(u ? u.label : me())}</button></div>`;
-}
-
-/* ---------- proof ---------- */
-async function loadProof() {
-  const el = $("#view-proof");
-  if (!PROOF) el.innerHTML = `<div class="panel plain"><div class="skel" style="width:40%"></div><div class="skel"></div></div>`;
-  try { PROOF = await api("/api/proof"); } catch (e) { el.innerHTML = `<div class="panel plain"><p>${esc(e.message)}</p></div>`; return; }
-  renderProof();
-}
-function renderProof() {
-  const P = PROOF, el = $("#view-proof"), ch = P.report.chain;
-  const head = `<div class="panel plain"><header><h2>Proof: where the money went</h2><span class="chip">${S ? esc(S.backend) : ""} backend</span></header>
-    <div class="check ${ch.ok ? "ok" : "no"}">${ch.ok ? ICON.check : ICON.alert}<span class="word">${ch.ok ? "Pass" : "Fail"}</span><span>Ledger hash chain${ch.ok ? ` verifies up to row ${ch.seq}.` : `: ${esc(ch.reason)}${ch.bad_seq ? ` <span class="bad">row ${ch.bad_seq}</span>` : ""}`}</span></div>
-    <div class="actions"><button id="reverify" data-act="reverify">Verify again</button></div></div>`;
-  const panels = TENANTS.map((t) => {
-    const r = P.report.tenants[t], c = P.certs[t];
-    return `<div class="panel" data-t="${t}"><header><h2>${NAMES[t]}</h2><span class="chip">${c.valid ? "Signature valid" : "Signature invalid"} · ${esc(c.result)}</span></header>
-      ${r.checks.map((k) => `<div class="check ${k.ok ? "ok" : "no"}">${k.ok ? ICON.check : ICON.alert}<span class="word">${k.ok ? "Pass" : "Fail"}</span><span>${esc(k.name)}${k.ok || !k.detail ? "" : ` <span class="bad">${esc(k.detail)}</span>`}</span></div>`).join("")}
-      <div class="cols"><div><h3>Paid out</h3><p class="num">${esc(totalsText(r.totals_by_currency))}</p><p class="next">${r.payees} payee${r.payees === 1 ? "" : "s"}${r.fee_gbp !== "0.00" ? ` · fee ${esc(fmtMoney("GBP", r.fee_gbp))}` : ""}</p></div>
-      <div><h3>Debited transfers</h3>${r.debits.map((d) => `<div class="mono">${esc(d.transfer_id.slice(0, 8))} ${esc(fmtMoney(d.currency, d.amount))} ${esc(d.status || "")}</div>`).join("") || "<p>None.</p>"}</div></div>
-      <div class="actions"><a href="/api/cert/${t}"><button>Download certificate</button></a><button data-act="print" data-t="${t}">Print certificate</button></div></div>`;
-  }).join("");
-  const pr = `<div class="panel plain"><h2>Cross-employer access</h2>${P.report.probes.map((p) => `<div class="check ${p.ok ? "ok" : "no"}">${p.ok ? ICON.lock : ICON.alert}<span class="word">${p.ok ? "Pass" : "Fail"}</span><span>${esc(NAMES[p.from])} token against ${esc(NAMES[p.to] || p.to)}: HTTP ${p.status} ${esc(p.code || "")}</span></div>`).join("")}</div>`;
-  el.innerHTML = head + panels + pr;
-}
-function printCert(t) {
-  const c = PROOF.certs[t].doc, b = c.body;
-  $("#certprint").innerHTML = `<h1>Segregation certificate: ${esc(NAMES[t])}</h1><p>Run ${esc(b.run_id)} · issued ${esc(b.issued_at)} · backend ${esc(b.backend)} · result <strong>${esc(b.result)}</strong></p>
-    <table><tbody>${b.checks.map((k) => `<tr><td>${k.ok ? "Pass" : "Fail"}</td><td>${esc(k.name)}</td></tr>`).join("")}</tbody></table>
-    <p>Paid: ${esc(totalsText(b.totals_by_currency))} to ${b.payees} payees. Fee: ${esc(fmtMoney("GBP", b.fee_gbp))}.</p>
-    <p class="mono">Ledger head ${b.ledger_head.seq} ${esc(b.ledger_head.hash)}<br>Signature (${esc(c.alg)}) ${esc(c.signature)}</p>`;
-  $("#certprint").dataset.on = "1"; window.print(); $("#certprint").dataset.on = "0";
-}
-
-/* ---------- events ---------- */
-document.addEventListener("click", async (ev) => {
-  const cp = ev.target.closest("[data-copy]");
-  if (cp) {
-    try { await navigator.clipboard.writeText(cp.dataset.copy); } catch (_) { /* clipboard blocked: still tell the user */ }
-    const old = cp.textContent; cp.textContent = T.copied; setTimeout(() => (cp.textContent = old), 1500); return;
-  }
-  if (ev.target.closest("[data-close]")) { ev.target.closest("dialog").close(); return; }
-  const b = ev.target.closest("[data-act]"); if (!b) return;
-  const { act, t, id, k, q } = b.dataset;
-  if (act === "start") await doAct("/api/start", {}, hasRunNow() ? "Checked the inboxes." : "Payroll started.");
-  else if (act === "review") openApprove(t);
-  else if (act === "hold") await doAct("/api/hold", { tenant: t }, `Paused ${NAMES[t]}.`);
-  else if (act === "resume") await doAct("/api/resume", { tenant: t }, `Resumed ${NAMES[t]}.`);
-  else if (act === "kill") { if (await ask(T.killConfirmTitle, T.killConfirmBody, T.pauseAll)) await doAct("/api/kill", { on: true }, "All payouts paused."); }
-  else if (act === "unkill") await doAct("/api/kill", { on: false }, "Payouts resumed.");
-  else if (act === "scenario") await runScenario(id);
-  else if (act === "rows") openRows(id);
-  else if (act === "details") { const on = document.body.classList.toggle("details"); b.textContent = on ? "Hide details" : "Show details"; b.setAttribute("aria-pressed", on); }
-  else if (act === "filter") { filter = k; renderTimeline(); }
-  else if (act === "confirm") { await doAct("/api/confirm_bank", { tenant: t, qid: Number(q) }, "Bank details confirmed."); $("#dlg-approve").close(); }
-  else if (act === "reverify") loadProof();
-  else if (act === "rule-draft") {
-    const tt = $("#rule-t").value, text = $("#rule-text").value;
-    try { RULE = (await api("/api/rules/draft", { user: me(), tenant: tt, text })).draft; RULE_T = tt; $("#view-rules").dataset.ready = tt; } catch (e) { RULE = null; toast(e.message); }
-    renderRules();
-  }
-  else if (act === "rule-sign") {
-    const r = await doAct("/api/rules/sign", { tenant: RULE.tenant, text: $("#rule-text").value }, "Rule signed.");
-    if (r) { RULE = null; renderRules(); }
-  }
-  else if (act === "print") printCert(t);
-});
-const hasRunNow = () => S && TENANTS.some((t) => S.lanes[t].state);
-async function runScenario(id) {
-  const r = await doAct(`/api/scenario/${id}`, {});
-  if (r && r.result) toast(r.result.ok ? r.result.summary : `Not completed: ${r.result.summary}`);
-}
-$("#who").addEventListener("change", (e) => { localStorage.setItem("rf_user", e.target.value); });
-window.addEventListener("hashchange", route);
-function route() { view = location.hash.startsWith("#/proof") ? "proof" : location.hash.startsWith("#/rules") ? "rules" : "pay"; render(); if (view === "proof") loadProof(); }
-
-/* presenter mode: keys 1-6 run the cards, R resets with a confirm */
-const caption = (i) => { $("#cap-n").textContent = `Step ${i + 1} of ${BEATS.length}`; $("#cap-t").textContent = BEATS[i]; };
-if (PRESENT) {
-  let beat = 0; caption(0);
-  document.addEventListener("keydown", async (e) => {
-    if (e.target.closest("input,select,textarea") || e.metaKey || e.ctrlKey) return;
-    if (e.key >= "1" && e.key <= "6") { await runScenario(CARD_ORDER[Number(e.key) - 1]); }
-    else if (e.key === "ArrowRight" || e.key === "n") { beat = Math.min(BEATS.length - 1, beat + 1); caption(beat); }
-    else if (e.key === "ArrowLeft") { beat = Math.max(0, beat - 1); caption(beat); }
-    else if (e.key === "r" || e.key === "R") { if (confirm(T.resetConfirm)) { TL = []; await doAct("/api/reset", {}, "New take started."); TL = []; } }
-  });
-}
-
-route(); refresh().then(() => { const a = qs.get("approve"); if (a && S && S.lanes[a]) openApprove(a); });  // ?approve=<tenant> opens the dialog (screenshots)
-if (qs.get("nosse") !== "1") connect();  // nosse=1: one fetch, no stream (screenshots)
-</script>
+<script src="/static/app.js"></script>
 </body>
 </html>
