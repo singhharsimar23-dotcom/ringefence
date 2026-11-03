@@ -253,21 +253,24 @@ class Kill(Who):
 
 
 PUBLIC_GAP_S = 1.0
+PATH_GAP_S = {"/api/reset": 20.0}  # one visitor must not keep wiping the shared demo
 
 
 def create_app(E: Engine) -> FastAPI:
     app = FastAPI(title="Ringfence", docs_url=None, redoc_url=None)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
-    public, last_post = os.environ.get("RF_PUBLIC") == "1", [0.0]
+    public, last_post, last_path = os.environ.get("RF_PUBLIC") == "1", [0.0], {}
 
     @app.middleware("http")
     async def shared_demo_throttle(request: Request, call_next):
         """RF_PUBLIC=1: one shared live demo, so operator buttons are spaced out globally."""
         if public and request.method == "POST" and request.url.path.startswith("/api/"):
-            now = time.monotonic()
+            now, path = time.monotonic(), request.url.path
+            if now - last_path.get(path, -1e9) < PATH_GAP_S.get(path, 0):
+                return JSONResponse({"detail": copy.BUSY_RESET}, status_code=429)
             if now - last_post[0] < PUBLIC_GAP_S:
                 return JSONResponse({"detail": copy.BUSY}, status_code=429)
-            last_post[0] = now
+            last_post[0], last_path[path] = now, now
         return await call_next(request)
 
     def user(uid: str) -> dict:
