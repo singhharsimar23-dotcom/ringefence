@@ -28,7 +28,8 @@ from .money import canonical_json, q
 
 PUB_PATH = ROOT / "ringfence" / "cert_pub.pem"
 CERT_DIR = ROOT / "artifacts" / "certs"
-PROBES = (("northwind", "kestrel"), ("kestrel", "harbour"), ("harbour", "northwind"))
+# A ring over this process's employers: the same three pairs as before for three, none for one (a world).
+PROBES = tuple(zip(EMPLOYERS, EMPLOYERS[1:] + EMPLOYERS[:1])) if len(EMPLOYERS) > 1 else ()
 
 
 # -- keys --------------------------------------------------------------------------------------
@@ -139,6 +140,9 @@ def report(awx: Awx, L: Ledger, cert_dir: Path | None = None) -> dict:
     seen: dict[str, list[dict]] = {}
     for t in EMPLOYERS:
         first = L.entries(tenant=t, kind="RUN_CREATED")
+        # Playground worlds share one Airwallex account, one after another (live worlds are serialised). A world's report
+        # starts at its own RUN_CREATED, truncated to the second, so it never sees an earlier world's transfers as long as
+        # a new world needs more than a second to create its first run. Two live worlds at once would break this.
         since = (first[0]["ts"] if first else clock.utc_now().isoformat())[:19] + "Z"
         seen[t] = _transfers(awx.for_tenant(t), since)
     tenants = {t: _tenant_report(t, L, reg, seen) for t in EMPLOYERS}
@@ -149,9 +153,10 @@ def report(awx: Awx, L: Ledger, cert_dir: Path | None = None) -> dict:
     chain = L.verify(cert_dir)
     head = {"seq": chain.head_seq, "hash": chain.head_hash}
     for t in tenants.values():
-        mine = next(p for p in probes if p["from"] == t["tenant"])
+        mine = next((p for p in probes if p["from"] == t["tenant"]), None)
         t["checks"].append(_chk("Another employer's account is out of reach (live 401 from Airwallex)", mine["ok"],
-                                f"HTTP {mine['status']} {mine['code']}"))
+                                f"HTTP {mine['status']} {mine['code']}") if mine else
+                           _chk("Cross-employer check: needs two employers (see Three employers)", True, "not applicable"))
         t["checks"].append(_chk("Ledger hash chain verifies", chain.ok, chain.reason))
         t["ok"] = all(c["ok"] for c in t["checks"])
     return {"ok": all(t["ok"] for t in tenants.values()), "tenants": tenants, "probes": probes,

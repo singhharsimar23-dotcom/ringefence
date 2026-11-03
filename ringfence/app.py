@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import queue
+import re
 import tempfile
 import threading
 import time
@@ -24,18 +25,20 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sse_starlette.sse import EventSourceResponse
 
-from . import copy, inbox, rules, seed, setup_demo, store, track, verify, webhooks
+from . import copy, inbox, play_routes, rules, seed, setup_demo, store, track, verify, webhooks
 from .agent import loop
 from .agent.tools import funding_state
 from .awx import Awx, AwxError, build_backend
-from .config import EMPLOYERS, clock, env, tenants, var_dir
+from .config import EMPLOYERS, clock, employer_name, env, tenants, var_dir
 from .executor import INFLIGHT
 from .ledger import Ledger
+from .money import dumps_money
 from .orchestrator import Orchestrator, Refused
-from .scenarios import SCENARIOS, Simulator, settle_step
+from .playground import Manager
+from .scenarios import Simulator, scenario_cards, settle_step
 from .shadow import naive_total
 
 log = logging.getLogger("ringfence")
@@ -52,7 +55,10 @@ class Engine:
         self.awx, self.L, self.backend = awx, L, backend
         self.idle, self.release_delay, self.cache_every = idle, release_delay, cache_every
         self.llm = None if mode == "scripted" else loop.default_llm()
-        self.cert_dir = verify.CERT_DIR if backend == "live" else var_dir() / "certs"  # a fake world never touches the real certs
+        self.world = os.environ.get("RF_WORLD") or None  # a playground world: own ledger, own certs, own signing key
+        self.ready, self.setup_error = True, ""
+        # a fake or playground world never touches the repo's real certs
+        self.cert_dir = verify.CERT_DIR if backend == "live" and not self.world else var_dir() / "certs"
         self.o = Orchestrator(awx, L, cert_dir=self.cert_dir)
         self.sim = Simulator(self.o, self.rid, self.tick)
         self.q: queue.Queue = queue.Queue()
@@ -92,7 +98,7 @@ class Engine:
         finally:
             self.agent_busy = None
             self.ver += 1
-        self.notes[tenant] = {"headline": copy.agent_line(r.headline) or f"{tenant.title()}: review finished",
+        self.notes[tenant] = {"headline": copy.agent_line(r.headline) or f"{employer_name(tenant, plain=True)}: review finished",
                               "explanation": copy.agent_line(r.explanation) or "", "mode": r.mode,
                               "at": dt.datetime.now(dt.UTC).isoformat()}
         return r
@@ -137,6 +143,8 @@ class Engine:
 
     # -- the autopilot: what Ringfence does by itself while nobody clicks ---------------------------------
     def _autopilot(self) -> None:
+        if not self.ready:
+            return  # a live world is still opening its accounts
         rid, now = self.rid(), time.monotonic()
         for t in EMPLOYERS:
             run = store.get_run(self.L, rid, t)
@@ -174,9 +182,12 @@ class Engine:
         users = seed.load()["users"]
         kill = self.L.query("SELECT on_, by, ts FROM kill_switch WHERE id=1")[0]
         lanes = {t: self._lane(rid, t, now) for t in EMPLOYERS}
-        harbour_req = lanes["harbour"]["funding"]
+        harbour_req = (lanes.get("harbour") or {}).get("funding")
         naive = self.cache["naive"]
         return {
+            "employers": {t: {"name": lanes[t]["name"]} for t in EMPLOYERS},
+            "world": {"wid": self.world, "backend": self.backend, "ready": self.ready, "error": self.setup_error,
+                      "account_suffix": self.awx.tenants()[EMPLOYERS[0]].account_id[-4:]} if self.world else None,
             "run_id": rid, "pay_date": seed.load()["pay_date"], "now": now.isoformat(), "backend": self.backend,
             "agent": self.agent_mode, "agent_busy": self.agent_busy, "agent_capped": self._capped(),
             "model": getattr(self.llm, "model", None), "error": self.error, "autosettle": self.autosettle, "head": self.L.head()[0],
@@ -186,11 +197,11 @@ class Engine:
                 "amount": str(naive[0]), "currency": "AUD", "complete": naive[1],
                 "covers": bool(harbour_req and naive[0] >= Decimal(harbour_req["amount"]))},
             "lanes": lanes,
-            "scenarios": [{"id": k, "title": v[0], "line": v[1], "last": self.results.get(k)} for k, v in SCENARIOS.items()],
+            "scenarios": [{"id": k, "title": v[0], "line": v[1], "last": self.results.get(k)} for k, v in scenario_cards().items()],
         }
 
     def _lane(self, rid: str, t: str, now) -> dict:
-        name = tenants(fake=True)[t].name
+        name = employer_name(t)
         run = store.get_run(self.L, rid, t)
         d = self.cache["diff"].get(t)
         lines = []
@@ -224,15 +235,20 @@ class Engine:
 
 
 def _user_label(uid: str, u: dict) -> str:
-    who = uid.title()
+    who = u.get("label") or uid.title()
     if u["role"] == "operator":
         return f"Operator {who}"
-    return f"{u['tenant'].title()} Finance {who}"
+    return f"{employer_name(u['tenant'], plain=True)} Finance {who}"
 
 
 # -- request bodies ----------------------------------------------------------------------------------------
 class Who(BaseModel):
-    user: str = "maya"
+    user: str = Field(default="", validate_default=True)  # empty = this registry's first operator (a world has no "maya")
+
+    @field_validator("user")
+    @classmethod
+    def _default_user(cls, v: str) -> str:
+        return v or next((k for k, u in seed.load()["users"].items() if u["role"] == "operator"), "")
 
 
 class TenantUser(Who):
@@ -256,7 +272,17 @@ PUBLIC_GAP_S = 1.0
 PATH_GAP_S = {"/api/reset": 20.0}  # one visitor must not keep wiping the shared demo
 
 
-def create_app(E: Engine) -> FastAPI:
+def _gap_key(request: Request) -> tuple[str, float] | None:
+    """Playground POSTs are spaced per visitor (per world inside a world), never against the shared demo's button gap."""
+    p = request.url.path
+    if p.startswith("/api/play/"):
+        return "ip:" + play_routes.client_ip(request), PUBLIC_GAP_S
+    if p.startswith("/play/"):
+        return "world:" + p.split("/")[2], PUBLIC_GAP_S
+    return None
+
+
+def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
     app = FastAPI(title="Ringfence", docs_url=None, redoc_url=None)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     public, last_post, last_path = os.environ.get("RF_PUBLIC") == "1", [0.0], {}
@@ -264,7 +290,13 @@ def create_app(E: Engine) -> FastAPI:
     @app.middleware("http")
     async def shared_demo_throttle(request: Request, call_next):
         """RF_PUBLIC=1: one shared live demo, so operator buttons are spaced out globally."""
-        if public and request.method == "POST" and request.url.path.startswith("/api/"):
+        gap = _gap_key(request) if public and request.method == "POST" else None
+        if gap:
+            now = time.monotonic()
+            if now - last_path.get(gap[0], -1e9) < gap[1]:
+                return JSONResponse({"detail": copy.TOO_FAST}, status_code=429)
+            last_path[gap[0]] = now
+        elif public and request.method == "POST" and request.url.path.startswith("/api/"):
             now, path = time.monotonic(), request.url.path
             if now - last_path.get(path, -1e9) < PATH_GAP_S.get(path, 0):
                 return JSONResponse({"detail": copy.BUSY_RESET}, status_code=429)
@@ -387,7 +419,7 @@ def create_app(E: Engine) -> FastAPI:
 
     @app.post("/api/scenario/{name}")
     def scenario(name: str, tenant: Tenant | None = None):
-        if name not in SCENARIOS:
+        if name not in scenario_cards():
             raise HTTPException(404, "No such scenario.")
 
         def job():
@@ -436,12 +468,33 @@ def create_app(E: Engine) -> FastAPI:
             rep = verify.report(E.awx, E.L, E.cert_dir)
             run_id = verify.current_run_id(E.L)
             E.certs = verify.certificates(rep, run_id, E.backend)
-            pub = verify.world_pub_path() if E.backend == "fake" else None  # live certs verify against the committed key
+            pub = verify.world_pub_path() if E.backend == "fake" or E.world else None  # the demo's live certs verify against the committed key; a world signs with its own
             if rep["ok"]:  # anchors for later chain checks; a failing report must not overwrite a good anchor
                 verify.write_certs(E.certs, run_id, E.cert_dir)
             return {"report": rep, "certs": {t: {"valid": verify.check_cert(c, pub), "result": c["body"]["result"], "doc": c}
                                              for t, c in E.certs.items()},
                     "balances": E.cache["balances"]}
+        return act(job)
+
+    @app.get("/api/calls")
+    def get_calls(since: str = ""):
+        return {"calls": E.awx.recent_calls(since[:40])}
+
+    @app.get("/api/recheck/{transfer_id}")
+    def recheck(transfer_id: str):
+        """Fetch one transfer again from Airwallex. Only ids this ledger wrote: this is not an open fetch proxy."""
+        if not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", transfer_id):
+            raise HTTPException(404, "Ringfence has no payment with that id.")
+        rows = E.L.query("SELECT tenant FROM ledger WHERE json_extract(payload_json,'$.transfer_id')=? "
+                         "OR json_extract(payload_json,'$.prev_transfer_id')=? LIMIT 1", (transfer_id, transfer_id))
+        if not rows or rows[0]["tenant"] not in EMPLOYERS:
+            raise HTTPException(404, "Ringfence has no payment with that id.")
+
+        def job():
+            t = E.awx.for_tenant(rows[0]["tenant"]).get(f"/transfers/{transfer_id}")
+            return {"fetched_at": clock.utc_now().isoformat(), "status": t.get("status"),
+                    "amount": str(t.get("transfer_amount")), "currency": t.get("transfer_currency"),
+                    "request_id": t.get("request_id"), "tenant": rows[0]["tenant"], "raw": json.loads(dumps_money(t), parse_float=str)}
         return act(job)
 
     @app.get("/api/cert/{tenant}")
@@ -451,17 +504,32 @@ def create_app(E: Engine) -> FastAPI:
         return JSONResponse(E.certs[tenant], headers={
             "Content-Disposition": f'attachment; filename="ringfence_{tenant}_{E.certs[tenant]["body"]["run_id"]}.json"'})
 
+    if play is not None:
+        play_routes.register(app, play)
     return app
 
 
 def build_engine(backend: str | None, agent: str | None, **kw) -> Engine:
-    if backend == "fake":  # a throwaway world: never touch the live ledger or registry
+    world = os.environ.get("RF_WORLD")
+    if backend == "fake" and not world:  # a throwaway demo: never touch the live ledger or registry (a world's parent set RF_VAR)
         os.environ["RF_VAR"] = tempfile.mkdtemp(prefix="rf-fake-")
     awx, _ = build_backend(backend)
     L = Ledger()
     if backend == "fake":
         setup_demo.setup(awx)
-    return Engine(awx, L, backend or os.environ.get("RF_BACKEND", "live"), agent, **kw)
+    E = Engine(awx, L, backend or os.environ.get("RF_BACKEND", "live"), agent, **kw)
+    if world and backend != "fake":  # opening real accounts takes a while: answer /api/state meanwhile
+        E.ready = False
+
+        def open_accounts():
+            try:
+                setup_demo.setup(awx)
+            except Exception as e:  # noqa: BLE001
+                log.warning("world setup failed: %s", type(e).__name__)
+                E.setup_error = copy.WORLD_SETUP_FAILED.format(code=getattr(e, "code", None) or getattr(e, "status", None) or type(e).__name__)
+            E.ready = True
+        E.q.put((open_accounts, Future()))
+    return E
 
 
 def main() -> int:
@@ -471,9 +539,15 @@ def main() -> int:
     ap.add_argument("--agent", choices=["scripted", "auto"], default="auto")
     ap.add_argument("--port", type=int, default=8000)
     a = ap.parse_args()
-    app = create_app(build_engine(a.backend, a.agent))
+    engine = build_engine(a.backend, a.agent)  # first: a fake demo moves RF_VAR to a temp dir
+    play = None if os.environ.get("RF_WORLD") else Manager()  # a world never spawns worlds
+    app = create_app(engine, play)
     print(f"Ringfence on http://127.0.0.1:{a.port}/  (backend {a.backend or os.environ.get('RF_BACKEND', 'live')})")
-    uvicorn.run(app, host="127.0.0.1", port=a.port, workers=1, reload=False, log_level="warning")
+    try:
+        uvicorn.run(app, host="127.0.0.1", port=a.port, workers=1, reload=False, log_level="warning")
+    finally:
+        if play is not None:
+            play.shutdown()
     return 0
 
 
