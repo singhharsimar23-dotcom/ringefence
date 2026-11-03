@@ -13,7 +13,7 @@ from ringfence.config import env
 
 REQUIRED = ["AWX_CLIENT_ID", "AWX_API_KEY", "AWX_BASE_URL", "AWX_PLATFORM_ACCOUNT",
             "AWX_EMPLOYER_A", "AWX_EMPLOYER_B", "AWX_EMPLOYER_C"]
-OPTIONAL = ["ANTHROPIC_API_KEY", "RF_MODEL", "RF_NOW"]
+OPTIONAL = ["ANTHROPIC_API_KEY", "RF_MODEL", "RF_NOW", "AWX_PLAYGROUND_ACCOUNT", "METAL_RPC_URL", "METAL_RPC_SECRET"]
 REMOTE = ("{ cat; sudo grep -h '^AWX_WEBHOOK_SECRET=' /etc/ringfence/env 2>/dev/null || true; } "
           "| sudo install -m600 -o root -g root /dev/stdin /etc/ringfence/env.new "
           "&& sudo mv /etc/ringfence/env.new /etc/ringfence/env && sudo systemctl restart ringfence 2>/dev/null; "

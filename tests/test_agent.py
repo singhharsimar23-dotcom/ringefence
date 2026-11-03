@@ -8,10 +8,9 @@ from helpers import FakeLLM, acct
 from ringfence import inbox, store
 from ringfence.agent import loop, prompts
 from ringfence.agent.tools import ToolBox
+from ringfence.config import ROOT
 from ringfence.orchestrator import Orchestrator
 from ringfence.setup_demo import setup
-
-ROOT = inbox.ROOT
 
 
 @pytest.fixture

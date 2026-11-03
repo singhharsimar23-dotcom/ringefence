@@ -8,22 +8,33 @@
 """
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
+from collections import deque
 from collections.abc import Callable
 from decimal import Decimal
 from typing import Any
 
 import httpx
 
-from .config import Tenant, env, tenants
+from .config import Tenant, clock, env, tenants
 from .money import dumps_money, loads_money
 
 log = logging.getLogger("ringfence.awx")
 TOKEN_REFRESH_S = 25 * 60  # tokens last 30 minutes
 GET_RETRIES = 3
 RELOGIN_CODES = ("credentials_expired", "unauthorized")  # live garbage/expired bearer -> unauthorized (P9)
+CALL_BODY_PATHS = ("/transfers", "/fx", "/beneficiaries", "/deposits", "/webhooks")  # only these answers are kept in the call log
+CALL_BODY_MAX = 4096
+SECRET_KEYS = {"secret", "token", "api_key", "password", "signature"}
+
+
+def _redact(o: Any) -> Any:
+    if isinstance(o, dict):
+        return {k: "•••" if k.lower() in SECRET_KEYS else _redact(v) for k, v in o.items()}
+    return [_redact(v) for v in o] if isinstance(o, list) else o
 
 
 class AwxError(Exception):
@@ -92,10 +103,16 @@ class TenantClient:
             h = {"Authorization": f"Bearer {self._tok(force=attempt == 1)}", **(extra or {})}
             if content is not None:
                 h["Content-Type"] = "application/json"
-            r = self._awx._http.request(method, f"{self._awx.base}/{path.lstrip('/')}", params=params,
-                                        headers=h, content=content)
-            log.debug("%s %s -> %s [%s]", method, path, r.status_code, self._tenant.key)
-            r = self._awx._simulate(method, path, r)
+            t0 = time.monotonic()
+            try:
+                r = self._awx._http.request(method, f"{self._awx.base}/{path.lstrip('/')}", params=params,
+                                            headers=h, content=content)
+                log.debug("%s %s -> %s [%s]", method, path, r.status_code, self._tenant.key)
+                r = self._awx._simulate(method, path, r)
+            except httpx.TransportError:
+                self._awx._log_call(self._tenant.key, method, path, None, t0, bool(extra))
+                raise
+            self._awx._log_call(self._tenant.key, method, path, r, t0, bool(extra))
             if r.status_code == 401 and attempt == 0 and self._code(r) in RELOGIN_CODES:
                 continue
             return r
@@ -168,6 +185,43 @@ class Awx:
         self._sleep = sleep
         self._lock = threading.Lock()
         self._faults: list[dict] = []  # [SIMULATED] demo faults, see inject()
+        self.calls: deque[dict] = deque(maxlen=300)  # evidence for the UI: what we asked Airwallex and what it answered
+        self._calls_lock = threading.Lock()
+
+    def _log_call(self, tenant: str, method: str, path: str, r: httpx.Response | None, t0: float, probe: bool) -> None:
+        """Never receives headers, tokens or request bodies (login does not pass through _send at all)."""
+        if method == "GET" and path.startswith("/balances") and not probe:
+            return  # polled every few seconds; it would push the setup steps out of the log
+        status, ms = (r.status_code if r else 0), round((time.monotonic() - t0) * 1000)
+        body: Any = None
+        if r is not None and r.content and len(r.content) < 500_000:
+            try:
+                body = json.loads(r.content, parse_float=str)
+            except ValueError:
+                body = None
+        ident = next((body[k] for k in ("id", "transfer_id", "conversion_id") if isinstance(body, dict) and isinstance(body.get(k), str)), None)
+        entry = {"ts": clock.utc_now().isoformat(), "kind": "airwallex", "tenant": tenant, "method": method,
+                 "path": path, "status": status, "ms": ms, "id": ident, "n": 1}
+        if probe:
+            entry["note"] = "cross-employer probe"
+        if body is not None and any(path.startswith(b) for b in CALL_BODY_PATHS):
+            body = _redact(body)
+            entry["body"] = body if len(json.dumps(body)) <= CALL_BODY_MAX else {"truncated": "answer is over 4 KB"}
+        with self._calls_lock:
+            last = self.calls[-1] if self.calls else None
+            if method == "GET" and last and all(last.get(k) == entry[k] for k in ("tenant", "method", "path", "status", "id")):
+                last.update(ts=entry["ts"], ms=ms, n=last["n"] + 1, **({"body": entry["body"]} if "body" in entry else {}))
+            else:
+                self.calls.append(entry)
+
+    def log_event(self, kind: str, tenant: str | None, **fields: Any) -> None:
+        """A non-Airwallex step (the model call, the rules engine) in the same stream."""
+        with self._calls_lock:
+            self.calls.append({"ts": clock.utc_now().isoformat(), "kind": kind, "tenant": tenant, **fields})
+
+    def recent_calls(self, since: str = "") -> list[dict]:
+        with self._calls_lock:
+            return [dict(c) for c in self.calls if c["ts"] > since]
 
     def __repr__(self) -> str:
         return f"<Awx {self.base}>"

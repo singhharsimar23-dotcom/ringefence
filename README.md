@@ -7,6 +7,13 @@ from Airwallex's own records, that no employer's funds touched another's.
 
 ![Ringfence](artifacts/shots/02_started.png)
 
+## Try it yourself
+
+Open the app and describe your own payroll: type it, paste an email, drop a CSV, or pick an example. Check what
+Ringfence understood, run it in its own world (live Airwallex sandbox or the built-in simulated bank), and follow
+every step with its evidence: the Airwallex calls, the rule that decided, the ledger row, and a certificate you can
+download. The three-employer demo is at `#/demo`. Runs are deleted after 30 minutes, so use made-up names.
+
 ## See it in 30 seconds (no keys)
 
 ```

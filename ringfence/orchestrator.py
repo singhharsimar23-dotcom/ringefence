@@ -6,6 +6,7 @@ Code computes every number; the agent (later) can only ask for a run to be creat
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import threading
 from datetime import date, timedelta
@@ -37,7 +38,8 @@ class Orchestrator:
 
     # -- create ------------------------------------------------------------------------------------
     def run_id(self, pay_date: date) -> str:
-        return f"{pay_date:%Y%m%d}-{self.L.epoch()}"
+        w = os.environ.get("RF_WORLD", "")[:6]  # worlds share one Airwallex account: keep their request_ids apart
+        return f"{pay_date:%Y%m%d}-{self.L.epoch()}" + (f"-{w}" if w else "")
 
     def ensure_mandates(self) -> None:
         with self.L.tx() as tx:
