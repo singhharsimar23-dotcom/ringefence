@@ -146,21 +146,44 @@ class Metal:
                 log.warning("metal recycle failed: %s", scrub(str(e)))
         threading.Thread(target=go, name="metal-recycle", daemon=True).start()
 
-    def over_pull(self, L, run_id: str, tenant: str, pay: dict) -> dict:
-        """Ask for 1.00 more than the mandate's cap; Metal refuses and records the refusal on chain. Returns the METAL_REFUSED payload."""
-        c = self.cfg()
-        more = Decimal(pay["usdz"]) + 1
-        r = self.call(["mandate", "pull", "--credential", "m.json", "--to", c["settlement"], "--amount", str(more),
+    def _refused(self, L, run_id: str, tenant: str, pay: dict, amount, to: str, ev: dict) -> dict:
+        """Push a pull Metal must refuse, with the refusal recorded on chain. Returns the METAL_REFUSED payload."""
+        r = self.call(["mandate", "pull", "--credential", "m.json", "--to", to, "--amount", str(amount),
                        "--record-refusal", "--key", self.treasury_key()], self.dir / "runs" / pay["run_dir"], ok=(1,))
         if not r.get("outcome", "").startswith("refused"):
-            raise MetalError("Metal did not refuse the over-pull")
-        ev = {"what": "Metal refused a pull above the mandate", "code": r.get("reason"), "usdz": str(more),
-              "tx": r.get("transaction"), "explorer_url": EXPLORER + r["transaction"] if r.get("transaction") else None,
-              "mandate": pay.get("mandate")}
+            raise MetalError("Metal did not refuse the pull")
+        ev |= {"code": r.get("reason"), "usdz": str(amount), "tx": r.get("transaction"),
+               "explorer_url": EXPLORER + r["transaction"] if r.get("transaction") else None, "mandate": pay.get("mandate")}
         L.append("METAL_REFUSED", ev, run_id, tenant)
         return ev
+
+    def over_pull(self, L, run_id: str, tenant: str, pay: dict) -> dict:
+        """Ask for 1.00 more than the mandate's cap."""
+        return self._refused(L, run_id, tenant, pay, Decimal(pay["usdz"]) + 1, self.cfg()["settlement"],
+                             {"what": "Metal refused a pull above the mandate"})
+
+    def poisoned_pull(self, L, run_id: str, tenant: str, pay: dict, to: str) -> dict:
+        """Address poisoning: send to a lookalike of the settlement wallet. Ringfence flags it in code first; the
+        refusal on chain shows the mandate would stop it even if the agent were fooled."""
+        real = self.cfg()["settlement"]
+        if not looks_like(to, real):
+            raise MetalError("not a lookalike address")
+        return self._refused(L, run_id, tenant, pay, pay["usdz"], to,
+                             {"what": "Metal refused a pull to a lookalike wallet", "flag": "address_poisoning", "to": to, "real": real})
+
+
+def lookalike(addr: str) -> str:
+    """The address a poisoner would mint: same first 6 and last 4 characters, different middle."""
+    return addr[:6] + "".join("0123456789abcdef"[(int(ch, 16) + 7) % 16] for ch in addr[6:-4].lower()) + addr[-4:]
+
+
+def looks_like(a: str, b: str) -> bool:
+    """True for a different address that matches on what a person checks: the first 6 and last 4 characters."""
+    a, b = a.lower(), b.lower()
+    return a != b and len(a) == len(b) and a[:6] == b[:6] and a[-4:] == b[-4:]
 
 
 def history(L) -> list[dict]:
     """Metal rows for the Proof tab, oldest first."""
-    return [{"seq": e["seq"], "kind": e["kind"], **e["payload"]} for e in L.entries() if e["kind"] in ("METAL_PULL", "METAL_REFUSED")]
+    rows = [e for k in ("METAL_PULL", "METAL_REFUSED") for e in L.entries(kind=k)]
+    return [{"seq": e["seq"], "kind": e["kind"], **e["payload"]} for e in sorted(rows, key=lambda e: e["seq"])]

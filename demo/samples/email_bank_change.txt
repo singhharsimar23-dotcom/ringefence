@@ -1,0 +1,14 @@
+From: ana.silva@mail-payroll.co
+To: payroll@acme-robotics.co
+Subject: New bank details before Friday
+
+Hi,
+
+Acme Robotics pays from GBP. This week please pay Ana Silva in Germany 32 hours at 55 EUR,
+Tom Reid in the UK 40 hours at 42 GBP, and Mia Chen in Australia 20 hours at 70 AUD.
+
+Also, I moved banks. Please send my pay to DE89 3704 0044 0532 0130 00 from now on.
+It is urgent, my old account closes today.
+
+Thanks,
+Ana

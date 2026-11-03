@@ -197,6 +197,7 @@ class Engine:
                 "amount": str(naive[0]), "currency": "AUD", "complete": naive[1],
                 "covers": bool(harbour_req and naive[0] >= Decimal(harbour_req["amount"]))},
             "lanes": lanes,
+            "metal": metal.history(self.L) if metal.enabled() else None,  # the on-chain section of the demo page
             "scenarios": [{"id": k, "title": v[0], "line": v[1], "last": self.results.get(k)} for k, v in scenario_cards().items()],
         }
 
@@ -331,6 +332,13 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
     @app.get("/api/timeline")
     def get_timeline(after: int = 0):
         return E.timeline(after)
+
+    @app.get("/api/inbox/{tenant}")
+    def get_inbox(tenant: str):
+        """What the agent read for this employer: the timesheet CSV and any emails. Untrusted text, shown as text."""
+        if tenant not in EMPLOYERS:
+            raise HTTPException(404, "no such employer")
+        return [{"id": d.id, "source": d.source, "text": d.text} for d in inbox.all_docs(tenant)]
 
     @app.get("/api/ledger")
     def get_ledger(seqs: str):

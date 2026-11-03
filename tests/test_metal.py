@@ -10,6 +10,7 @@ from ringfence.scenarios import SCENARIOS, Simulator, scenario_cards
 from ringfence.setup_demo import setup
 
 TX, REFUSAL = "0x" + "a" * 64, "0x" + "b" * 64
+SETTLE = "0x4b4dFF14d5cb002036A8ac2201F038A3f2654b00"
 
 
 @pytest.fixture(autouse=True)
@@ -25,13 +26,14 @@ def world(awx, L, tmp_path):
     o.ex._sleep = lambda s: None
     rid = lambda: o.run_id(loop.pay_date())
     sim = Simulator(o, rid, lambda t: loop.run_tick(o, t, mode="scripted"))
-    (tmp_path / "state.json").write_text(json.dumps({"principal": "0xPRINCIPAL", "settlement": "0xSETTLE"}))
+    (tmp_path / "state.json").write_text(json.dumps({"principal": "0xPRINCIPAL", "settlement": SETTLE}))
     calls = []
 
     def runner(args, cwd):
         calls.append(args)
         if "pull" in args and "--record-refusal" in args:
-            return 1, f"transaction {REFUSAL}\noutcome refused\nreason mandate_cap_exceeded (the amount is above the cap)\n"
+            why = "mandate_cap_exceeded" if args[args.index("--to") + 1] == SETTLE else "mandate_payee_not_listed"
+            return 1, f"transaction {REFUSAL}\noutcome refused\nreason {why} (explanation)\n"
         if "pull" in args:
             return 0, f"transaction {TX}\noutcome paid\nspent 3 *USDZ of 3 *USDZ\n"
         if "bind" in args:
@@ -54,7 +56,7 @@ def test_topup_pulls_on_metal_then_the_matcher_closes_the_request(world, L, monk
     req = L.entries(kind="FUNDING_REQUESTED", tenant="harbour")[-1]["payload"]
     pull_args = next(a for a in calls if "pull" in a)
     assert pull_args[pull_args.index("--payment-id") + 1].startswith("RF-")  # the funding reference, so a retry is "already paid"
-    assert pull_args[pull_args.index("--to") + 1] == "0xSETTLE"
+    assert pull_args[pull_args.index("--to") + 1] == SETTLE
     assert all("s3cret" not in " ".join(a) for a in calls)
     o.advance(rid(), "harbour")
     assert L.entries(kind="FUNDING_MATCHED", tenant="harbour")[-1]["payload"]["reference"] == req["reference"]
@@ -118,8 +120,22 @@ def test_pulled_usdz_is_sent_back_by_the_settlement_account(world, L):
     _, sim, _, calls = world
     sim._tick("harbour")
     assert sim.run("metal_topup")["ok"]
-    back = [a for a in calls if "credential" in a and "0xSETTLE" in a and a[a.index("--principal") + 1] == "0xSETTLE"]
+    back = [a for a in calls if "credential" in a and SETTLE in a and a[a.index("--principal") + 1] == SETTLE]
     assert back and back[0][back[0].index("--payee") + 1] == "0xPRINCIPAL"
     pull = L.entries(kind="METAL_PULL")[0]["payload"]
     assert back[0][back[0].index("--cap") + 1] == pull["usdz"]
     assert not L.entries(kind="METAL_RETURNED")  # plumbing: no ledger row
+
+
+def test_lookalike_wallet_is_flagged_then_refused_on_chain(world, L):
+    sim = world[1]
+    fake = metal.lookalike(SETTLE)
+    assert metal.looks_like(fake, SETTLE) and fake[:6] == SETTLE[:6] and fake[-4:] == SETTLE[-4:]
+    assert not metal.looks_like(SETTLE, SETTLE.lower()) and not metal.looks_like("0x1234" + SETTLE[6:], SETTLE)
+    sim._tick("harbour")
+    assert sim.run("metal_poison")["ok"] is False  # needs the mandate first
+    assert sim.run("metal_topup")["ok"]
+    r = sim.run("metal_poison")
+    assert r["ok"] and fake in r["summary"], r["summary"]
+    row = L.entries(kind="METAL_REFUSED")[-1]["payload"]
+    assert row["code"] == "mandate_payee_not_listed" and row["to"] == fake and row["flag"] == "address_poisoning"

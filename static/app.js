@@ -14,6 +14,7 @@ Object.assign(ICON, {
 let S = null, TL = [], filter = "all", view = "pay", PROOF = null, busy = false, lastVer = null;
 let pendingStart = false, tlSeen = -1, warnShown = "", whoKey = "", RULE = null, RULE_T = null, RULE_TEXT = "";
 const expanded = {};
+const EXPLORER = "https://testnet.metalntwx.com/tx/";
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : "");
 const mid = (s, a = 9, b = 4) => (String(s).length > a + b + 1 ? `${String(s).slice(0, a)}…${String(s).slice(-b)}` : String(s));
 const modelName = (m) => { const p = String(m).replace("claude-", "").split("-"); return `${cap(p[0])} ${p.slice(1).join(".")}`.trim(); };
@@ -128,7 +129,7 @@ function renderBanners() {
   wb.innerHTML = wb.hidden ? "" : `${ICON.alert}<span class="grow">${esc(S.error)}</span><button data-act="warn-close">${T.dismiss}</button>`;
 }
 function renderIntro() {
-  const el = $("#intro"), seen = localStorage.getItem("rf_intro_seen") === "1" || PRESENT;
+  const el = $("#intro"), seen = true;  // the problem line and the next-action button say enough
   el.hidden = seen;
   if (!seen) el.innerHTML = `<ol>${T.intro.map((x) => `<li>${esc(x)}</li>`).join("")}</ol><button class="quiet" data-act="intro-close">${T.dismiss}</button>`;
 }
@@ -153,7 +154,7 @@ function nextAction() {
     if (a === "copy_funding" && l.funding) return { label: `Fund ${nm(t)}`, copy: l.funding.reference };
     if (a === "resume") return { label: `Resume ${nm(t)}`, act: "resume", t };
   }
-  if (stepNow() === 4) return { label: T.seeProof, act: "proof" };
+  if (stepNow() === 4) return { label: T.seeProof, act: "proof", again: true };
   return { text: "Money is moving. Ringfence checks each payment with Airwallex." };
 }
 function renderRail() {
@@ -165,7 +166,7 @@ function renderRail() {
   const n = nextAction();
   $("#next").innerHTML = n.text
     ? `<span class="status-text" aria-live="polite">${S.agent_busy ? '<span class="dot busy"></span>' : ""}${esc(n.text)}</span>`
-    : `<button class="primary" ${n.copy ? `data-copy="${esc(n.copy)}"` : `data-act="${n.act}" ${n.t ? `data-t="${n.t}"` : ""}`} ${busy ? "disabled" : ""}>${esc(n.label)}</button>`;
+    : `${n.again ? `<button data-act="rerun" ${busy ? "disabled" : ""}>${T.rerun}</button>` : ""}<button class="primary" ${n.copy ? `data-copy="${esc(n.copy)}"` : `data-act="${n.act}" ${n.t ? `data-t="${n.t}"` : ""}`} ${busy ? "disabled" : ""}>${esc(n.label)}</button>`;
 }
 function renderNaive() {
   const el = $("#naive"), n = S.naive;
@@ -217,7 +218,7 @@ function laneHtml(t) {
   const rows = l.lines.length ? `<ul class="lines">${l.lines.map((ln) => `<li><span class="nm" title="${esc(ln.name)}">${esc(ln.name)}</span><span class="num">${money(ln.currency, ln.amount)}</span>${pillHtml(ln.pill)}<a class="btn quiet" href="${esc(ln.track)}" target="_blank" rel="noopener" title="${T.contractorLink}" aria-label="${T.contractorLink}: ${esc(ln.name)}">${ICON.link}</a><span class="detail" title="${esc(ln.request_id)}">${esc(mid(ln.request_id, 10, 6))}</span>${rcHtml(ln)}</li>`).join("")}</ul>` : "";
   return `<article class="lane" data-t="${t}" aria-label="${esc(l.name)}">
     <div class="lane-head"><div class="row"><h2>${esc(l.name)}</h2><span class="mono muted" title="${esc(l.account)}">${esc(mid(l.account))}</span></div>
-      <div class="meta">${ICON.lock}<span>${T.walled}</span></div></div>
+      <div class="meta">${ICON.lock}<span>${T.walled}</span><span class="grow"></span><button class="link small" data-act="inbox" data-t="${t}">${T.inboxBtn}</button></div></div>
     <div class="status"><span class="pill ${tone}">${ICON[TONE_ICON[x.tone]] || ICON.clock}${esc(l.state ? RUN_LABEL[l.state] : "No run")}</span><span class="txt">${esc(x.status)}</span></div>
     <p class="muted small">${esc(x.next)}</p>
     <div class="lane-body"><div class="col">${noteHtml(t, l)}${amount}${wallet}</div><div class="col">${fundingHtml(f, t)}${rows}</div></div>
@@ -231,7 +232,31 @@ function rcHtml(ln) {
   const out = !rc ? "" : rc.busy ? T.rechecking : rc.err ? esc(rc.err) : `${T.asOf} <span class="mono">${esc(clockSec(rc.fetched_at))}</span> · ${T.status} <span class="mono">${esc(rc.status)}</span>`;
   return `<span class="small muted rc" style="grid-column:1/-1"><button class="link" data-act="recheck" data-rid="${esc(ln.request_id)}">${T.recheck}</button> ${out}</span>`;
 }
-function renderLanes() { $("#lanes").innerHTML = TENANTS.map(laneHtml).join(""); }
+function renderLanes() { $("#lanes").innerHTML = TENANTS.map(laneHtml).join(""); renderChain(); }
+
+/* on chain: Harbour's Metal mandate as three linked blocks, each a real testnet transaction */
+function renderChain() {
+  const el = $("#chain"), M = S.metal;
+  el.hidden = !M;
+  if (!M) return;
+  const pull = [...M].reverse().find((m) => m.kind === "METAL_PULL");
+  const refs = pull ? M.filter((m) => m.kind === "METAL_REFUSED" && m.seq > pull.seq) : [];
+  const ref = [...refs].reverse().find((m) => !m.flag), poi = [...refs].reverse().find((m) => m.flag === "address_poisoning");
+  const tx = (h) => (h ? `<a class="link mono" href="${esc(EXPLORER + h)}" target="_blank" rel="noopener" title="${T.viewTx}">${esc(mid(h, 8, 6))} ${ICON.arrow}</a>` : "");
+  const blocks = [
+    pull && { body: `Cap ${esc(pull.usdz)} USDZ · 1 pull · payee: platform`, tx: pull.bind_tx },
+    pull && { body: `${esc(pull.usdz)} USDZ for ${esc(fmtMoney("AUD", pull.aud))}`, tx: pull.tx },
+    ref && { body: `${esc(ref.usdz)} USDZ · <span class="mono">${esc(ref.code || "refused")}</span>`, tx: ref.tx, no: true },
+    poi && { body: `<span class="mono">${esc(mid(poi.to, 6, 4))}</span> looks like <span class="mono">${esc(mid(poi.real, 6, 4))}</span> · <span class="mono">${esc(poi.code || "refused")}</span>`, tx: poi.tx, no: true },
+  ];
+  const short = S.lanes.harbour.state === "AWAITING_FUNDS";
+  const say = ref && poi ? T.chainDone : ref ? T.chainPoison : pull ? T.chainOver : short ? T.chainReady : T.chainNeedRun;
+  const btn = (id, label, main, off) => `<button ${main ? 'class="primary"' : ""} data-act="scenario" data-id="${id}" ${busy || off ? "disabled" : ""}>${label}</button>`;
+  el.innerHTML = `<div class="chain-head"><span class="chip net"><span class="dot"></span>${T.chainNet}</span><h2 id="chain-title">${T.chainTitle}</h2><p class="muted">${T.chainSub}</p></div>
+    <ol class="blocks">${T.chainSteps.map((s, i) => { const b = blocks[i]; return `<li class="block ${b ? (b.no ? "no" : "ok") : ""}"><span class="k">${b ? (b.no ? ICON.lock : ICON.check) : `<span class="n">${i + 1}</span>`}${esc(s)}</span><span class="v">${b ? b.body : esc(T.chainWait[i])}</span>${b ? tx(b.tx) : ""}</li>`; }).join("")}</ol>
+    <div class="chain-foot"><span class="small">${esc(say)}</span><span class="grow"></span>${btn("metal_topup", T.metalShort, short && !pull, !short || pull)}${btn("metal_overpull", T.metalOver, pull && !ref, !pull)}${btn("metal_poison", T.metalPoison, ref && !poi, !pull)}</div>
+    <p class="small faint">${esc(T.chainScale)}</p>`;
+}
 
 /* attacks */
 function renderCards() {
@@ -241,7 +266,7 @@ function renderCards() {
     const r = s.last, tamperOn = id === "tamper_ledger" && r && r.bad_seq != null;  // only the edit result carries bad_seq
     return `<div class="card" data-id="${id}"><div class="title"><span>${esc(s.title)}</span>${PRESENT && i !== undefined ? `<span class="key">${i + 1}</span>` : ""}</div>
       <p class="line">${esc(s.line)}${SIMULATED_CARDS.has(id) ? ` <span class="chip sim">${T.simulated}</span>` : ""}</p>
-      ${r ? `<div class="result"><div class="verdict ${r.ok ? "ok" : "no"}">${r.ok ? ICON.check : ICON.alert}<span>${esc(r.summary)}</span></div><p>${esc(r.defence || "")}</p>${Play.evidenceHtml(r, `data-act="rows" data-id="${id}"`)}${(r.links || []).map((k) => `<a class="link" href="${esc(k.url)}" target="_blank" rel="noopener">${esc(k.label)}</a>`).join(" ")}${(r.seqs || []).length && !r.evidence ? `<button class="link" data-act="rows" data-id="${id}">${T.viewRows}</button>` : ""}</div>` : ""}
+      ${r ? `<div class="result"><div class="verdict ${r.ok ? "ok" : "no"}">${r.ok ? ICON.check : ICON.alert}<span>${esc(r.summary)}</span></div><details><summary class="small">${T.whyHeld}</summary><p>${esc(r.defence || "")}</p>${Play.evidenceHtml(r, `data-act="rows" data-id="${id}"`)}</details>${(r.links || []).map((k) => `<a class="link" href="${esc(k.url)}" target="_blank" rel="noopener">${esc(k.label)}</a>`).join(" ")}${(r.seqs || []).length && !r.evidence ? `<button class="link" data-act="rows" data-id="${id}">${T.viewRows}</button>` : ""}</div>` : ""}
       <div class="acts"><button data-act="scenario" data-id="${id}" ${busy ? "disabled" : ""}>${tamperOn ? T.restore : T.runTest}</button></div></div>`;
   };
   $("#cards").innerHTML = CARD_ORDER.map(card).join("");
@@ -387,17 +412,20 @@ function renderProof() {
   ];
   const all = items.every((i) => i[0]);
   const verdict = `<div class="verdict-card ${all ? "" : "no"}" role="status">${all ? ICON.check : ICON.alert}${items.map((i, n) => `${n ? '<span class="sep">·</span>' : ""}<span>${esc(i[1])}</span>`).join("")}<span class="chip" style="margin-left:auto">${S ? esc(S.backend) : ""} backend</span><button data-act="reverify">${T.verifyAgain}</button></div>`;
-  const panels = TENANTS.map((t) => {
-    const r = P.report.tenants[t], c = P.certs[t];
-    return `<div class="panel" data-t="${t}"><header><h2>${nm(t)}</h2><span class="chip">${c.valid ? "Signature valid" : "Signature invalid"} · ${esc(c.result)}</span></header>
-      ${r.checks.map((k) => `<div class="check ${k.ok ? "ok" : "no"}">${k.ok ? ICON.check : ICON.alert}<span class="word">${k.ok ? T.pass : T.fail}</span><span>${esc(k.name)}${k.ok || !k.detail ? "" : ` <span class="bad">${esc(k.detail)}</span>`}</span></div>`).join("")}
-      <div class="cols"><div><h3>Paid out</h3><p class="num">${esc(totalsText(r.totals_by_currency))}</p><p class="muted">${r.payees} payee${r.payees === 1 ? "" : "s"}${r.fee_gbp !== "0.00" ? ` · fee ${esc(fmtMoney("GBP", r.fee_gbp))}` : ""}</p></div>
-      <div><h3>Debited transfers</h3>${r.debits.map((d) => `<div class="mono">${esc(d.transfer_id.slice(0, 8))} ${esc(fmtMoney(d.currency, d.amount))} ${esc(d.status || "")}</div>`).join("") || "<p>None.</p>"}</div></div>
+  const R = P.report.tenants, names = R[TENANTS[0]].checks.map((k) => k.name);
+  const cell = (k) => (k ? `<td class="c ${k.ok ? "ok" : "no"}" title="${esc(k.ok ? T.pass : k.detail || T.fail)}">${k.ok ? ICON.check : ICON.alert}</td>` : "<td></td>");
+  const matrix = `<div class="panel"><table class="matrix"><thead><tr><th>${T.proofCheck}</th>${TENANTS.map((t) => `<th class="c" data-t="${t}">${esc(nm(t))}</th>`).join("")}</tr></thead>
+    <tbody>${names.map((n, i) => `<tr><td>${esc(n)}</td>${TENANTS.map((t) => cell(R[t].checks[i])).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const panels = `<div class="lanes">${TENANTS.map((t) => {
+    const r = R[t], c = P.certs[t];
+    return `<div class="panel" data-t="${t}"><header><h2>${nm(t)}</h2><span class="chip">${c.valid ? T.sigOk : T.sigBad}</span></header>
+      <p class="num">${esc(totalsText(r.totals_by_currency))}</p><p class="muted small">${r.payees} payee${r.payees === 1 ? "" : "s"}${r.fee_gbp !== "0.00" ? ` · fee ${esc(fmtMoney("GBP", r.fee_gbp))}` : ""}</p>
+      <details><summary class="small">${T.debits} (${r.debits.length})</summary>${r.debits.map((d) => `<div class="mono small">${esc(d.transfer_id.slice(0, 8))} ${esc(fmtMoney(d.currency, d.amount))} ${esc(d.status || "")}</div>`).join("")}</details>
       <div class="actions"><a class="btn" href="/api/cert/${t}">${T.download}</a><button data-act="print" data-t="${t}">${T.print}</button></div></div>`;
-  }).join("");
-  const pr = `<div class="panel"><h2>${T.probesTitle}</h2>${P.report.probes.map((p) => `<div class="check ${p.ok ? "ok" : "no"}">${p.ok ? ICON.lock : ICON.alert}<span class="word">${p.ok ? T.pass : T.fail}</span><span>${esc(nm(p.from))} token against ${esc(nm(p.to) || p.to)}: HTTP ${p.status} ${esc(p.code || "")}</span></div>`).join("")}</div>`;
+  }).join("")}</div>`;
+  const pr = "";
   const mt = (P.metal || []).length ? `<div class="panel"><h2>${T.metalProof}</h2>${P.metal.map((m) => `<div class="check ${m.kind === "METAL_PULL" ? "ok" : "no"}">${m.kind === "METAL_PULL" ? ICON.check : ICON.lock}<span>${esc(m.what)}: ${esc(m.usdz)} USDZ${m.code ? ` (${esc(m.code)})` : ""} ${m.explorer_url ? `<a class="link" href="${esc(m.explorer_url)}" target="_blank" rel="noopener">tx ${esc(String(m.tx).slice(0, 10))}</a>` : ""}${m.mandate ? ` <span class="mono">mandate ${esc(String(m.mandate).slice(0, 10))}</span>` : ""}</span></div>`).join("")}</div>` : "";
-  el.innerHTML = `<div class="stack">${verdict}${panels}${pr}${mt}</div>`;
+  el.innerHTML = `<div class="stack">${verdict}${matrix}${panels}${pr}${mt}</div>`;
 }
 function printCert(t) {
   const c = PROOF.certs[t].doc, b = c.body;
@@ -437,7 +465,20 @@ document.addEventListener("click", async (ev) => {
   else if (act === "startover") { if (await ask(T.startOverTitle, T.resetConfirm, T.startOverYes)) { await doAct("/api/reset", {}, "Started over."); TL = []; tlSeen = -1; PROOF = null; pendingStart = false; await refresh(); } }
   else if (act === "presenter") { qs.set("present", PRESENT ? "0" : "1"); location.search = qs.toString(); }
   else if (act === "scenario") await runScenario(id);
+  else if (act === "rerun") {
+    if (!(await ask(T.startOverTitle, T.resetConfirm, T.rerun))) return;
+    if (await doAct("/api/reset", {}, "Started over.")) { TL = []; tlSeen = -1; PROOF = null; await new Promise((r) => setTimeout(r, 1100)); }  // public demo: one POST per second
+    if (await doAct("/api/start", {}, "Payroll started.")) pendingStart = true;
+    await refresh();
+  }
   else if (act === "rows") openRows(id);
+  else if (act === "inbox") {
+    api(`/api/inbox/${t}`).then((docs) => {
+      const d = $("#dlg-rows");
+      d.innerHTML = `<header><h2 id="rows-title">${T.inboxTitle}: ${esc(nm(t))}</h2><button class="quiet" data-close>${T.close}</button></header><div class="body inbox"><p class="muted small">${T.inboxNote}</p>${docs.map((x) => `<div><strong>${esc(x.source === "timesheet" ? "Timesheet (CSV)" : "Email")}</strong><pre>${esc(x.text)}</pre></div>`).join("")}</div>`;
+      d.showModal();
+    }).catch((e) => toast(e.message));
+  }
   else if (act === "recheck") {
     const rid = b.dataset.rid;
     RC[rid] = { busy: true }; renderLanes();
