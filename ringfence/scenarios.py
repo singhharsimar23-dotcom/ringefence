@@ -326,6 +326,7 @@ class Simulator:
             log.warning("metal top-up failed: %s", metal.scrub(str(e)))
             return {"ok": False, "summary": copy.METAL_FALLBACK, "defence": "", "seqs": []}
         top_up(self.awx, self.L, run_id, tenant, req)  # [SIMULATED] Airwallex credit; the existing matcher closes the request
+        self.metal.recycle_later(pay)
         return {"ok": True, "tenant": tenant, "links": [{"label": "Metal pull", "url": pay["explorer_url"]}],
                 "summary": f"Harbour's mandate paid {pay['usdz']} USDZ on Metal testnet (real). [SIMULATED] Airwallex then credited {req['amount']} {req['currency']} to Harbour's own account.",
                 "defence": "Two locks: Metal enforces the mandate (cap, payee, one pull); Ringfence matches the deposit by account, currency and reference.",

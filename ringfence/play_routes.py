@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 
-from . import copy
+from . import copy, metal
 from .playground import Manager, PlayError, Spec, World, default_draft_llm, draft, errors_of
 
 _GET = [re.compile(p) for p in (r"state", r"timeline", r"ledger", r"proof", r"calls", r"cert/(northwind|kestrel|harbour)",
@@ -72,7 +72,7 @@ def register(app: FastAPI, mgr: Manager, llm_factory=None) -> None:
 
     @app.get("/api/play/info")
     def info():
-        return mgr.info()
+        return {**mgr.info(), "metal": metal.enabled()}
 
     @app.post("/api/play/draft")
     def make_draft(b: DraftBody):

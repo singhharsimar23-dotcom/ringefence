@@ -49,6 +49,7 @@ const T = {
   loadError: "The page could not reach Ringfence. Check that the server is running, then reload.",
   actingAs: "Acting as", demoOnly: "demo only",
   simulated: "[SIMULATED]", metalPay: "Pay the shortfall from Harbour's Metal treasury", metalProof: "Metal testnet (real transactions)",
+  metalHome: "New: a payroll shortfall paid on Metal testnet under an on-chain mandate", metalTry: "Try it in the demo",
   live: "Live · Airwallex sandbox", offline: "Offline demo", offlineRules: "Offline rules",
   agentCapped: "Offline rules (daily Claude limit reached)",
   seeProof: "See the proof", startOver: "Start over", presenter: "Presenter mode", showDetails: "Show details", hideDetails: "Hide details",

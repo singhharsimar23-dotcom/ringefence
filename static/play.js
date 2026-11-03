@@ -34,7 +34,7 @@ const Play = (() => {
   function loadInfo() {  // app.js defines api(), so this runs on the first route, not at load
     if (loaded) return;
     loaded = true;
-    api("/api/play/info").then((i) => { info = i; if (!H.touchedBackend) H.backend = i.live ? "live" : "fake"; if (!R) { paintSeg(); paintBadge(); } }).catch(() => { loaded = false; });
+    api("/api/play/info").then((i) => { info = i; if (!H.touchedBackend) H.backend = i.live ? "live" : "fake"; if (!R) { paintSeg(); paintBadge(); if (i.metal && $(".hero") && !$("#pl-text").value) home(); } }).catch(() => { loaded = false; });
   }
   function paintBadge() {
     $("#live").innerHTML = `<span class="dot ${info.live ? "" : "off"}"></span>${esc(info.live ? T.liveChip : T.backendSim)}`;
@@ -64,7 +64,7 @@ const Play = (() => {
   function composeHtml() {
     const ex = T.presets.map((p, i) => `<button type="button" class="ex" data-pl="ex" data-i="${i}">${esc(p.label)}${p.sim ? ` <span class="chip sim">${esc(T.simulated)}</span>` : ""}</button>`).join("");
     return `<div class="hero"><h1><span>${esc(T.h1a)}</span> <span>${esc(T.h1b)}</span></h1>
-      <p class="lede">${esc(T.lede)}</p></div>
+      <p class="lede">${esc(T.lede)}</p>${info.metal ? `<a class="metal-pill" href="#/demo"><span class="dot"></span>${esc(T.metalHome)}<span class="go">${esc(T.metalTry)} &rarr;</span></a>` : ""}</div>
     <div class="composer" id="pl-comp">
       <label class="sr" for="pl-text">${esc(T.composerHint)}</label>
       <textarea id="pl-text" rows="4" placeholder="${esc(T.composerHint)}" spellcheck="false">${esc(H.text)}</textarea>
