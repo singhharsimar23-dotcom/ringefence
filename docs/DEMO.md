@@ -5,6 +5,10 @@ press **R** to start over, wait for the lanes to read "Not started". Do not run 
 Keep a fake-backend take as backup. In presenter mode keys **1-6** run the "Try to break it" cards in the order below,
 and the arrow keys move the caption.
 
+Open on the playground (home page): pick **Bank-change email**, press Read it, Run, and hold to approve. Say: "Describe any payroll.
+The real agent, the real rules and the real Airwallex sandbox run it in a world of its own, and every step shows its evidence."
+Open the bank-change row to show the quarantine, then press Three employers and follow the table below for isolation and proof.
+
 | Time | Do | Say |
 |---|---|---|
 | 0:00 | Pay tab, progress rail | One bureau, three employers, three separate Airwallex accounts. Ringfence can move any employer's money, but only that employer's own. |
