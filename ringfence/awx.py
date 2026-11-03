@@ -95,6 +95,7 @@ class TenantClient:
             r = self._awx._http.request(method, f"{self._awx.base}/{path.lstrip('/')}", params=params,
                                         headers=h, content=content)
             log.debug("%s %s -> %s [%s]", method, path, r.status_code, self._tenant.key)
+            r = self._awx._simulate(method, path, r)
             if r.status_code == 401 and attempt == 0 and self._code(r) in RELOGIN_CODES:
                 continue
             return r
@@ -166,9 +167,29 @@ class Awx:
         self._clients: dict[str, TenantClient] = {}
         self._sleep = sleep
         self._lock = threading.Lock()
+        self._faults: list[dict] = []  # [SIMULATED] demo faults, see inject()
 
     def __repr__(self) -> str:
         return f"<Awx {self.base}>"
+
+    def inject(self, kind: str, path: str, method: str = "POST", **kw: Any) -> None:
+        """[SIMULATED] one-shot client-side fault that works on the live sandbox too:
+        timeout_after_commit (the request really lands, the answer is lost) | rate_shift(bps) on a quote answer."""
+        with self._lock:
+            self._faults.append({"kind": kind, "path": path, "method": method, **kw})
+
+    def _simulate(self, method: str, path: str, r: httpx.Response) -> httpx.Response:
+        with self._lock:
+            hit = next((f for f in self._faults if f["method"] == method and f["path"] in path), None)
+            if hit:
+                self._faults.remove(hit)
+        if hit is None:
+            return r
+        if hit["kind"] == "timeout_after_commit":
+            raise httpx.ReadTimeout("[SIMULATED] response lost after the request landed")
+        body = loads_money(r.content)
+        body["client_rate"] = str(Decimal(str(body["client_rate"])) * (1 + Decimal(hit["bps"]) / 10000))
+        return httpx.Response(r.status_code, content=dumps_money(body), headers={"content-type": "application/json"})
 
     def tenants(self) -> dict[str, Tenant]:
         return dict(self._tenants)

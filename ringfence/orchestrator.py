@@ -14,7 +14,7 @@ from decimal import Decimal
 from . import beneficiaries as ben
 from . import fees, funding, fx, inbox, seed, store
 from .awx import Awx
-from .config import ROOT, clock
+from .config import ROOT, clock, var_dir
 from .executor import Executor, current_batch_hash
 from .ledger import Ledger
 from .mandate import Approval, make_request_id, sign_approval
@@ -234,6 +234,7 @@ class Orchestrator:
         dest = self.L.reset(by)
         if certs.is_dir():
             shutil.move(str(certs), str(dest.parent / f"{dest.stem}_certs"))
+        shutil.rmtree(var_dir() / "inbox", ignore_errors=True)  # emails dropped during the last take
         self.ensure_mandates()
         setup_demo.setup(self.awx, drain=True)
 
