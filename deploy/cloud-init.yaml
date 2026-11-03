@@ -1,0 +1,16 @@
+#cloud-config
+# First boot of the Ringfence VM (Ubuntu 24.04). Installs Caddy (HTTPS) and uv, creates a locked-down service user.
+package_update: true
+packages: [caddy, git, curl, sqlite3]
+users:
+  - default
+  - name: ringfence
+    system: true
+    shell: /usr/sbin/nologin
+    homedir: /var/lib/ringfence
+runcmd:
+  - curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
+  - mkdir -p /opt/ringfence /var/lib/ringfence/var /etc/ringfence
+  - chown -R ringfence:ringfence /opt/ringfence /var/lib/ringfence
+  - chmod 700 /etc/ringfence /var/lib/ringfence/var
+  - touch /etc/ringfence/cloud-init-done

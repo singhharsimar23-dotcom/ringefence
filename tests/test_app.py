@@ -146,3 +146,18 @@ def test_webhook_endpoint_rejects_unsigned_posts(c, monkeypatch):
     assert c.post("/webhooks/airwallex", content=b"{}").status_code == 401
     monkeypatch.delenv("AWX_WEBHOOK_SECRET")
     assert c.post("/webhooks/airwallex", content=b"{}", headers={"x-timestamp": "1", "x-signature": "a"}).status_code == 401
+
+
+def test_public_mode_spaces_out_operator_buttons_and_shows_the_banner_flag(E, monkeypatch):
+    monkeypatch.setenv("RF_PUBLIC", "1")
+    pc = TestClient(create_app(E))
+    assert pc.get("/api/state").json()["public"] is True
+    assert pc.post("/api/autosettle", json={"user": "maya", "on": True}).status_code == 200
+    r = pc.post("/api/autosettle", json={"user": "maya", "on": True})
+    assert r.status_code == 429 and "shared demo" in r.json()["detail"]
+    assert pc.post("/webhooks/airwallex", content=b"{}").status_code == 401  # webhooks are never throttled
+
+
+def test_private_mode_has_no_throttle(c):
+    assert c.get("/api/state").json()["public"] is False
+    assert all(c.post("/api/autosettle", json={"user": "maya", "on": True}).status_code == 200 for _ in range(3))

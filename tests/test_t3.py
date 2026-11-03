@@ -116,3 +116,14 @@ def test_mcp_prices_without_moving_money_and_a_mandated_run_releases(rf, fake):
     assert len(fake.all_transfers(acct("kestrel"))) == 2
     with pytest.raises(ValueError):
         rf.price_run("someone-else")
+
+
+def test_any_of_several_webhook_secrets_verifies_and_others_do_not(L, sent):
+    ex, tid = sent
+    raw = json.dumps(event(tid, "payout.transfer.sent", "evt_multi")).encode()
+    ts = str(int(time.time() * 1000))
+    sig = lambda k: hmac.new(k.encode(), ts.encode() + raw, hashlib.sha256).hexdigest()
+    many = "whsec_platform, whsec_kestrel ,whsec_harbour"
+    assert webhooks.handle(L, ex, many, {"x-timestamp": ts, "x-signature": sig("whsec_kestrel")}, raw)[0] == 200
+    assert webhooks.handle(L, ex, many, {"x-timestamp": ts, "x-signature": sig("whsec_other")}, raw) == (401, "bad signature")
+    assert webhooks.handle(L, ex, " , ", {"x-timestamp": ts, "x-signature": sig("")}, raw) == (401, "missing signature")

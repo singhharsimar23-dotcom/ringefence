@@ -30,12 +30,14 @@ def _tenant_of(account_id: object) -> str | None:
 
 
 def handle(L: Ledger, ex: Executor, secret: str, headers: dict, raw: bytes, now: float | None = None) -> tuple[int, str]:
-    """Returns (http status, short reason). Never raises on bad input."""
+    """Returns (http status, short reason). Never raises on bad input.
+    `secret` may be a comma-separated list: each Airwallex account's webhook has its own secret."""
     ts, sig = headers.get("x-timestamp", ""), headers.get("x-signature", "")
-    if not secret or not ts or not sig:
+    secrets = [s.strip() for s in secret.split(",") if s.strip()]
+    if not secrets or not ts or not sig:
         return 401, "missing signature"
-    want = hmac.new(secret.encode(), ts.encode() + raw, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(want, sig):
+    wants = [hmac.new(s.encode(), ts.encode() + raw, hashlib.sha256).hexdigest() for s in secrets]
+    if not any(hmac.compare_digest(w, sig) for w in wants):
         return 401, "bad signature"
     try:
         if _age(ts, time.time() if now is None else now) > WINDOW_S:

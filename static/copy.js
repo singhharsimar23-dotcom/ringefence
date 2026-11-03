@@ -35,6 +35,7 @@ const PILL_ICON = { Planned: "clock", "Needs OK": "alert", "On its way": "arrow"
 const PILL_CLASS = { Planned: "grey", "Needs OK": "amber", "On its way": "blue", Paid: "green", Returned: "red", Held: "red" };
 
 const T = {
+  publicDemo: "Shared sandbox demo. Test money only, on the Airwallex sandbox. Other visitors may be using it at the same time.",
   start: "Run Friday payroll", again: "Check inboxes now", pauseAll: "Pause all payouts", resumeAll: "Resume payouts",
   review: "Review and approve", reviewReturned: "Review returned payout", copyFunding: "Copy funding details",
   openProof: "Open proof page", resume: "Resume this run", hold: "Pause this run", close: "Close",

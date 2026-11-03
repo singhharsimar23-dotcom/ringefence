@@ -46,6 +46,7 @@ button:disabled { opacity: .55; cursor: default; }
 .bar.amber { background: var(--amber-bg); color: var(--amber); border-bottom: 1px solid #ecd9a6; }
 .bar.red { background: var(--red-bg); color: var(--red); border-bottom: 1px solid #efc6c3; }
 .bar .grow { flex: 1; }
+.bar.quiet { background: var(--grey-bg); color: var(--muted); font-weight: 400; border-bottom: 1px solid var(--line); font-size: 13px; padding: 6px var(--s3); }
 
 /* naive strip */
 .naive { margin: var(--s2) var(--s3) 0; padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); color: var(--muted); display: flex; gap: var(--s1); align-items: baseline; }

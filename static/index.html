@@ -22,6 +22,7 @@
   <button id="kill" class="danger" data-act="kill">Pause all payouts</button>
   <button id="start" class="primary" data-act="start">Run Friday payroll</button>
 </header>
+<div id="pubbar" class="bar quiet" hidden></div>
 <div id="killbar" class="bar amber" hidden></div>
 <div id="errbar" class="bar red" hidden></div>
 
@@ -135,6 +136,7 @@ function render() {
   const hasRun = TENANTS.some((t) => S.lanes[t].state);
   $("#start").textContent = hasRun ? T.again : T.start; $("#start").classList.toggle("primary", !hasRun); $("#start").disabled = busy;
   if (view === "rules") renderRules();
+  const pb = $("#pubbar"); pb.hidden = !S.public; pb.textContent = S.public ? T.publicDemo : "";
   const kb = $("#killbar");
   kb.hidden = !S.kill.on;
   kb.innerHTML = S.kill.on ? `${ICON.pause}<span class="grow">All payouts are paused${S.kill.by ? ` by ${esc(S.kill.by)}` : ""}. Nothing new will be sent.</span><button data-act="unkill">${T.resumeAll}</button>` : "";
