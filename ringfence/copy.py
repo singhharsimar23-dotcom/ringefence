@@ -96,6 +96,13 @@ SCENARIO_EVIDENCE = {
                     "A late return is tracked, and paying it again is a new payment that needs its own approval."),
 }
 SCENARIO_EVIDENCE["harbour_topup"] = SCENARIO_EVIDENCE["topup"]
+SCENARIO_EVIDENCE["metal_topup"] = ("Harbour is short, so the platform pulls the shortfall from Harbour's Metal treasury.",
+                                    "METAL_MANDATE", "Metal (on-chain mandate)",
+                                    "Harbour signed a mandate on Metal: one pull, exactly the shortfall, only to the platform's address.")
+SCENARIO_EVIDENCE["metal_overpull"] = ("The agent asks Metal to pull 1.00 more than the mandate allows.",
+                                       "METAL_MANDATE_CAP", "Metal (on-chain mandate)",
+                                       "Metal refused the pull and wrote the refusal on chain. Ringfence's own gate is a second lock.")
+METAL_FALLBACK = "Metal testnet didn't answer; using the simulated top-up."
 
 # Codes raised by the executor and the agent tools outside the gate.
 EXTRA_TEXT = {
@@ -267,6 +274,10 @@ def timeline_row(e: dict) -> dict | None:
         row = ("Observe", p.get("what", "[SIMULATED] sandbox action"))
         if not row[1].startswith("[SIMULATED]"):
             row = ("Observe", "[SIMULATED] " + row[1])
+    elif k == "METAL_PULL":
+        row = ("Act", f"Pulled {p['usdz']} USDZ from {T}'s Metal treasury under its mandate (Metal testnet, tx {p['tx'][:10]}).")
+    elif k == "METAL_REFUSED":
+        row = ("Decide", f"Metal refused a pull of {p['usdz']} USDZ above {T}'s mandate: {p.get('code')}.")
     elif k == "RESET":
         row = ("Observe", "New take: the previous one is archived and still verifiable.")
     if row is None:

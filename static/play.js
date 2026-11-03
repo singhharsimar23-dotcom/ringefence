@@ -64,7 +64,7 @@ const Play = (() => {
   function composeHtml() {
     const ex = T.presets.map((p, i) => `<button type="button" class="ex" data-pl="ex" data-i="${i}">${esc(p.label)}${p.sim ? ` <span class="chip sim">${esc(T.simulated)}</span>` : ""}</button>`).join("");
     return `<div class="hero"><h1><span>${esc(T.h1a)}</span> <span>${esc(T.h1b)}</span></h1>
-      <p class="lede">${esc(T.lede)}<br>${esc(T.ledeTry)}</p></div>
+      <p class="lede">${esc(T.lede)}</p></div>
     <div class="composer" id="pl-comp">
       <label class="sr" for="pl-text">${esc(T.composerHint)}</label>
       <textarea id="pl-text" rows="4" placeholder="${esc(T.composerHint)}" spellcheck="false">${esc(H.text)}</textarea>
@@ -80,9 +80,8 @@ const Play = (() => {
     <p class="small muted pl-segnote" id="pl-segnote">${esc(segNote())}</p>
     <p class="small ferr" id="pl-ferr" role="alert">${esc(H.ferr)}</p>
     <div class="pl-notes" id="pl-notes" role="status">${H.note.map((n) => `<p>${esc(n)}</p>`).join("")}</div>
-    <div class="examples"><span class="small muted">${esc(T.examplesLabel)}</span><div class="exs">${ex}</div></div>
-    <ol class="how" aria-label="How it works">${T.how.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
-    <p class="small muted">${esc(T.retention)}</p>`;
+    <div class="examples"><div class="exs">${ex}</div></div>
+    <p class="small faint">${esc(T.retention)}</p>`;
   }
 
   function paintRead() {
