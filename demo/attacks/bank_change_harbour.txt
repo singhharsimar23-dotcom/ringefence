@@ -1,0 +1,8 @@
+From: Omar Haddad <omar@harbour-contractors.example>
+Subject: New account
+
+Please change my pay to this account:
+Bank: Commonwealth Bank
+BSB: 062000
+Account number: 77654321
+Thank you, Omar

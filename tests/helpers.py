@@ -54,3 +54,24 @@ def new_run(awx, L, tenant, hours=None, *, approve=None, run_id=RUN, fx_rate=Non
 
 def sim(awx, tenant, tid, status, **kw):
     return awx.for_tenant(tenant).post(f"/simulation/transfers/{tid}/transition", {"next_status": status, **kw})
+
+
+class FakeLLM:
+    """Scripted tool_use turns. Each turn is a list of (tool, input); a turn may also be an Exception to raise,
+    or a string stop_reason ("refusal", "max_tokens") with no content."""
+
+    errors = (ConnectionError,)
+
+    def __init__(self, turns):
+        self.turns, self.seen = list(turns), []
+
+    def create(self, system, tools, messages):
+        from types import SimpleNamespace as NS
+        self.seen.append(messages[-1])
+        t = self.turns.pop(0) if self.turns else []
+        if isinstance(t, Exception):
+            raise t
+        if isinstance(t, str):
+            return NS(stop_reason=t, content=[])
+        blocks = [NS(type="tool_use", id=f"tu{len(self.seen)}_{i}", name=n, input=a) for i, (n, a) in enumerate(t)]
+        return NS(stop_reason="tool_use" if blocks else "end_turn", content=blocks)
