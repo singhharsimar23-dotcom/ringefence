@@ -16,7 +16,7 @@ You are building Ringfence v2 in this repo (branch `build`). Read `CLAUDE.md`, t
 **Non-negotiables:**
 - Don't change `gate.py`, `executor.py`, `ledger.py`, `mandate.py`, `money.py`, `funding.py` or `fx.py`. The single exception is the `run_id` world suffix in `orchestrator.run_id` (spec 4.3). If you believe you need another money-core change, stop and ask.
 - When `RF_WORLD`, `RF_TENANTS`, `RF_DEMO` and `RF_METAL` are unset, the Three employers demo must behave exactly as today.
-- Money is Decimal (BigInt cents in JS, display only). The LLM proposes; code decides. Never log tokens, keys, `METAL_RPC_URL` or the full `AWX_PLAYGROUND_ACCOUNT`.
+- Money is Decimal (BigInt cents in JS, display only). The LLM proposes; code decides. Never log tokens, keys, `METAL_RPC_URL`, `METAL_RPC_SECRET` or the full `AWX_PLAYGROUND_ACCOUNT`.
 - Run the regression gate (spec 10.8) after every tier: pytest, ruff, and the e2e flow on fake. After each deploy, also run the e2e against the live URL.
 - UI: follow spec section 3 exactly, including the "Slop tells, banned" list. Premium means restraint: one accent colour, aligned numbers, real data in mono, a written sentence for every state, and purposeful 160–400ms motion that respects reduced motion. Do the screenshot design QA at 1440×900 and 390×844 before calling T2 done.
 - Walk every row of the judge-proofing matrix (spec 5b) yourself before T2 sign-off.
@@ -27,7 +27,7 @@ You are building Ringfence v2 in this repo (branch `build`). Read `CLAUDE.md`, t
 **Known state (3 Nov):**
 - `AWX_PLAYGROUND_ACCOUNT=acct_zQZEjmRrNWSCAIfGsxjONA` is set locally and on the VM.
 - The playground account is linked to the API key, and login works (verified 3 Nov). The live playground is available.
-- `METAL_RPC_SECRET` is set. `METAL_RPC_URL` (the endpoint id URL) is pending from the owner; see spec section 8, item 4.
+- `METAL_RPC_URL` and `METAL_RPC_SECRET` are set locally and on the VM, and the chain id was verified as 63825. T5 is unblocked; see spec section 8, item 4.
 
 **Report back at each tier gate:**
 - What was built, and the test count before and after
