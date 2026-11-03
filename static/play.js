@@ -658,12 +658,12 @@ const Play = (() => {
     setHtml("pay", $("#r-pay"), `<h3>${esc(T.payouts)}</h3>${out ? `<ul class="pays">${out}</ul>` : `<p class="small muted">${esc(T.noPayouts)}</p>`}`);
   }
 
-  function evidenceHtml(r) {
+  function evidenceHtml(r, show) {
     const e = r && r.evidence;
     if (!e) return "";
     return `<dl class="ev"><dt>${esc(T.evInput)}</dt><dd>${esc(e.input)}</dd>
       <dt>${esc(T.evDecided)}</dt><dd>${esc(e.decided_by)}${e.rule ? ` <span class="chip mono">${esc(e.rule)}</span>` : ""}<br><span class="muted">${esc(e.decision)}</span></dd>
-      <dt>${esc(T.evRecorded)}</dt><dd>${e.seq != null ? `<span class="mono">#${esc(e.seq)} ${esc(e.hash || "")}</span> <button type="button" class="link" data-pl="rows" data-seqs="${esc((r.seqs || [e.seq]).slice(0, 20).join(","))}">${esc(T.evShow)}</button>` : ""}</dd></dl>`;
+      <dt>${esc(T.evRecorded)}</dt><dd>${e.seq != null ? `<span class="mono">#${esc(e.seq)} ${esc(e.hash || "")}</span> <button type="button" class="link" ${show || `data-pl="rows" data-seqs="${esc((r.seqs || [e.seq]).slice(0, 20).join(","))}"`}>${esc(T.evShow)}</button>` : ""}</dd></dl>`;
   }
 
   function renderNext() {

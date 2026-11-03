@@ -213,7 +213,7 @@ function laneHtml(t) {
   const fx = l.path.fx.length ? `<div class="fxpath">${l.path.fx.map((g) => `${esc(g.sell)} ${ICON.arrow} ${esc(g.buy)}`).join(" · ")}</div>` : "";
   const amount = l.lines.length ? `<div class="amount" aria-label="Total">${sums(l.lines).map(([c, a]) => `<span>${money(c, a)}</span>`).join("")}</div>${fx}` : "";
   const wallet = Object.keys(l.wallet).length ? `<div class="wallet" aria-label="Own wallet">${Object.entries(l.wallet).map(([c, a]) => `<span class="chip num">${esc(fmtMoney(c, a))}</span>`).join("")}</div>` : "";
-  const rows = l.lines.length ? `<ul class="lines">${l.lines.map((ln) => `<li><span class="nm" title="${esc(ln.name)}">${esc(ln.name)}</span><span class="num">${money(ln.currency, ln.amount)}</span>${pillHtml(ln.pill)}<a class="btn quiet" href="${esc(ln.track)}" target="_blank" rel="noopener" title="${T.contractorLink}" aria-label="${T.contractorLink}: ${esc(ln.name)}">${ICON.link}</a><span class="detail" title="${esc(ln.request_id)}">${esc(mid(ln.request_id, 10, 6))}</span></li>`).join("")}</ul>` : "";
+  const rows = l.lines.length ? `<ul class="lines">${l.lines.map((ln) => `<li><span class="nm" title="${esc(ln.name)}">${esc(ln.name)}</span><span class="num">${money(ln.currency, ln.amount)}</span>${pillHtml(ln.pill)}<a class="btn quiet" href="${esc(ln.track)}" target="_blank" rel="noopener" title="${T.contractorLink}" aria-label="${T.contractorLink}: ${esc(ln.name)}">${ICON.link}</a><span class="detail" title="${esc(ln.request_id)}">${esc(mid(ln.request_id, 10, 6))}</span>${rcHtml(ln)}</li>`).join("")}</ul>` : "";
   return `<article class="lane" data-t="${t}" aria-label="${esc(l.name)}">
     <div class="lane-head"><div class="row"><h2>${esc(l.name)}</h2><span class="mono muted" title="${esc(l.account)}">${esc(mid(l.account))}</span></div>
       <div class="meta">${ICON.lock}<span>${T.walled}</span></div></div>
@@ -221,6 +221,14 @@ function laneHtml(t) {
     <p class="muted small">${esc(x.next)}</p>
     <div class="lane-body"><div class="col">${noteHtml(t, l)}${amount}${wallet}</div><div class="col">${fundingHtml(f, t)}${rows}</div></div>
     <div class="lane-foot">${act}${hold}</div></article>`;
+}
+const RC = {};  // request_id -> re-check result for the demo payout rows
+const tidOf = (rid) => { const r = [...TL].reverse().find((x) => x.detail && x.detail.request_id === rid && x.detail.transfer_id); return r ? r.detail.transfer_id : null; };
+function rcHtml(ln) {
+  const tid = tidOf(ln.request_id), rc = RC[ln.request_id];
+  if (!tid) return "";
+  const out = !rc ? "" : rc.busy ? T.rechecking : rc.err ? esc(rc.err) : `${T.asOf} <span class="mono">${esc(clockSec(rc.fetched_at))}</span> · ${T.status} <span class="mono">${esc(rc.status)}</span>`;
+  return `<span class="small muted rc" style="grid-column:1/-1"><button class="link" data-act="recheck" data-rid="${esc(ln.request_id)}">${T.recheck}</button> ${out}</span>`;
 }
 function renderLanes() { $("#lanes").innerHTML = TENANTS.map(laneHtml).join(""); }
 
@@ -232,7 +240,7 @@ function renderCards() {
     const r = s.last, tamperOn = id === "tamper_ledger" && r && r.bad_seq != null;  // only the edit result carries bad_seq
     return `<div class="card" data-id="${id}"><div class="title"><span>${esc(s.title)}</span>${PRESENT && i !== undefined ? `<span class="key">${i + 1}</span>` : ""}</div>
       <p class="line">${esc(s.line)}${SIMULATED_CARDS.has(id) ? ` <span class="chip sim">${T.simulated}</span>` : ""}</p>
-      ${r ? `<div class="result"><div class="verdict ${r.ok ? "ok" : "no"}">${r.ok ? ICON.check : ICON.alert}<span>${esc(r.summary)}</span></div><p>${esc(r.defence || "")}</p>${(r.seqs || []).length ? `<button class="link" data-act="rows" data-id="${id}">${T.viewRows}</button>` : ""}</div>` : ""}
+      ${r ? `<div class="result"><div class="verdict ${r.ok ? "ok" : "no"}">${r.ok ? ICON.check : ICON.alert}<span>${esc(r.summary)}</span></div><p>${esc(r.defence || "")}</p>${Play.evidenceHtml(r, `data-act="rows" data-id="${id}"`)}${(r.seqs || []).length && !r.evidence ? `<button class="link" data-act="rows" data-id="${id}">${T.viewRows}</button>` : ""}</div>` : ""}
       <div class="acts"><button data-act="scenario" data-id="${id}" ${busy ? "disabled" : ""}>${tamperOn ? T.restore : T.runTest}</button></div></div>`;
   };
   $("#cards").innerHTML = CARD_ORDER.map(card).join("");
@@ -428,6 +436,11 @@ document.addEventListener("click", async (ev) => {
   else if (act === "presenter") { qs.set("present", PRESENT ? "0" : "1"); location.search = qs.toString(); }
   else if (act === "scenario") await runScenario(id);
   else if (act === "rows") openRows(id);
+  else if (act === "recheck") {
+    const rid = b.dataset.rid;
+    RC[rid] = { busy: true }; renderLanes();
+    api(`/api/recheck/${encodeURIComponent(tidOf(rid))}`).then((r) => { RC[rid] = r; }).catch((e) => { RC[rid] = { err: e.message }; }).finally(renderLanes);
+  }
   else if (act === "details") { const on = document.body.classList.toggle("details"); b.setAttribute("aria-pressed", on); renderStatic(); }
   else if (act === "filter") { filter = k; renderTimeline(); }
   else if (act === "drawer") { const on = $("#activity").classList.toggle("open"); b.setAttribute("aria-expanded", String(on)); }
