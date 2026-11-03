@@ -21,3 +21,8 @@ State left on the sandbox by the probes: Harbour has an AU probe beneficiary and
 - `python -m ringfence --backend live demo`: Kestrel auto-released (2 PAID), Northwind approved with one FX leg (3 PAID), Harbour short, funded by a `[SIMULATED]` AUD 1240.17 deposit, approved, paid (3 PAID). 3 fee transfers (GBP 3.00 / 4.50 / 4.50), ledger chain OK, rerun is a no-op.
 - GET `/beneficiaries/{id}`, GET `/deposits` fields and `/transfers?request_id=` all behave as the code assumes.
 - A simulated deposit is not matchable for ~2 s after creation (it showed up SETTLED right after). The orchestrator is polled, so a miss is just a later tick; the demo loops with a 2 s sleep.
+
+## Live E2E from reset (3 Nov, T3 build)
+- Via the HTTP API only: reset, start, approve Northwind, Harbour top-up scenario, approve Harbour. All three lanes DONE, isolation report ok, chain ok, three certificates VALID.
+- Gap found by tests, fixed: a short or split deposit used to close the funding request and strand the run. Requests now stay open until deposits with the reference cover them.
+- P3 (PENDING deposit availability), P6 (webhooks, needs a tunnel) and the live Claude path are still unverified.
