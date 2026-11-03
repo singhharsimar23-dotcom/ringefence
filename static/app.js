@@ -45,7 +45,7 @@ async function doAct(path, body, okMsg) {
   if (busy) return null;
   busy = true; render();
   try { const r = await api(path, { user: me(), ...body }); if (okMsg) toast(okMsg); return r; }
-  catch (e) { toast(e.message); return null; }
+  catch (e) { toast(e instanceof TypeError || e.status === 504 ? T.stillWorking : e.message); return null; }  // a dropped connection is not a failed action
   finally { busy = false; await refresh(); }
 }
 
@@ -247,7 +247,7 @@ function renderChain() {
     pull && { body: `Cap ${esc(pull.usdz)} USDZ · 1 pull · payee: platform`, tx: pull.bind_tx },
     pull && { body: `${esc(pull.usdz)} USDZ for ${esc(fmtMoney("AUD", pull.aud))}`, tx: pull.tx },
     ref && { body: `${esc(ref.usdz)} USDZ · <span class="mono">${esc(ref.code || "refused")}</span>`, tx: ref.tx, no: true },
-    poi && { body: `<span class="mono">${esc(mid(poi.to, 6, 4))}</span> looks like <span class="mono">${esc(mid(poi.real, 6, 4))}</span> · <span class="mono">${esc(poi.code || "refused")}</span>`, tx: poi.tx, no: true },
+    poi && { body: `<span class="mono">${esc(mid(poi.to, 10, 4))}</span> is not <span class="mono">${esc(mid(poi.real, 10, 4))}</span> · <span class="mono">${esc(poi.code || "refused")}</span>`, tx: poi.tx, no: true },
   ];
   const short = S.lanes.harbour.state === "AWAITING_FUNDS";
   const say = ref && poi ? T.chainDone : ref ? T.chainPoison : pull ? T.chainOver : short ? T.chainReady : T.chainNeedRun;

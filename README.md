@@ -31,17 +31,25 @@ An AI agent makes that risk bigger, because it reads emails and invoices that an
 2. Hold to approve Northwind. Then fund Harbour and approve.
 3. Press the **Try to break it** cards: a bank-change email, a double click, a network drop, a cross-tenant call, a tampered ledger row.
 4. **Proof** tab: isolation is green per employer, certificates download and verify offline.
-5. **Try it** tab: type or paste your own payroll and watch it run in a world of its own.
+5. **Try it** tab: attach a file from [demo/samples/](demo/samples/) (a CSV timesheet, a bank-change email, a hidden-instruction email)
+   or type your own payroll, and watch it run in a world of its own.
 
 ![Three employers](docs/img/demo.png)
 
-## Metal testnet (optional, on in the live demo)
+## Metal testnet: the second lock (live in the demo)
 
-Harbour's shortfall can be paid on Metal testnet under an on-chain mandate: one pull, a hard cap, one named payee.
-The **Pay the shortfall from Metal** card makes a real pull and links the transaction. The **Agent over-pulls on Metal** card asks for more
-than the cap, and Metal refuses it on chain (`mandate_cap_exceeded`). Airwallex then gets a `[SIMULATED]` deposit so the
-usual matcher closes the funding request. Testnet scale is 1 USDZ = USD 10, because the faucet gives about 100 USDZ.
-If Metal is down the card falls back to the simulated top-up. Details: [docs/PLAYGROUND_SPEC.md](docs/PLAYGROUND_SPEC.md) section 9.1.
+Harbour keeps a stablecoin treasury on Metal testnet and signs an on-chain mandate: one pull, capped at the shortfall,
+payable only to the platform. On **Three employers**, the section *Harbour's ringfence, enforced on chain* has three buttons,
+each a real testnet transaction with an explorer link:
+
+1. **Pay the shortfall on Metal**: the pull succeeds; Airwallex then gets a `[SIMULATED]` deposit so the usual matcher closes the request.
+2. **Pull more than the cap**: Metal refuses on chain (`mandate_cap_exceeded`).
+3. **Send to the lookalike wallet** (address poisoning): an email gives a wallet with the same first 6 and last 4 characters.
+   Ringfence compares the whole address and flags it; pushed anyway, Metal refuses (`mandate_payee_not_listed`).
+
+![Metal section](docs/img/chain.png)
+
+Testnet scale is 1 USDZ = USD 10, because the faucet gives about 100 USDZ. If Metal is down the button falls back to the simulated top-up.
 
 ## Run it yourself
 
@@ -50,7 +58,7 @@ No keys needed for the offline demo (fake Airwallex, scripted agent). Needs [uv]
 ```
 make sync
 make fake-demo        # open http://127.0.0.1:8000
-make check            # ruff + 359 offline tests, invariants I1-I9 after every scenario
+make check            # ruff + 361 offline tests, invariants I1-I9 after every scenario
 ```
 
 Live sandbox: set `AWX_CLIENT_ID`, `AWX_API_KEY`, `AWX_BASE_URL`, `AWX_PLATFORM_ACCOUNT`, `AWX_EMPLOYER_A/B/C` as

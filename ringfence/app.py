@@ -134,7 +134,7 @@ class Engine:
             if self.error != copy.START_FAILED:  # a failed start stays visible until the next start
                 self.error = ""
         except (AwxError, OSError) as e:
-            log.warning("worker step failed: %s", type(e).__name__)
+            log.warning("worker step failed: %s %s %s", type(e).__name__, getattr(e, "status", ""), getattr(e, "code", ""))
             self.error = "Airwallex didn't answer. Ringfence is checking whether any payment went through; nothing will be paid twice."
         except Exception:  # keep the worker alive whatever happens
             log.exception("worker step crashed")
@@ -312,10 +312,10 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
             raise HTTPException(422, "Unknown user.")
         return u
 
-    def act(fn):
+    def act(fn, timeout: float = 90.0):
         """Run an operator action on the worker and turn the failures a person can fix into plain 409s."""
         try:
-            return {"ok": True, **(E.call(fn) or {})}
+            return {"ok": True, **(E.call(fn, timeout) or {})}
         except (Refused, PermissionError, LookupError, ValueError) as e:  # a person can fix these
             raise HTTPException(409, str(e)) from None
         except (AwxError, OSError):
@@ -433,7 +433,7 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
         def job():
             E.results[name] = r = E.sim.run(name, tenant)
             return {"result": r}
-        return act(job)
+        return act(job, 180.0 if name.startswith("metal") else 90.0)  # a Metal step is a few testnet transactions
 
     @app.post("/api/rules/draft")
     def rule_draft(b: Rule):
