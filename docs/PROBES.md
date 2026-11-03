@@ -16,3 +16,8 @@ Scripts are in `scripts/probe_*.py` and re-runnable. P0, P3 (re-verified in T1),
 | P11 | Fee beneficiary on B and C; USD GA on Kestrel | GB 041907 / 07371376 validates and creates under Kestrel and Harbour. Kestrel US/USD global account created (ACTIVE) only with `required_features: [{currency: USD, transfer_method: LOCAL}]`; missing method is `field_required`, `ACH` is `invalid_argument` (must be LOCAL or SWIFT). A GA has no top-level `currency`; read `required_features[0].currency`. | Fake mirrors this. `setup_demo` must create GAs with `transfer_method`. |
 
 State left on the sandbox by the probes: Harbour has an AU probe beneficiary and a fee beneficiary, AUD 0; Kestrel has a US probe beneficiary, a fee beneficiary and a USD GA; Northwind holds AUD 10.
+
+## Live full run (3 Nov, step 10)
+- `python -m ringfence --backend live demo`: Kestrel auto-released (2 PAID), Northwind approved with one FX leg (3 PAID), Harbour short, funded by a `[SIMULATED]` AUD 1240.17 deposit, approved, paid (3 PAID). 3 fee transfers (GBP 3.00 / 4.50 / 4.50), ledger chain OK, rerun is a no-op.
+- GET `/beneficiaries/{id}`, GET `/deposits` fields and `/transfers?request_id=` all behave as the code assumes.
+- A simulated deposit is not matchable for ~2 s after creation (it showed up SETTLED right after). The orchestrator is polled, so a miss is just a later tick; the demo loops with a 2 s sleep.
