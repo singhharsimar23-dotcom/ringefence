@@ -35,7 +35,7 @@ const PILL_ICON = { Planned: "clock", "Needs OK": "alert", "On its way": "arrow"
 const PILL_CLASS = { Planned: "grey", "Needs OK": "amber", "On its way": "blue", Paid: "green", Returned: "red", Held: "red" };
 
 const T = {
-  publicDemo: "Shared sandbox demo. Test money only, on the Airwallex sandbox. Other visitors may be using it at the same time.",
+  publicDemo: "Shared sandbox. Test money only.",
   start: "Run Friday payroll", again: "Check inboxes now", pauseAll: "Pause all payouts", resumeAll: "Resume payouts",
   review: "Review and approve", reviewReturned: "Review returned payout", copyFunding: "Copy funding details",
   openProof: "Open proof page", resume: "Resume this run", hold: "Pause this run", close: "Close",
@@ -48,28 +48,27 @@ const T = {
   noRun: "No payroll run yet for this week.",
   loadError: "The page could not reach Ringfence. Check that the server is running, then reload.",
   actingAs: "Acting as", demoOnly: "demo only",
-  simulated: "[SIMULATED]",
+  simulated: "[SIMULATED]", metalPay: "Pay the shortfall from Harbour's Metal treasury", metalProof: "Metal testnet (real transactions)",
+  metalHome: "New: a payroll shortfall paid on Metal testnet under an on-chain mandate", metalTry: "Try it in the demo",
   live: "Live · Airwallex sandbox", offline: "Offline demo", offlineRules: "Offline rules",
   agentCapped: "Offline rules (daily Claude limit reached)",
   seeProof: "See the proof", startOver: "Start over", presenter: "Presenter mode", showDetails: "Show details", hideDetails: "Hide details",
   stopAll: "Stop all payments",
   startOverTitle: "Start over?", startOverYes: "Start over", dismiss: "Dismiss", more: "more", less: "less",
-  walled: "Own Airwallex account", noNote: "Waiting for the agent.",
+  walled: "Own Airwallex account", noNote: "Waiting.",
   preparing: "Preparing the payrolls", rulesReading: "Reading", claudeReading: "Claude is reading",
   steps: ["Agent prepares", "People approve", "Money moves", "Proof"],
-  intro: ["Three employers, three separate Airwallex accounts. Money never crosses between them.",
-    "Claude prepares each payroll. Code checks every amount and limit. A named person approves.",
-    "Press Run Friday payroll, then try to break it."],
+  intro: ["Three employers, three Airwallex accounts. Money never crosses.", "Press Run Friday payroll, then try to break it."],
   pooled: "A pooled account would have covered Harbour with Northwind's money:", pooledRefused: "Ringfence refused.",
   pooledShort: "A pooled account would show", pooledShortEnd: "which still would not cover Harbour.",
   pooledOwn: "Only Harbour's own AUD account counts for Harbour.",
-  breakTitle: "Try to break it", breakSub: "Each test runs against the real agent, gate and ledger. Sandbox-only steps are marked [SIMULATED].",
+  breakTitle: "Try to break it", breakSub: "Real agent, real gate. Sandbox-only steps say [SIMULATED].",
   eventsTitle: "Sandbox events [SIMULATED]", activity: "Activity", activityTitle: "What Ringfence did",
   fAll: "All", fBlocked: "Blocked only", emptyFilter: "No rows for this filter.",
   fundTitle: "Funding details", fundNeed: "Needed", switchTo: "Switch to", andApprove: "and approve", andConfirm: "and confirm by phone",
   approveFor: "review the batch", onlyFinance: "finance can approve this batch.",
-  rulesTitle: "Write a payment rule in plain English", rulesHint: "Say it the way you would to a colleague. Nothing changes until finance signs it.",
-  preview: "Preview the rule", previewEmpty: "The preview appears here: what would change, and what last week's payments would have done.",
+  rulesTitle: "Write a payment rule in plain English", rulesHint: "Nothing changes until finance signs it.",
+  preview: "Preview the rule", previewEmpty: "The preview appears here.",
   examples: ["No single payment over 700 GBP.", "Cap each run at 15k GBP.", "FX within 30 bps."],
   proofTitle: "Proof: where the money went", verifyAgain: "Verify again", download: "Download certificate", print: "Print certificate",
   isolation: "Isolation", chain: "Ledger chain intact", certs: "certificates valid", of: "of", employers: "employers",
@@ -88,9 +87,9 @@ const BEATS = [
   "Proof: each employer's money stayed in its own account. Edit one ledger row and verification fails there.",
 ];
 
-const SIMULATED_CARDS = new Set(["bank_change_email", "network_drop", "tamper_ledger", "rate_move", "other_tenant_deposit", "harbour_topup", "late_return"]);
+const SIMULATED_CARDS = new Set(["bank_change_email", "network_drop", "tamper_ledger", "rate_move", "other_tenant_deposit", "harbour_topup", "late_return", "metal_topup"]);
 const CARD_ORDER = ["bank_change_email", "double_click", "network_drop", "tamper_ledger", "cross_tenant_call", "rate_move"];
-const EVENT_ORDER = ["other_tenant_deposit", "harbour_topup", "late_return"];
+const EVENT_ORDER = ["other_tenant_deposit", "harbour_topup", "metal_topup", "metal_overpull", "late_return"];
 
 const clock = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
 const clockSec = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "");
@@ -98,19 +97,18 @@ const clockSec = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2
 /* The playground (static/play.js). Limits here mirror ringfence/playground.py; the server's answer always wins. */
 Object.assign(T, {
   tabTry: "Try it", tabDemo: "Three employers", tabRules: "Rules", tabProof: "Proof",
-  h1a: "Payroll platforms hold money for many employers.",
-  h1b: "One wrong transfer pays one company's staff with another company's cash.",
-  lede: "Ringfence lets an AI agent run that payroll, and proves on Airwallex that it never crossed the line.",
-  ledeTry: "Try it with your own payroll.",
-  composerHint: "Describe a payroll, paste an email, or drop a CSV.",
+  h1a: "Payroll an agent can run.",
+  h1b: "Money that never crosses.",
+  lede: "Describe a payroll. Watch it run on Airwallex, with proof.",
+  composerHint: "Describe a payroll, or paste an email",
   attach: "Attach", readIt: "Read it", reading: "Reading", dropHere: "Drop a CSV or a text file",
   fileKind: "Only .csv and .txt files can be read here.", fileBig: "That file is over 50 KB. Trim it and try again.",
   fileRead: "That file could not be read. Paste its text instead.",
   counterOver: "Over the 4,000 character limit by", examplesLabel: "Examples",
   backendLive: "Live sandbox", backendSim: "Simulated bank", backendLabel: "Where the money moves",
   twoEmployers: "Two employers need two bank accounts; the live sandbox has one spare.",
-  liveNote: "Real Airwallex sandbox calls. Test money only.", simNote: "A built-in bank that behaves like Airwallex. No network calls.",
-  retention: "Runs are deleted after 30 minutes. Use made-up names.",
+  liveNote: "Real Airwallex sandbox. Test money.", simNote: "Built-in bank. No network calls.",
+  retention: "Runs are deleted after 30 minutes.",
   how: ["You describe", "Agent proposes", "Rules decide", "Airwallex pays", "You get proof"],
   understood: "What I understood", fromText: "from your text", fromTable: "from your table", editText: "Edit text",
   employer: "Employer", people: "People", emailsTitle: "Emails the agent will read (untrusted)",
@@ -119,8 +117,8 @@ Object.assign(T, {
   approvalOpts: [["finance", "Finance signs"], ["auto_if_unchanged", "Automatic if nothing changed"]],
   fCountry: "Country · Currency", fHours: "Hours", fRate: "Rate", fAmount: "Amount (calculated)", fFrom: "From", fBody: "Message",
   addPerson: "Add person", addEmail: "Add an email", remove: "Remove", removePerson: "Remove this person",
-  bankLine: "Bank details come from Ringfence's verified test accounts for each country, never from text.",
-  calcNote: "Amounts here are for display. Ringfence recalculates them on the server and its number is the one that counts.",
+  bankLine: "Bank details come from verified test accounts, never from text.",
+  calcNote: "Ringfence recalculates every amount on the server.",
   runLive: "Run on the Airwallex sandbox", runSim: "Run on the simulated bank", starting: "Starting",
   errName: "Letters, numbers, spaces and . & ' - only", errLen40: "Use 1 to 40 characters", errLen80: "Use 1 to 80 characters",
   errLen2000: "Use 1 to 2000 characters", errNum: "Use a number with up to 2 decimals",
@@ -129,7 +127,7 @@ Object.assign(T, {
   errDupe: "Each company needs its own name", errNoPeople: "Add at least one person.",
   overLine: "Over the limit per person. Ringfence will refuse this payment, which you can watch.",
   fixFirst: "Fix the marked fields to run.",
-  runStarting: "Setting up this run. Each step appears below as it happens.",
+  runStarting: "Setting up. Steps appear as they happen.",
   tryFake: "Run it on the simulated bank instead",
   newRun: "New run", startNew: "Start a new run", watchDemo: "Watch the three-employer demo",
   agentWorking: "Agent working", agentIdle: "Agent idle", rulesEngine: "Rules engine",
@@ -154,8 +152,8 @@ Object.assign(T, {
   agentSays: "The agent says", isoOne: "one employer, so no cross-employer check", pass: "PASS", fail: "FAIL",
   keysTitle: "Keyboard", keys: [["Ctrl or Cmd + Enter", "Read the text, or run the payroll"], ["j and k", "Move between trace rows"],
     ["Enter", "Open or close a trace row"], ["?", "Show this list"], ["Esc", "Close a dialog or menu"]],
-  problemStrip: "Payroll platforms hold money for many employers. One wrong transfer pays one company's staff with another company's cash.",
-  tryYours: "Try it with your own payroll →",
+  problemStrip: "One wrong transfer pays one company's staff with another company's cash.",
+  tryYours: "Try your own payroll",
   evInput: "What was attempted", evDecided: "What decided it", evRecorded: "Where it is recorded", evShow: "Show in activity",
 });
 Object.assign(T, {

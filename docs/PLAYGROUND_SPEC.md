@@ -404,20 +404,20 @@ Design:
 - Keys live in `var/metal/<tenant>/` (mode 600, gitignored). Each employer has its own owner key and its own smart account, and the platform has one settlement address. The agent process only ever reads the **mandate credential**, never an owner key, except in `setup` (which plays the employer, labelled as such).
 - `scripts/metal_setup.py` (run once, idempotent) does the following for Harbour:
   1. `account create`, then `fund` until the USDZ balance is at least 1,000. This respects the faucet limits: about 1 grant a minute, 10 a day. Pre-bake the day before the demo.
-  2. Also create the platform settlement address.
+  2. Also create the platform settlement **account** (`account create` into `treasury/`), not a bare key: it must be able to sign the mandate that sends the USDZ back. The treasury owner key is the `--key` for `--record-refusal`.
 - New scenario `metal_topup` (only when `RF_METAL=1`, Harbour, run AWAITING_FUNDS):
   1. Read the open funding request: currency, amount and reference.
-  2. Compute the USDZ amount from a **read-only** Airwallex FX quote (AUD to USD; USDZ is treated as USD 1:1, and say so in the UI). Use Decimal, rounded **up** to cents.
+  2. Compute the USDZ amount from a **read-only** Airwallex FX quote (AUD to USD; the faucet only tops an account up to about 100 USDZ, so the demo uses 1 USDZ = USD 10 (`RF_METAL_USD_PER_USDZ`), and the summary says so). Use Decimal, rounded **up** to cents.
   3. The employer step, labelled "Harbour signs a mandate": `mandate credential create --principal <harbour acct> --payee <platform addr> --cap <usdz> --budget <usdz> --max-occurrences 1 --expires-in <seconds to act-by>`, then `mandate bind`.
   4. The agent step: `mandate pull --amount <usdz> --payment-id <funding reference>`. The payment id is our deterministic reference, so a retry says "already paid".
-  5. Ledger: `METAL_PULL {tx, explorer_url, usdz, mandate_hash}` via the existing append API. Add the new event kind wherever kinds are enumerated (grep).
+  5. Ledger: `METAL_PULL {tx, explorer_url, usdz, mandate_hash}` via the existing append API. `ledger.py` is off limits, so `metal.py` adds `METAL_PULL` and `METAL_REFUSED` to `ledger.KINDS` at import; the hash chain does not read KINDS.
   6. Airwallex: `/simulation/deposit/create` of the AUD amount to Harbour's AUD global account with `reference = <funding reference>`. This is the existing `top_up` path, so `funding.match_deposits` closes the request unchanged. Label it `[SIMULATED] Airwallex credit; the Metal payment is real testnet`.
 - New attack card `metal_overpull`, "Agent tries to pull more than the mandate":
   1. The pull uses amount + 1.00 with `--record-refusal`.
   2. Expect exit code 1 with `mandate_cap_exceeded`.
   3. Ledger `METAL_REFUSED {tx (refusal record), code}`.
   4. The card shows the explorer link. This is the on-chain twin of Airwallex's cross-tenant 401.
-- Recycle on reset: after Start over, send the USDZ from the settlement address back to Harbour's account (plain transfer through the CLI or web3), so the faucet limit never blocks demos. If the recycle fails, log it and carry on, since there is enough balance for several runs.
+- Recycle (built): the CLI has no transfer command, so after each pull a side thread has the settlement account sign a one-pull mandate back to Harbour's account and pulls it (`Metal.recycle`). It writes no ledger row and a failure is only logged. A new top-up started before it lands falls back to the simulated top-up.
 - Fallback: if `RF_METAL` is unset, or Metal fails (timeout, faucet empty, RPC error), the funding block shows today's `[SIMULATED] Send the top-up` button, with one line of copy: "Metal testnet didn't answer; using the simulated top-up." The demo never depends on Metal being up.
 - UI:
   - On Harbour's funding block (Three employers page), the primary action is "Pay the shortfall from Harbour's Metal treasury". The simulated button becomes secondary.
