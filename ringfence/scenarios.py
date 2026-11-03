@@ -2,10 +2,17 @@
 Backend-agnostic: uses only /simulation/* endpoints that both the fake and the live sandbox have."""
 from __future__ import annotations
 
+import shutil
+import sqlite3
+import threading
+from decimal import Decimal
+
 from . import store
 from .awx import Awx
+from .config import ROOT
 from .executor import INFLIGHT
 from .ledger import Ledger
+from .orchestrator import Orchestrator
 
 
 def pay_out(awx: Awx, L: Ledger, run_id: str, tenant: str) -> int:
@@ -30,3 +37,190 @@ def top_up(awx: Awx, L: Ledger, run_id: str, tenant: str, request: dict) -> None
         "payer_name": f"{tenant} (simulated payer)"})
     L.append("SIMULATED", {"what": "[SIMULATED] employer top-up deposit", "amount": request["amount"],
                            "currency": request["currency"], "reference": request["reference"]}, run_id, tenant)
+
+
+def settle_step(awx: Awx, L: Ledger, run_id: str, tenant: str) -> int:
+    """[SIMULATED] the bank network advancing one step per call: SCHEDULED -> SENT -> PAID. The sandbox has no
+    clock of its own, so without this a payout would sit at SCHEDULED forever."""
+    c, n = awx.for_tenant(tenant), 0
+    for ln in store.get_lines(L, run_id, tenant, states=INFLIGHT):
+        if tid := ln.get("transfer_id"):
+            c.post(f"/simulation/transfers/{tid}/transition", {"next_status": "PAID" if ln["state"] == "SENT" else "SENT"})
+            n += 1
+    if n:
+        L.append("SIMULATED", {"what": "[SIMULATED] bank network advanced payouts one step", "count": n}, run_id, tenant)
+    return n
+
+
+ATTACKS = {"northwind": ["bank_change_northwind"], "kestrel": ["rate_kestrel"],
+           "harbour": ["bank_change_harbour", "injection_harbour"]}
+SCENARIOS = {  # id -> (card title, one line, default tenant)
+    "bank_change_email": ("Fake bank-change email", "A contractor email swaps the bank account and says to pay 3x and skip approval.", "northwind"),
+    "double_click": ("Double-click pay", "Four release requests land at once on the same approved run.", "northwind"),
+    "network_drop": ("Network drop mid-payout", "Airwallex takes the payment but the answer is lost.", "kestrel"),
+    "tamper_ledger": ("Edit a ledger row", "Someone with the database file changes one recorded amount.", None),
+    "cross_tenant_call": ("Cross-tenant call", "One employer's login tries to act on another employer's account.", None),
+    "rate_move": ("Rate moves after approval", "The exchange rate moves past the approved range before payment.", "northwind"),
+    "other_tenant_deposit": ("Another employer's money arrives", "USD 50,000 lands in Kestrel while Harbour is short.", "kestrel"),
+    "harbour_topup": ("Harbour's own top-up", "Harbour's bank sends exactly what the funding card asked for.", "harbour"),
+    "late_return": ("Payout returned after payment", "A paid payout bounces back from the beneficiary's bank.", "northwind"),
+}
+
+
+class Simulator:
+    """[SIMULATED] things the world does. Each scenario returns {id, title, ok, summary, defence, seqs}.
+    Must run on the money thread: it drives the orchestrator."""
+
+    def __init__(self, orch: Orchestrator, run_id, agent_tick):
+        self.o, self.L, self.awx, self._rid, self._tick = orch, orch.L, orch.awx, run_id, agent_tick
+        self._tamper: tuple[int, str] | None = None
+
+    def run(self, name: str, tenant: str | None = None) -> dict:
+        title, _, default = SCENARIOS[name]
+        return {"id": name, "title": title, **getattr(self, f"_{name}")(tenant or default)}
+
+    def _seqs(self, before: int, *kinds: str) -> list[int]:
+        return [e["seq"] for e in self.L.entries(after_seq=before) if not kinds or e["kind"] in kinds]
+
+    def _head(self) -> int:
+        return self.L.head()[0]
+
+    def _state(self, tenant: str) -> str | None:
+        run = store.get_run(self.L, self._rid(), tenant)
+        return run["state"] if run else None
+
+    def _mine(self, tenant: str) -> tuple[list[dict], list[dict]]:
+        """(this run's lines, the Airwallex transfers that carry one of those lines' payment keys)"""
+        lines = store.get_lines(self.L, self._rid(), tenant)
+        keys = {ln["request_id"] for ln in lines}
+        got = [t for t in self.awx.for_tenant(tenant).get("/transfers", {"page_size": 100}).get("items", [])
+               if t.get("request_id") in keys]
+        return lines, got
+
+    def _not_ready(self, tenant: str, then: str) -> dict:
+        return {"ok": False, "summary": f"{tenant.title()} has no approved run waiting to be sent.", "defence": then, "seqs": []}
+
+    # -- the six cards -----------------------------------------------------------------------------------
+    def _bank_change_email(self, tenant: str) -> dict:
+        from .inbox import drop_dir
+        before = self._head()
+        for name in ATTACKS[tenant]:
+            shutil.copy(ROOT / "demo" / "attacks" / f"{name}.txt", drop_dir(tenant) / f"{name}.txt")
+        res = self._tick(tenant)
+        return {"ok": True, "summary": f"{res.headline} {res.explanation}".strip(), "tenant": tenant,
+                "defence": "Bank details are quarantined and the old details stay in force. A rate request is shown, never applied. "
+                           "Instructions inside the email are flagged, not followed.",
+                "seqs": self._seqs(before, "BENEFICIARY_QUARANTINED", "ALERT", "PROPOSAL", "GATE_DENY")}
+
+    def _double_click(self, tenant: str) -> dict:
+        before, state, run_id = self._head(), self._state(tenant), self._rid()
+        threads = [threading.Thread(target=self.o.advance, args=(run_id, tenant)) for _ in range(4)]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+        lines, got = self._mine(tenant)
+        ok = state == "READY" and len(got) == len(lines) == len({t["request_id"] for t in got})
+        return {"ok": ok, "summary": f"4 release clicks on a run that was {state}: {len(got)} payment(s) exist for {len(lines)} line(s).",
+                "defence": "Each payout has one payment key and one database claim, so a repeat click finds the work already done.",
+                "seqs": self._seqs(before, "INTENT", "SUBMITTED")}
+
+    def _network_drop(self, tenant: str) -> dict:
+        before = self._head()
+        if self._state(tenant) != "READY":
+            return self._not_ready(tenant, "Get a run to READY first, then drop the network.")
+        self.awx.inject("timeout_after_commit", "transfers/create")
+        self.o.advance(self._rid(), tenant)
+        lines, got = self._mine(tenant)
+        return {"ok": len(got) == len(lines), "tenant": tenant,
+                "summary": f"[SIMULATED] One answer was lost. Ringfence asked Airwallex by payment key: {len(got)} payment(s) for {len(lines)} line(s).",
+                "defence": "After a timeout Ringfence looks the payment up by its key instead of sending it again.",
+                "seqs": self._seqs(before, "UNKNOWN", "RECONCILED", "SUBMITTED")}
+
+    def _tamper_ledger(self, tenant: str | None) -> dict:
+        if self._tamper:  # a second press repairs
+            seq, original = self._tamper
+            self._write(seq, original)
+            self._tamper = None
+            return {"ok": self.L.verify().ok, "summary": f"Row {seq} restored. The chain verifies again.", "defence": "", "seqs": [seq]}
+        rows = self.L.entries(kind="INTENT") or self.L.entries(kind="PRICED")
+        if not rows:
+            return {"ok": False, "summary": "Nothing to tamper with yet: run payroll first.", "defence": "", "seqs": []}
+        seq = rows[-1]["seq"]
+        original = self.L.query("SELECT payload_json FROM ledger WHERE seq=?", (seq,))[0]["payload_json"]
+        self._tamper = (seq, original)
+        self._write(seq, original.replace('"amount": "', '"amount": "0.0', 1) if '"amount": "' in original
+                    else original[:-1] + ', "edited": true}')
+        v = self.L.verify()
+        return {"ok": not v.ok and v.bad_seq == seq, "bad_seq": v.bad_seq,
+                "summary": f"[SIMULATED] Row {seq} was edited. Verification now fails at row {v.bad_seq}.",
+                "defence": "Every row's hash includes the one before it, so one edit breaks the chain at that exact row. Press again to restore it.",
+                "seqs": [seq]}
+
+    def _write(self, seq: int, payload_json: str) -> None:
+        """Bypasses the append-only triggers the way someone with the file would. The ledger cannot stop this; verify() catches it."""
+        con = sqlite3.connect(self.L.path, timeout=30)
+        try:
+            con.execute("DROP TRIGGER IF EXISTS ledger_no_update")
+            con.execute("UPDATE ledger SET payload_json=? WHERE seq=?", (payload_json, seq))
+            con.execute("CREATE TRIGGER ledger_no_update BEFORE UPDATE ON ledger "
+                        "BEGIN SELECT RAISE(ABORT, 'ledger is append-only'); END")
+            con.commit()
+        finally:
+            con.close()
+
+    def _cross_tenant_call(self, tenant: str | None) -> dict:
+        probes = [(a, b, *self.awx.probe_cross_tenant(a, b))
+                  for a, b in (("northwind", "kestrel"), ("kestrel", "harbour"), ("harbour", "northwind"))]
+        return {"ok": all(p[2] == 401 for p in probes),
+                "summary": "; ".join(f"{a.title()} reaching {b.title()}: HTTP {s} {c}" for a, b, s, c in probes),
+                "defence": "Airwallex itself refuses a login from one employer acting on another. Ringfence cannot even try.", "seqs": []}
+
+    def _rate_move(self, tenant: str) -> dict:
+        before = self._head()
+        if self._state(tenant) != "READY":
+            return self._not_ready(tenant, "Approve a run first, then move the rate.")
+        self.awx.inject("rate_shift", "fx/quotes/create", bps=200)
+        state = self.o.advance(self._rid(), tenant)
+        return {"ok": state == "AWAITING_APPROVAL", "tenant": tenant,
+                "summary": f"[SIMULATED] The rate moved 2.00% after approval. {tenant.title()}'s run is now {state}.",
+                "defence": "The approval carries the rate that was shown and an allowed range. Outside it, nothing is converted or sent.",
+                "seqs": self._seqs(before, "GATE_DENY", "FX_QUOTE")}
+
+    # -- story beats ---------------------------------------------------------------------------------------
+    def _other_tenant_deposit(self, tenant: str) -> dict:
+        before, c = self._head(), self.awx.for_tenant(tenant)
+        gas = c.get("/global_accounts", {"page_num": 0, "page_size": 100}).get("items", [])
+        if not gas:
+            return {"ok": False, "summary": f"{tenant.title()} has no global account to receive into.", "defence": "", "seqs": []}
+        c.post("/simulation/deposit/create", {"global_account_id": gas[0]["id"], "amount": Decimal(50000),
+                                              "reference": "RF-DEMO-OTHER", "payer_name": f"{tenant} (simulated payer)"})
+        self.L.append("SIMULATED", {"what": "[SIMULATED] USD 50,000 lands in Kestrel's own account"}, None, tenant)
+        return {"ok": True, "tenant": tenant,
+                "summary": "[SIMULATED] USD 50,000 arrived in Kestrel. Harbour is still short: only Harbour's own money counts for Harbour.",
+                "defence": "A deposit in another employer's account can never change this employer's state.", "seqs": self._seqs(before)}
+
+    def _harbour_topup(self, tenant: str) -> dict:
+        before, run_id = self._head(), self._rid()
+        reqs = self.L.entries(run_id=run_id, kind="FUNDING_REQUESTED", tenant=tenant)
+        if not reqs:
+            return {"ok": False, "summary": "Harbour has no open funding request.", "defence": "", "seqs": []}
+        req = reqs[-1]["payload"]
+        top_up(self.awx, self.L, run_id, tenant, req)
+        return {"ok": True, "tenant": tenant,
+                "summary": f"[SIMULATED] Harbour's bank sent {req['amount']} {req['currency']} with reference {req['reference']}.",
+                "defence": "The deposit is matched by account, currency and reference, in Harbour's own account only.",
+                "seqs": self._seqs(before)}
+
+    def _late_return(self, tenant: str) -> dict:
+        before, run_id = self._head(), self._rid()
+        paid = store.get_lines(self.L, run_id, tenant, states=("PAID",))
+        if not paid:
+            return {"ok": False, "summary": f"{tenant.title()} has no paid payout to return yet.", "defence": "", "seqs": []}
+        ln = paid[0]
+        self.awx.for_tenant(tenant).post(f"/simulation/transfers/{ln['transfer_id']}/transition",
+                                         {"next_status": "FAILED", "failure_type": "BENEFICIARY_BANK_RETURNED"})
+        self.L.append("SIMULATED", {"what": "[SIMULATED] beneficiary bank returns a paid payout"}, run_id, tenant)
+        self.o.poll()
+        return {"ok": True, "tenant": tenant,
+                "summary": f"[SIMULATED] {ln['contractor_id'].title()}'s paid payout came back. It needs a new approval before it is sent again.",
+                "defence": "A late return is tracked and the re-pay is a new, separately approved payment.",
+                "seqs": self._seqs(before, "STATUS", "FEE_CREDIT", "REOPENED")}
