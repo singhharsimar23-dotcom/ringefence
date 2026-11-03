@@ -10,6 +10,7 @@ import shutil
 import threading
 from datetime import date, timedelta
 from decimal import Decimal
+from pathlib import Path
 
 from . import beneficiaries as ben
 from . import fees, funding, fx, inbox, seed, store
@@ -28,8 +29,9 @@ class Refused(Exception):
 
 
 class Orchestrator:
-    def __init__(self, awx: Awx, ledger: Ledger, executor: Executor | None = None):
+    def __init__(self, awx: Awx, ledger: Ledger, executor: Executor | None = None, cert_dir: Path | None = None):
         self.awx, self.L = awx, ledger
+        self.cert_dir = cert_dir  # reset() archives these; None = the repo's artifacts/certs
         self.ex = executor or Executor(awx, ledger, on_done=lambda r, t: fees.charge(awx, ledger, r, t))
         self._money = threading.Lock()  # one release at a time; the executor's CAS makes a repeat a no-op anyway
 
@@ -230,7 +232,7 @@ class Orchestrator:
         """Archive this take and start a clean one. Never deletes anything on Airwallex; each tenant's AUD is sold back
         inside its own account so Harbour is short again."""
         from . import setup_demo
-        certs = ROOT / "artifacts" / "certs"
+        certs = self.cert_dir or ROOT / "artifacts" / "certs"
         dest = self.L.reset(by)
         if certs.is_dir():
             shutil.move(str(certs), str(dest.parent / f"{dest.stem}_certs"))
