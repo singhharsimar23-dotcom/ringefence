@@ -88,6 +88,8 @@ LINE_PILL = {
 def pill(line_state: str, run_state: str) -> str:
     if line_state in ("PLANNED", "READY") and run_state in ("AWAITING_APPROVAL", "AWAITING_FUNDS", "DRAFT"):
         return "Needs OK" if run_state == "AWAITING_APPROVAL" else "Planned"
+    if run_state in ("READY", "RELEASING") and line_state in ("PLANNED", "READY"):
+        return "On its way"  # approved, being sent: not waiting for anyone
     if run_state == "HELD" and line_state in ("PLANNED", "READY"):
         return "Held"
     return LINE_PILL.get(line_state, "Planned")
@@ -114,7 +116,7 @@ def lane_text(name: str, run: dict | None, d: dict | None, req: dict | None, now
     if st == "AWAITING_APPROVAL":
         n = len(d["changes"]) + len(d["bank_changes"]) if d else 0
         return {"status": (f"Needs your OK: {plural(n, 'change')} since last week." if n else "Needs your OK: nothing changed."),
-                "next": f"Next: {name} pays {tot} once {d['approver_role']} approves." if d else "",
+                "next": f"Next: {name} pays {tot} once {d['approver_role'].split(':')[-1].title()} finance approves." if d else "",
                 "action": "approve", "tone": "amber"}
     if st in ("READY", "RELEASING"):
         return {"status": f"Paying {plural(len(run['lines']), 'contractor')} · {tot}", "next": "Next: sending the payments now.",
