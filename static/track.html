@@ -1,26 +1,28 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Track your payment</title>
+<link rel="stylesheet" href="/static/app.css">
 <style>
-:root{color-scheme:light}
-body{font:16px/1.5 system-ui,Segoe UI,sans-serif;background:#f5f6f8;color:#1c2330;margin:0;display:grid;place-items:center;min-height:100vh}
-main{background:#fff;border:1px solid #d9dde4;border-radius:10px;padding:28px 32px;max-width:420px;width:calc(100% - 32px)}
-h1{font-size:15px;font-weight:600;color:#55607a;margin:0 0 18px}
-.amt{font-size:30px;font-weight:650;margin:2px 0 4px}
-.pill{display:inline-block;padding:2px 12px;border-radius:99px;background:#e8edf7;color:#1f3a8a;font-weight:600;font-size:14px}
-.pill.ok{background:#e3f3ea;color:#17613a}.pill.bad{background:#fbe9e7;color:#9a2a1c}
-p{color:#55607a;margin:14px 0 0}
+body{display:grid;place-items:center;min-height:100vh;padding:var(--s4)}
+.tcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s5) var(--s6);max-width:440px;width:100%;display:grid;gap:var(--s4)}
+.tcard .amount{font-size:32px;line-height:36px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);list-style:none;padding:0}
+.steps li{border-top:3px solid var(--line-strong);padding-top:var(--s2);color:var(--muted);font-weight:600;font-size:13px}
+.steps li.on{border-color:var(--accent);color:var(--ink)}
+.steps li.ok{border-color:var(--green);color:var(--green)}.steps li.bad{border-color:var(--red);color:var(--red)}
 </style></head>
-<body><main id="m"><h1>Your payment</h1><p>Loading.</p></main>
+<body><main class="tcard" id="m"><h2>Your payment</h2><p class="muted">Loading.</p></main>
 <script>
 const ETA={"Paid":"Sent to your bank. It can take up to one working day to show.","Sent":"On its way to your bank.",
 "On its way":"Approved and being sent.","Planned":"Waiting for your employer to confirm the payroll.","Needs OK":"Waiting for your employer to approve.",
 "Held":"Paused by your employer. They will tell you when it resumes.","Returned":"Your bank sent it back. Your employer will be asked to pay again."};
+const STEPS=["Planned","On its way","Paid"], AT={"Planned":0,"Needs OK":0,"Held":0,"On its way":1,"Sent":1,"Paid":2,"Returned":2};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 fetch("/api/"+location.pathname.replace(/^\//,"")).then(r=>r.ok?r.json():Promise.reject()).then(d=>{
- const cls=d.status==="Paid"?"ok":d.status==="Returned"?"bad":"";
- document.getElementById("m").innerHTML=`<h1>${esc(d.employer)} paying ${esc(d.name)}</h1>
- <div class="amt">${esc(d.amount)} ${esc(d.currency)}</div><span class="pill ${cls}">${esc(d.status)}</span>
- <p>${esc(ETA[d.status]||"We will update this page when it changes.")}</p><p>Pay date ${esc(d.pay_date)}.</p>`;
-}).catch(()=>{document.getElementById("m").innerHTML="<h1>Your payment</h1><p>This link is not valid.</p>"});
+ const at=AT[d.status]??0, bad=d.status==="Returned";
+ document.getElementById("m").innerHTML=`<h2>${esc(d.employer)} paying ${esc(d.name)}</h2>
+ <div class="amount"><span class="ccy">${esc(d.currency)}</span> ${esc(d.amount)}</div>
+ <ol class="steps" aria-label="Payment progress">${STEPS.map((s,i)=>`<li class="${bad&&i===2?"bad":i<at||(i===at&&d.status==="Paid")?"ok":i===at?"on":""}">${bad&&i===2?"Returned":s}</li>`).join("")}</ol>
+ <p><strong>${esc(d.status)}</strong>. ${esc(ETA[d.status]||"We will update this page when it changes.")}</p><p class="muted">Pay date ${esc(d.pay_date)}.</p>`;
+}).catch(()=>{document.getElementById("m").innerHTML="<h2>Your payment</h2><p class=\"muted\">This link is not valid.</p>"});
 </script></body></html>
