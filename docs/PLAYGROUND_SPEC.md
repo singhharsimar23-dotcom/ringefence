@@ -364,9 +364,9 @@ Check each preset's corridors exist in `CORRIDORS`. If a country isn't there, ch
 
 ## 8. Owner tasks (physical-only; list these in the final report, don't attempt them)
 1. DONE 3 Nov: account "Employer D - Playground" = `acct_zQZEjmRrNWSCAIfGsxjONA`. `AWX_PLAYGROUND_ACCOUNT` is set locally (setx) and in `/etc/ringfence/env` on `rfvm2`. Add it to `deploy/push_env.py`'s key list so a re-push keeps it.
-2. **PENDING (owner):** link that account to the scoped API key "claude" in the Airwallex web app (Developer > API keys > edit key > accounts). Until then, login returns 403 `login_as_unauthorized`, and `/api/play/info` must report `live: false` (probe it at startup with one login; cache for 10 min).
+2. DONE (verified 3 Nov, balances return): linked that account to the scoped API key "claude" in the Airwallex web app (Developer > API keys > edit key > accounts). Until then, login returns 403 `login_as_unauthorized`, and `/api/play/info` must report `live: false` (probe it at startup with one login; cache for 10 min).
 3. Until then, the playground runs on Simulated bank only, and the UI says so. Everything else ships.
-4. Metal (only if T5 starts): sign in at https://console-testnet.metalntwx.com/ with the hackathon email, create a testnet RPC endpoint, then `setx METAL_RPC_URL <url>`. The URL contains a key: never log it or commit it.
+4. Metal: the owner made a testnet RPC endpoint with "Require a credential" on. `METAL_RPC_SECRET` is set locally and on the VM (3 Nov). **PENDING:** the endpoint URL `https://rpc-testnet.metalntwx.com/v1/<endpoint id>` goes in `METAL_RPC_URL`. Auth is HTTP Basic, with the endpoint id as username and the secret as password (docs.metalntwx.com/network/endpoints). The secret alone as the path gives a 404, which was checked. If the CLI can't send Basic auth, use `https://<id>:<secret>@rpc-testnet...` as `--rpc-url`, or ask the owner to turn the credential requirement off. Never log either value.
 
 ## 9. Sponsor awards: Visa and Metal (decision for the owner)
 Sources: https://airwallex.hackerearth.com/ and Dan Kim's launch article. Each award is $15,000 and requires "use of Visa (or Metal) and Airwallex tooling".
@@ -400,7 +400,7 @@ Design:
 - New `ringfence/metal.py`, a thin `subprocess` wrapper around `npx -y @metalntwx/metal-agent@0.3.3 ...` (pin the version).
   - Parse the `name value` output lines and the exit codes (0 ok, 1 refused, 3 pending, 4 held).
   - Timeout of 60s, and calls are serialised by a lock.
-  - Never pass `METAL_RPC_URL` on a logged command line. Pass it through env if the CLI supports that; otherwise redact it in every log and in `/api/calls`.
+  - Never pass `METAL_RPC_URL` or `METAL_RPC_SECRET` on a logged command line. Pass it through env if the CLI supports that; otherwise redact it in every log and in `/api/calls`.
 - Keys live in `var/metal/<tenant>/` (mode 600, gitignored). Each employer has its own owner key and its own smart account, and the platform has one settlement address. The agent process only ever reads the **mandate credential**, never an owner key, except in `setup` (which plays the employer, labelled as such).
 - `scripts/metal_setup.py` (run once, idempotent) does the following for Harbour:
   1. `account create`, then `fund` until the USDZ balance is at least 1,000. This respects the faucet limits: about 1 grant a minute, 10 a day. Pre-bake the day before the demo.
