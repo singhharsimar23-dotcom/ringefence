@@ -155,7 +155,7 @@ def test_ga_needs_transfer_method(awx):
 
 def test_global_account_deposit_and_pagination_rules(awx, fake):
     h = awx.for_tenant("harbour")
-    ga = next(iter(fake.accounts[T["harbour"].account_id].gas))
+    ga = "8ec497a4-67a9-4ba2-8b3d-48f1a53d1f4d"
     before = h.balances()["AUD"]
     d = h.post("/simulation/deposit/create", {"global_account_id": ga, "amount": D("1240.17"),
                                               "payer_name": "Harbour Foods", "reference": "RF-HAR-1234-ABCD"})
