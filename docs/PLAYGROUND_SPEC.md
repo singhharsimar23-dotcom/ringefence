@@ -22,7 +22,7 @@ The problem statement opens the home page in two sentences (exact copy is in 3.1
 - **T2: Playground UI.** Composer, then draft review, then run view (trace plus result), then the evidence panel. Premium, calm motion.
 - **T3: Evidence everywhere.** Airwallex call log, Claude call log, re-check button, and the attack cards on "Three employers" show the evidence too.
 - **T4: Polish and docs.** Updated `DEMO.md`, README "Try it" section, presets tuned, screenshot pass.
-- **T5 (optional, owner decides, see section 9): Metal stablecoin payout rail.**
+- **T5 (decided, time-boxed, see 9.1): Metal stablecoin funding under an on-chain mandate.** Only after T1–T4 are deployed.
 
 ### Out (don't build)
 - Visa integration (see section 9 for why).
@@ -58,6 +58,29 @@ Design rules (from the Apple design skill and Awwwards skill, applied to an ops 
   - The agent-busy indicator is a 1.6s slow pulse on a 6px dot. No spinners on content.
   - `prefers-reduced-motion: reduce`: no movement. Values just swap.
 - Do **not** use: scroll-jacking, parallax, WebGL, custom cursors, page-transition animations, marquee text, or hero videos. This is a tool, not a portfolio.
+- **Slop tells, banned:**
+  - purple or blue gradients and gradient text
+  - glass/blur cards
+  - a shadow on every card (cards get a 1px `--line` border, no shadow)
+  - sparkle icons, robot icons
+  - an icon beside every heading
+  - "AI-powered" badges
+  - everything centred (only the empty-state hero is centred; the run view is left-aligned)
+  - more than 3 badge colours in one view
+  - grey-on-grey text below 4.5:1 contrast
+  - placeholder lorem or "John Doe"
+  - spinners
+  - toasts for things that already show inline
+  - modals for things that fit inline
+- **Premium cues to aim for** (the feel of the Stripe and Linear dashboards and the Claude.ai composer, not their visuals):
+  - One strong focal point per screen: the composer, then the trace.
+  - Generous whitespace (sections at `--s6`/`--s7`).
+  - Real data in mono, at the same size as the text around it.
+  - Every number aligned.
+  - Every state has a written sentence.
+  - Hover shows a subtle `--sunken` fill, and `:active` scales 0.98 for 120ms.
+  - Keyboard first: Ctrl/Cmd+Enter runs, Esc closes, `j`/`k` move between trace rows, and `?` shows these keys.
+- Design QA before you call T2 done: take screenshots at 1440×900 and 390×844 and list every element that breaks a rule above. Fix them, then screenshot again.
 - Touch targets are at least 36px (`--btn-h`). Every interactive element has a visible `:focus-visible` ring. Every dialog traps focus and closes on Esc. All user-supplied text is escaped (`esc()` in `app.js`) and never inserted as HTML.
 - Layout widths: the composer is a centred column of at most 720px. The run view is two columns at 1100px and wider (trace 1fr, result 400px sticky) and stacks below that.
 
@@ -178,7 +201,7 @@ Design rules (from the Apple design skill and Awwwards skill, applied to an ops 
 - World dir: `var_dir()/play/<wid>/` containing `demo/employers.json`, `demo/inbox/<slot>_timesheet.csv`, `demo/history/<slot>.json`, `var/` (the world's RF_VAR, with the judge's emails written into its inbox drop dir via `inbox.drop_dir`).
 - Spawn: `[sys.executable, "-m", "ringfence.app", "--backend", fake|live, "--port", <free port>]`. Bind 127.0.0.1. Child env = the parent env plus:
   - `RF_VAR=<dir>/var`, `RF_DEMO=<dir>/demo`, `RF_WORLD=<wid>`, `RF_TENANTS=<slots csv>`, `RF_PUBLIC=0`, `RF_LLM_DAILY_CAP=<RF_PLAY_TICK_CAP, default 12>`.
-  - Live only: `AWX_EMPLOYER_A=<AWX_PLAYGROUND_ACCOUNT>`. This is the whole binding change: slot `northwind` *is* the playground account inside that process. The child never sees a token for A/B/C's real accounts, because it never logs in as them (`x-login-as` uses the overridden id).
+  - Live only: set `AWX_EMPLOYER_A`, `AWX_EMPLOYER_B` **and** `AWX_EMPLOYER_C` all to `<AWX_PLAYGROUND_ACCOUNT>`. This is the whole binding change: slot `northwind` *is* the playground account inside that process, and if any code path still names `kestrel` or `harbour`, it lands on the playground account, never on a real employer. (Stress test found `verify.PROBES` hard-codes all three pairs, so it would have logged in as Employer B and C from a world. 4.3 fixes that too; this env rule is the backstop.) `AWX_PLATFORM_ACCOUNT` stays, because fee collection credits the platform; that is correct and real-world.
 - Readiness: poll `GET /api/state` every 0.5s, up to 90s live or 20s fake. While starting, `GET /api/play/worlds/<wid>` returns `{"status":"starting","calls":[...]}` from the child's `/api/calls` once it answers, so the trace can show the setup steps live.
 - Limits (env with defaults):
   - `RF_PLAY_LIVE_MAX=1` active live world.
@@ -202,7 +225,7 @@ Design rules (from the Apple design skill and Awwwards skill, applied to an ops 
 ```
 Spec:
   employers: 1..3 (live: exactly 1)            -> slots northwind, kestrel, harbour in order
-    name: 1..40 chars, letters/digits/space/.&'- only
+    name: 1..40 chars; each char is a Unicode letter (str.isalpha, so "José Núñez" passes), digit, space or .&'- ; no emoji
     pays_from: one of the corridor currencies   (funding_currencies = [pays_from]; FX converts the rest,
                                                   except local_only=True -> funding_currencies = people's currencies)
     local_only: bool = False                    (the "Short on AUD" preset sets it)
@@ -211,7 +234,7 @@ Spec:
     people: 1..6
       name: 1..40 chars, same charset
       country: corridor key (see below)
-      hours: Decimal 0..80, 2dp ; rate: Decimal 1..1000, 2dp
+      hours: Decimal 0.01..80, 2dp (inbox.parse_timesheet rejects 0) ; rate: Decimal 1..1000, 2dp
     emails: 0..2, each: from 1..80 chars, body 1..2000 chars (stored as a .txt doc in that employer's inbox)
 ```
 - Reject (422 with field-level messages) anything else: extra keys, control chars other than `\n` and `\t`, float types. Amounts arrive as **strings**.
@@ -222,7 +245,8 @@ Spec:
   - `mandates`: from the spec.
   - `fee_beneficiary`: copied from the seed.
   - `employers`: `{slot: {"name": ...}}`, a new key, so check every reader of `seed.load()` tolerates it.
-- Timesheet CSV in the format `inbox.parse_timesheet` expects (read it). History: last week = the same amounts, so diff flags stay quiet unless an email changes things.
+- Timesheet CSV: header exactly `contractor_id,hours` (that's what `inbox.parse_timesheet` requires). History: last week = the same amounts, so diff flags stay quiet unless an email changes things. `pay_date`: copy it from the main `demo/employers.json`.
+- Per-employer setup needs, also in the seed's `employers.<slot>`: `global_accounts: [[country, currency], ...]` and `drain_aud: bool`. `setup_demo.setup` must read them when present and fall back to its `NEEDED_GA`/`DRAIN_TENANTS` constants otherwise, so the main demo is unchanged. Without this, "Short on AUD" on the live playground (slot `northwind`) has no AUD global account to receive the `[SIMULATED]` top-up. Rule: each `local_only` employer gets a global account for every currency its people are paid in, and `drain_aud` is true when AUD is among them.
 
 ### 4.3 Child-side changes (small, each with a test)
 - `config.py`:
@@ -233,6 +257,8 @@ Spec:
   - When `RF_WORLD` is set, don't overwrite `RF_VAR` for fake.
   - For live with `RF_WORLD`, call `setup_demo.setup(awx)` once at startup (it creates beneficiaries on the playground account and drains AUD, so "Short on AUD" is real).
   - Check that `setup` is idempotent and doesn't touch accounts other than `tenants()` for `EMPLOYERS`.
+- **Names.** Today the employer's display name comes from `tenant.title()` (`copy.reason`) and `config._DEFS`, so a judge's "Acme Robotics" run would say "Northwind". Add one function, `config.employer_name(tenant)`: the seed's `employers.<slot>.name` if present, else the `_DEFS` name. Use it everywhere a person or the model sees an employer name: `copy.reason`, the agent's observation (`loop._observation`), `/api/state`, certificates, and the track page. Then `grep -rn "title()" ringfence` and check every hit. Test: a world named "Acme Robotics" has no "Northwind" anywhere in `/api/state`, `/api/timeline`, `/api/calls` text or the certificate (the slot id `northwind` inside ids is fine).
+- **`verify.PROBES`** keep only pairs where both tenants are in `EMPLOYERS`. With one employer there's no cross-tenant probe, and the proof says "Cross-employer check: needs two employers (see Three employers)".
 - `GET /api/state` adds `employers: {slot: {name}}` (from seed, falling back to the `config._DEFS` name) and `world: {wid, backend, account_suffix}` (the last 4 chars of the account id only).
 - **Isolation report** (`verify.report`): a live world's window starts at its first ledger entry, and live worlds are serialised, so earlier worlds' transfers on the playground account fall outside it. Write the assumption as a comment and test it with the fake: world 1 pays, then world 2 pays, and world 2's report must be ok.
 
@@ -279,6 +305,28 @@ Spec:
 - Data retention: a world dir is deleted at reap. The home page says it in one line under Run: "Runs are deleted after 30 minutes. Use made-up names."
 - The live playground account is sandbox money, but it must still never pay outside its own registry: unchanged gate rules.
 
+### 5b. Judge-proofing matrix (each row: test or manual check, and the exact copy shown)
+| What a judge does | What must happen |
+|---|---|
+| Empty composer, presses Read it | Button disabled until 1+ non-space char |
+| Gibberish or non-payroll text ("hello") | Draft returns `spec: null` + note "I couldn't find people, hours or rates. Try an example." Form opens empty with examples |
+| Non-English text | Claude drafts it normally; names keep accents |
+| Unsupported country (India, INR) | Person left out; note "India isn't set up in this demo. Available: UK, Germany, US, Australia." |
+| 7+ people, 0 hours, 500 hours, rate 0, rate 99999 | Draft keeps first 6 + note; field errors under the cells; Run disabled until fixed |
+| Duplicate names | Ids `tom`, `tom-2`; both shown with their row number |
+| Emoji or `<script>` in a name | Field error "Letters, numbers, spaces and . & ' - only"; nothing rendered as HTML anywhere |
+| Pastes a 4,001-char email | Counter turns red; Read it disabled |
+| Presses Run twice fast | One world (button disables on first click; server dedupes identical spec from the same browser within 5s by returning the same wid) |
+| Refreshes, closes tab, opens link on phone | `#/try/<wid>` resumes the same world while alive |
+| Opens an expired link | 410 then copy "This run was cleaned up after 30 minutes. Start a new one." plus a button |
+| Never approves | Nothing is paid; world expires; trace's last line says "Not paid: waiting for approval when this run ended." |
+| Claude slow or down | Agent step falls back to the rules engine after the existing errors path; chip reads "Rules engine"; run still completes |
+| Airwallex sandbox down or account not linked | World `failed` with copy "Couldn't reach the Airwallex sandbox: <code>. Try Simulated bank." and a one-click retry on Simulated |
+| Playground full or daily cap | 429 copy from 4.1, with a "Watch the three-employer demo" link |
+| Two judges at once, live | Second sees queue position and an ETA, never a broken page |
+| Mobile 390px | Single column, composer usable, trace rows wrap, hold-to-approve works with touch |
+| Keyboard only | Every step reachable, focus visible, dialogs trap focus |
+
 ## 6. Tests (offline, fake backend; all must pass with the existing 258+)
 | Test | Asserts |
 |---|---|
@@ -315,9 +363,10 @@ Spec:
 Check each preset's corridors exist in `CORRIDORS`. If a country isn't there, change the preset text, not the corridors.
 
 ## 8. Owner tasks (physical-only; list these in the final report, don't attempt them)
-1. In the Airwallex sandbox web app, create a new account named "Employer D - Playground" under the same entity, then link it to the scoped API key "claude" (Developer > API keys > edit > accounts).
-2. Copy its `acct_...` id from Settings > Account details. Then run `setx AWX_PLAYGROUND_ACCOUNT acct_...` locally, and `python deploy/push_env.py rfvm2` (add `AWX_PLAYGROUND_ACCOUNT` to its list first, since that's a code change the agent makes).
+1. DONE 3 Nov: account "Employer D - Playground" = `acct_zQZEjmRrNWSCAIfGsxjONA`. `AWX_PLAYGROUND_ACCOUNT` is set locally (setx) and in `/etc/ringfence/env` on `rfvm2`. Add it to `deploy/push_env.py`'s key list so a re-push keeps it.
+2. **PENDING (owner):** link that account to the scoped API key "claude" in the Airwallex web app (Developer > API keys > edit key > accounts). Until then, login returns 403 `login_as_unauthorized`, and `/api/play/info` must report `live: false` (probe it at startup with one login; cache for 10 min).
 3. Until then, the playground runs on Simulated bank only, and the UI says so. Everything else ships.
+4. Metal (only if T5 starts): sign in at https://console-testnet.metalntwx.com/ with the hackathon email, create a testnet RPC endpoint, then `setx METAL_RPC_URL <url>`. The URL contains a key: never log it or commit it.
 
 ## 9. Sponsor awards: Visa and Metal (decision for the owner)
 Sources: https://airwallex.hackerearth.com/ and Dan Kim's launch article. Each award is $15,000 and requires "use of Visa (or Metal) and Airwallex tooling".
@@ -326,7 +375,7 @@ Sources: https://airwallex.hackerearth.com/ and Dan Kim's launch article. Each a
   - VIC sandbox needs mutual-TLS certs and enrolled tokens, and Visa states about 10 business days to establish connectivity. That is past the deadline.
   - Visa Direct (push-to-card) fits payroll but isn't the named tool and needs mTLS plus message encryption.
   - Weak fit plus onboarding time means low ROI.
-- **Metal: possible, after T1–T3 pass.**
+- **Metal: DECIDED, build as T5 (time-boxed), using the design in 9.1. The longer analysis below is kept for reference.**
   - Metal (docs.metalntwx.com) is an EVM L1 for financial apps. It has self-serve console access ($50 credit, no card), a testnet USDZ faucet, and **on-chain mandates**: an account owner binds allowed payees, per-payment cap, total cap and expiry, and the account enforces them.
   - That is Ringfence's mandate idea, enforced by the chain per employer.
   - Integration (about 1.5–2 days):
@@ -335,7 +384,55 @@ Sources: https://airwallex.hackerearth.com/ and Dan Kim's launch article. Each a
     3. Write the explorer tx hash into the hash-chained ledger.
     4. Demo an over-cap or wrong-payee payout refused *on-chain* next to Airwallex's cross-tenant 401.
   - Risks: the tooling is TypeScript (`@metalntwx/metal-agent` CLI/MCP), so we would shell out from Python and Node must be on the 1 GB VM. Testnet only. Unclear whether judges want a Metal-specific Airwallex flow, so ask in the hackathon Slack before building.
-  - If the owner says go, write a separate `docs/METAL_SPEC.md` first (probe the CLI, then a 1-contractor payout, then the mandate refusal) and keep it behind `RF_METAL=1`.
+  - Superseded by 9.1. The payout-rail idea is rejected: it changes `executor.py`, `funding.py` and `verify.py` (the verified money core) 9 days before the deadline.
+
+### 9.1 T5: Metal stablecoin funding (the chosen design)
+Facts (docs.metalntwx.com, checked 3 Nov):
+- Free: test USDZ from a faucet, and $50 of RPC credit at console sign-in.
+- Faucet limits: 100 USDZ per grant, 10 grants per IP per day.
+- The CLI is `@metalntwx/metal-agent` 0.3.3. It is 3 weeks old and has no Python SDK, so we shell out to it. It needs Node 22+.
+- Mandate refusals codes: `mandate_payee_not_listed`, `mandate_cap_exceeded`, `mandate_budget_spent` and `mandate_expired`. Adding `--record-refusal` writes the refusal on chain.
+- Kit 11's documented pattern: simulate an Airwallex deposit whose reference is tied to the Metal payment.
+
+**Story:** "Harbour is short AUD 1,240.17 for Friday's payroll. Its treasury holds stablecoins on Metal. Harbour's finance lead signed an **on-chain mandate** that lets the platform pull exactly the shortfall, only to the platform's settlement address, before the act-by time. Ringfence's agent pulls it on Metal (a real testnet tx), and the AUD lands in Harbour's own Airwallex account. When the agent tries to pull more, Metal itself refuses on chain." Two independent locks: our gate, and the employer's mandate on Metal. This is Metal's intended use (a mandated pull), Airwallex is the payroll rail, and **no money-core file changes**.
+
+Design:
+- New `ringfence/metal.py`, a thin `subprocess` wrapper around `npx -y @metalntwx/metal-agent@0.3.3 ...` (pin the version).
+  - Parse the `name value` output lines and the exit codes (0 ok, 1 refused, 3 pending, 4 held).
+  - Timeout of 60s, and calls are serialised by a lock.
+  - Never pass `METAL_RPC_URL` on a logged command line. Pass it through env if the CLI supports that; otherwise redact it in every log and in `/api/calls`.
+- Keys live in `var/metal/<tenant>/` (mode 600, gitignored). Each employer has its own owner key and its own smart account, and the platform has one settlement address. The agent process only ever reads the **mandate credential**, never an owner key, except in `setup` (which plays the employer, labelled as such).
+- `scripts/metal_setup.py` (run once, idempotent) does the following for Harbour:
+  1. `account create`, then `fund` until the USDZ balance is at least 1,000. This respects the faucet limits: about 1 grant a minute, 10 a day. Pre-bake the day before the demo.
+  2. Also create the platform settlement address.
+- New scenario `metal_topup` (only when `RF_METAL=1`, Harbour, run AWAITING_FUNDS):
+  1. Read the open funding request: currency, amount and reference.
+  2. Compute the USDZ amount from a **read-only** Airwallex FX quote (AUD to USD; USDZ is treated as USD 1:1, and say so in the UI). Use Decimal, rounded **up** to cents.
+  3. The employer step, labelled "Harbour signs a mandate": `mandate credential create --principal <harbour acct> --payee <platform addr> --cap <usdz> --budget <usdz> --max-occurrences 1 --expires-in <seconds to act-by>`, then `mandate bind`.
+  4. The agent step: `mandate pull --amount <usdz> --payment-id <funding reference>`. The payment id is our deterministic reference, so a retry says "already paid".
+  5. Ledger: `METAL_PULL {tx, explorer_url, usdz, mandate_hash}` via the existing append API. Add the new event kind wherever kinds are enumerated (grep).
+  6. Airwallex: `/simulation/deposit/create` of the AUD amount to Harbour's AUD global account with `reference = <funding reference>`. This is the existing `top_up` path, so `funding.match_deposits` closes the request unchanged. Label it `[SIMULATED] Airwallex credit; the Metal payment is real testnet`.
+- New attack card `metal_overpull`, "Agent tries to pull more than the mandate":
+  1. The pull uses amount + 1.00 with `--record-refusal`.
+  2. Expect exit code 1 with `mandate_cap_exceeded`.
+  3. Ledger `METAL_REFUSED {tx (refusal record), code}`.
+  4. The card shows the explorer link. This is the on-chain twin of Airwallex's cross-tenant 401.
+- Recycle on reset: after Start over, send the USDZ from the settlement address back to Harbour's account (plain transfer through the CLI or web3), so the faucet limit never blocks demos. If the recycle fails, log it and carry on, since there is enough balance for several runs.
+- Fallback: if `RF_METAL` is unset, or Metal fails (timeout, faucet empty, RPC error), the funding block shows today's `[SIMULATED] Send the top-up` button, with one line of copy: "Metal testnet didn't answer; using the simulated top-up." The demo never depends on Metal being up.
+- UI:
+  - On Harbour's funding block (Three employers page), the primary action is "Pay the shortfall from Harbour's Metal treasury". The simulated button becomes secondary.
+  - The trace or activity shows the Metal steps with explorer links: `https://testnet.metalntwx.com/tx/<hash>`.
+  - The Proof tab adds a "Metal" row: the mandate hash, the pull tx and the refusal tx.
+- VM: install Node 22 LTS from NodeSource (add it to `deploy/cloud-init.yaml` for new VMs and run the commands once on `rfvm2`). Run `npx` once to cache the package, then check `free -m` during a pull.
+- Tests (offline): `metal.py` gets a fake runner, an injected callable that returns canned stdout and exit codes.
+  - The refusal parse, the timeout path and the fallback copy.
+  - Secrets are absent from logs and calls.
+  - `metal_topup` closes the funding request through the existing matcher.
+  - With `RF_METAL` unset the main demo is byte-identical in state (snapshot `/api/state` keys).
+- **Time box:**
+  - Start only after T1–T3 are deployed (target 8 Nov).
+  - A 2-hour probe goes first, on the VM: account create, fund, bind, pull, `--record-refusal`. If any step fails and can't be fixed within those 2 hours, drop T5 and record why in `PROBES.md`.
+  - Hard stop on 11 Nov, 12:00. Whatever isn't green is switched off with `RF_METAL` unset.
 
 ## 10. Order of work and exit gates
 1. **T1 backend.** Steps 4.3, then 4.2, then 4.1, then 4.4–4.7, with tests per step. Gate: all section 6 tests green, ruff clean, `scripts/stress_play.py` passes, and one fake world runs end to end via curl through the proxy.
@@ -344,6 +441,13 @@ Sources: https://airwallex.hackerearth.com/ and Dan Kim's launch article. Each a
 4. **Deploy.** `bash deploy/deploy.sh rfvm2`. Check memory with `free -m` while a live world runs; if swap thrashes, set `RF_PLAY_FAKE_MAX=1`. Then run the live probe P12 if the owner has done section 8.
 5. **T4 docs.** README "Try it yourself" (3 lines), and `DEMO.md`: open the video on the playground with preset 2 (bank-change email), then switch to Three employers for isolation and proof.
 6. Commit per tier on `build`, with clear messages. Merge to `main` only when T1–T3 are green.
+7. **T5 Metal**, per 9.1: probe first, then build, then test, then deploy. Hard stop on 11 Nov, 12:00.
+8. **Regression gate after every tier (non-negotiable):**
+   - `uv run pytest -q`: the existing 258 tests plus the new ones, all pass.
+   - `uv run ruff check .`
+   - A fake-backend run of the **Three employers** flow through the HTTP API (reset, start, approve Northwind, harbour_topup, approve Harbour, then DONE, proof ok, certs valid). This is the flow in `C:\Users\hprad\AppData\Local\Temp\e2e.py`; copy it into `scripts/e2e_demo.py` and parameterise the host.
+   - After each deploy, run the same script against the live URL.
+   - If anything that worked before breaks, fix it before going on.
 
 ## 11. Known traps
 - Git Bash path rewriting, `PYTHONIOENCODING`, and the login empty body: see `CLAUDE.md`.
