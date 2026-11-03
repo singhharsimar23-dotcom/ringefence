@@ -44,7 +44,7 @@ class ClaudeLLM:
         return self.client.messages.create(
             model=self.model, max_tokens=16000, tools=tools, messages=messages,
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            extra_body={"output_config": {"effort": "medium"}})  # no temperature/top_p/budget_tokens on these models
+            extra_body={"output_config": {"effort": env("RF_EFFORT", "medium")}})  # no temperature/top_p/budget_tokens on these models
 
 
 def default_llm():
