@@ -194,7 +194,7 @@ def lane_text(name: str, run: dict | None, d: dict | None, req: dict | None, now
                 "next": "Next: Ringfence checks each payment with Airwallex until it lands.", "action": "none", "tone": "blue"}
     if st == "DONE":
         return {"status": f"Paid {plural(len(run['lines']), 'contractor')} · {tot}",
-                "next": "Done. The proof page shows exactly where the money went.", "action": "proof", "tone": "green"}
+                "next": "", "action": "proof", "tone": "green"}
     if st == "HELD":
         return {"status": "Held. Nothing was sent.", "next": "Next: a person decides whether to resume.",
                 "action": "resume", "tone": "red"}
