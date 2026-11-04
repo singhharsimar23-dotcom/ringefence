@@ -49,8 +49,7 @@ Keys are ignored while a field has focus. **Run Friday payroll** and the Metal b
 
 ## Video cut
 
-The 4:40 video follows `docs/VIDEO.md`, not this sheet: the landing page opens it, and this app run is its 1:20 beat.
-Record that beat from this sheet's 0:20 to 1:40 rows, then 3:25 and 3:45.
+The 4:45 video follows `docs/VIDEO.md`, not this sheet. This sheet is for a live walkthrough with a judge.
 
 ## If something goes wrong
 
