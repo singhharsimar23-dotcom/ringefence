@@ -76,7 +76,15 @@ Everything marked live leaves an ID you can look up in the Airwallex web app (sa
 | Webhook event IDs | Settings, Developer, Events |
 | Metal transaction hashes | The explorer link on the crypto wallet card |
 
-The IDs from the final live run are listed here when it is done.
+IDs from the final live run (4 Nov 2026, https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com):
+
+- Kestrel Labs payroll, live transfers: `1796e54e-0a5a-4419-8327-5e0fcb2f06ba`, `6bc57037-dfa4-4896-83c4-2ced31b5502a`. Platform fee: `d5e4b67f-37c8-471f-a2f1-ac262e6ef404`.
+- Harbour Foods AUD global account: `8ec497a4-67a9-4ba2-8b3d-48f1a53d1f4d`.
+- Network storm on live (20 parallel releases, 3 answers lost, still one transfer per person): `018c1249…`, `583fb3b7…`, `7951311b…`. Full IDs are in `docs/gauntlet/results.json`.
+- Metal testnet, Harbour's mandate `0x479bff46…7e91`:
+  - pull of 87.26 test coins: [0x814fdcdd…8cc1](https://testnet.metalntwx.com/tx/0x814fdcdd4f9820d3c2807d90907f927cf284881775679b5f497a94fd35ae8cc1)
+  - over the cap, refused on chain (`mandate_cap_exceeded`): [0x6532d238…6dcd](https://testnet.metalntwx.com/tx/0x6532d23876e9ef70e76f3d9ad62ee0a139eabffc4ae5e1b2bd1349bcb1a26dcd)
+  - lookalike wallet address, refused on chain (`mandate_payee_not_listed`): [0x33315e65…8fbf](https://testnet.metalntwx.com/tx/0x33315e6565974f7226ec5a8d3e4c2c322244502019945c8e26011ed42cb38fbf)
 
 ## Run it yourself
 
