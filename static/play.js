@@ -83,7 +83,14 @@ const Play = (() => {
     <p class="small attack" id="pl-attack" role="status">${attackHtml()}</p>
     <div class="pl-notes" id="pl-notes" role="status">${H.note.map((n) => `<p>${esc(n)}</p>`).join("")}</div>
     <div class="examples"><div class="exs">${ex}</div></div>
+    ${info.metal ? metalCard() : ""}
     <p class="small faint">${esc(T.retention)}</p>`;
+  }
+
+  function metalCard() {
+    const steps = [[T.metalShort, "ok"], [T.metalOver, "no"], [T.metalPoison, "no"]].map(([t, c]) => `<li><span class="mdot ${c}"></span>${esc(t)}</li>`).join("");
+    return `<a class="metal-card" href="#/demo"><p class="k">${esc(T.metalCardK)}</p><h2>${esc(T.metalCardH)}</h2>
+      <p>${esc(T.metalCardP)}</p><ul>${steps}</ul><span class="go">${esc(T.metalCardGo)} &rarr;</span></a>`;
   }
 
   function paintRead() {
