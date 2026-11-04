@@ -9,10 +9,25 @@ you can check. Each beat below shows one of those. Say the "Say" column in your 
 
 ## Before you start (2 minutes)
 
-1. Open https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com/#/demo
+1. Open https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com/app?present=1#/demo (the landing page is now `/`; the app is `/app`).
 2. Menu (top right, `...`) > **Start over**. Wait for all three cards to read "Not started".
 3. Have `demo/samples/` open in a file window. You will drop one file into the page.
 4. Don't run anything else against the site while recording. Start over works once every 20 s.
+
+## Presenter mode keys (the `?present=1` link above)
+
+| Key | Does |
+|---|---|
+| `1` | Fake bank-change email (`bank_change_email`) |
+| `2` | Double click (`double_click`) |
+| `3` | Network drop (`network_drop`) |
+| `4` | Tamper with the ledger (`tamper_ledger`) |
+| `5` | Cross-tenant call (`cross_tenant_call`) |
+| `6` | Rate move (`rate_move`) |
+| `Right` or `n`, `Left` | Next and previous caption |
+| `r` | Start over (asks first) |
+
+Keys are ignored while a field has focus. **Run Friday payroll** and the Metal buttons have no key: click them.
 
 ## The script
 
@@ -27,10 +42,15 @@ you can check. Each beat below shows one of those. Say the "Say" column in your 
 | 2:00 | Scroll to **Harbour's ringfence, enforced on chain**. Press **Pay from crypto wallet** | "Harbour keeps a stablecoin treasury on Metal. It has signed a mandate on chain: one pull, capped at exactly the shortfall, payable only to the platform. That's a real testnet transaction; the link opens it." (Takes up to a minute. Talk over it.) |
 | 2:40 | **Try to take too much** | "Suppose the agent goes wrong and asks for one coin more. The chain itself refuses, and the refusal is recorded on chain. Ringfence's checks are the first lock; the mandate is the second." |
 | 3:00 | **Try a fake wallet address** | "This is the scam that's costing people real money right now: address poisoning. An email gives a new wallet that starts and ends like the real one, which is all most people check. Ringfence compares the whole address and flags it. Even if it got through, the mandate names one payee, so the chain refuses that too." |
-| 3:25 | Card **Fake bank-change email** | "Same scam, the bank version: a contractor 'changed banks', asks for triple pay and says skip approval. The new details are quarantined, the email is flagged, nothing is sent." Open **Why it held**. |
-| 3:45 | Card **Cross-tenant call** | "Even if our code had a bug, Airwallex refuses one company's login on another company's account. That's a live 401 from Airwallex." |
+| 3:25 | Key `1`, or card **Fake bank-change email** | "Same scam, the bank version: a contractor 'changed banks', asks for triple pay and says skip approval. The new details are quarantined, the email is flagged, nothing is sent." Open **Why it held**. |
+| 3:45 | Key `5`, or card **Cross-tenant call** | "Even if our code had a bug, Airwallex refuses one company's login on another company's account. That's a live 401 from Airwallex." |
 | 4:00 | **Proof** tab | "The result, checked against Airwallex's own records, per company: every payment had an approved intent, went to that company's own payees, and nothing crossed. The ledger is hash-chained, and each company gets a signed certificate." |
 | 4:20 | **Try it** tab. Press **Attach**, pick `demo/samples/timesheet_week45.csv`, **Read it** | "And you can try it yourself. Drop in any timesheet or email and the same agent and rules run it in a sandbox of its own." End there. |
+
+## Video cut
+
+The 4:40 video follows `docs/VIDEO.md`, not this sheet: the landing page opens it, and this app run is its 1:20 beat.
+Record that beat from this sheet's 0:20 to 1:40 rows, then 3:25 and 3:45.
 
 ## If something goes wrong
 
