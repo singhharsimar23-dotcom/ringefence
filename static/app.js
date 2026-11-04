@@ -12,6 +12,7 @@ Object.assign(ICON, {
 });
 
 let S = null, TL = [], filter = "all", view = "pay", PROOF = null, busy = false, lastVer = null;
+let proofKey = "", redoneAt = "";
 let pendingStart = false, tlSeen = -1, warnShown = "", whoKey = "", RULE = null, RULE_T = null, RULE_TEXT = "";
 const expanded = {};
 const EXPLORER = "https://testnet.metalntwx.com/tx/";
@@ -43,6 +44,7 @@ function toast(msg) {
 }
 async function doAct(path, body, okMsg) {
   if (busy) return null;
+  proofKey = "";  // an action can change the proof without moving the ledger head (a tampered row)
   busy = true; render();
   try { const r = await api(path, { user: me(), ...body }); if (okMsg) toast(okMsg); return r; }
   catch (e) { toast(e instanceof TypeError || e.status === 504 ? T.stillWorking : e.message); return null; }  // a dropped connection is not a failed action
@@ -58,14 +60,18 @@ async function refresh() {
     S = await api("/api/state");
     const after = TL.length ? TL[TL.length - 1].detail.seq : 0;
     TL = TL.concat(await api(`/api/timeline?after=${after}`)).slice(-300);
-    if (S.head < after) { TL = await api("/api/timeline?after=0"); tlSeen = -1; }  // a reset restarts the ledger
+    if (S.head < after) {  // a reset restarts the ledger
+      TL = await api("/api/timeline?after=0"); tlSeen = -1;
+      redoneAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
     $("#errbar").hidden = true;
   } catch (e) {
     $("#errbar").hidden = false; $("#errbar").textContent = T.loadError;
   }
   render();
-  if (view === "proof") loadProof();
+  if (view === "proof" && (!PROOF || proofKey !== `${S.head}:${S.tamper ? 1 : 0}`)) loadProof();  // only when the ledger moved
 }
+setInterval(() => { const c = $("#tcount"); if (c && S && S.tamper) c.textContent = Math.max(0, Math.ceil(S.tamper.restores_at - Date.now() / 1000)); }, 1000);
 function connect() {
   let fallback = setInterval(refresh, 4000);
   try {
@@ -104,7 +110,7 @@ function renderTop() {
   const live = S.backend === "live";
   $("#live").innerHTML = `<span class="dot ${live ? "" : "off"}"></span>${esc(live ? T.live : T.offline)}`;
   const scripted = S.agent === "offline agent" || S.agent_capped;
-  const label = S.agent_capped ? T.agentCapped : scripted ? T.offlineRules : `Claude ${modelName(S.model || "")}`;
+  const label = S.agent_capped ? T.agentCapped : S.fell_back ? T.rulesFallback : scripted ? T.offlineRules : `Claude ${modelName(S.model || "")}`;
   $("#agent").innerHTML = `${S.agent_busy ? '<span class="dot busy"></span>' : ""}${scripted ? "" : ICON.spark}${esc(label)}`;
   $("#agent").title = scripted ? "The rules engine prepares the payroll. No model is called." : "Claude proposes. Code decides amounts, limits and request ids.";
   const u = S.users.find((x) => x.id === me()) || S.users[0];
@@ -124,6 +130,14 @@ function renderBanners() {
   const kb = $("#killbar");
   kb.hidden = !S.kill.on;
   kb.innerHTML = S.kill.on ? `${ICON.pause}<span class="grow">All payments are stopped${S.kill.by ? ` by ${esc(S.kill.by)}` : ""}. Nothing new will be sent.</span><button data-act="unkill">${T.resumeAll}</button>` : "";
+  const hhmm = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (S.kill.on && S.kill.resumes_at) kb.querySelector("span.grow").textContent += ` ${T.killResumes} ${hhmm(S.kill.resumes_at)}.`;
+  const tb = $("#tamperbar");
+  tb.hidden = !S.tamper;
+  if (S.tamper) tb.innerHTML = `${ICON.alert}<span class="grow">${T.tamperIn} <b id="tcount">${Math.max(0, Math.ceil(S.tamper.restores_at - Date.now() / 1000))}</b> ${T.seconds}</span>`;
+  const rb = $("#redobar");
+  rb.hidden = !redoneAt;
+  rb.innerHTML = redoneAt ? `<span class="grow">${T.startedOverBy} ${esc(redoneAt)}.</span><button data-act="redo-close">${T.dismiss}</button>` : "";
   const wb = $("#warnbar");
   wb.hidden = !S.error || S.error === warnShown;
   wb.innerHTML = wb.hidden ? "" : `${ICON.alert}<span class="grow">${esc(S.error)}</span><button data-act="warn-close">${T.dismiss}</button>`;
@@ -398,7 +412,8 @@ function renderRules() {
 async function loadProof() {
   const el = $("#view-proof");
   if (!PROOF) el.innerHTML = `<div class="panel"><div class="skel" style="width:40%"></div><div class="skel"></div></div>`;
-  try { PROOF = await api("/api/proof"); } catch (e) { el.innerHTML = `<div class="panel"><p>${esc(e.message)}</p></div>`; return; }
+  const key = S ? `${S.head}:${S.tamper ? 1 : 0}` : "";
+  try { PROOF = await api("/api/proof"); proofKey = key; } catch (e) { el.innerHTML = `<div class="panel"><p>${esc(e.message)}</p></div>`; return; }
   renderProof();
 }
 function renderProof() {
@@ -488,6 +503,7 @@ document.addEventListener("click", async (ev) => {
   else if (act === "filter") { filter = k; renderTimeline(); }
   else if (act === "drawer") { const on = $("#activity").classList.toggle("open"); b.setAttribute("aria-expanded", String(on)); }
   else if (act === "intro-close") { localStorage.setItem("rf_intro_seen", "1"); renderIntro(); }
+  else if (act === "redo-close") { redoneAt = ""; renderBanners(); }
   else if (act === "warn-close") { warnShown = S.error; renderBanners(); }
   else if (act === "more") { expanded[t] = !expanded[t]; renderLanes(); }
   else if (act === "as") { localStorage.setItem("rf_user", u); whoKey = ""; render(); }

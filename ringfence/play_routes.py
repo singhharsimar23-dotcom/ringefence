@@ -12,6 +12,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
+from starlette.background import BackgroundTask
 
 from . import copy, metal
 from .playground import Manager, PlayError, Spec, World, default_draft_llm, draft, errors_of
@@ -21,6 +22,7 @@ _GET = [re.compile(p) for p in (r"state", r"timeline", r"ledger", r"proof", r"ca
 _POST = [re.compile(p) for p in (r"start", r"approve", r"hold", r"resume",
                                  r"scenario/(topup|late_return|bank_change_email|injection|double_click|cross_tenant_call)")]
 MAX_BODY, MAX_QUERY = 16 * 1024, 200
+MAX_STREAMS, MAX_STREAMS_IP = 30, 4  # proxied /events streams: in total and per visitor
 
 
 def allowed(method: str, path: str) -> bool | None:
@@ -45,6 +47,24 @@ class WorldBody(BaseModel):
 def client_ip(request: Request) -> str:
     xff = request.headers.get("x-forwarded-for", "")
     return (xff.split(",")[0].strip() or None) or (request.client.host if request.client else "?")
+
+
+class _Capped(Exception):
+    pass
+
+
+class _Counted:
+    """The model, counted against the daily draft budget only when draft() actually calls it."""
+
+    def __init__(self, inner, count):
+        self.inner, self.count = inner, count
+        self.errors = (_Capped, *getattr(inner, "errors", ()))
+        self.model = getattr(inner, "model", None)
+
+    def create(self, *a):
+        if not self.count():
+            raise _Capped
+        return self.inner.create(*a)
 
 
 def register(app: FastAPI, mgr: Manager, llm_factory=None) -> None:
@@ -79,8 +99,8 @@ def register(app: FastAPI, mgr: Manager, llm_factory=None) -> None:
         text = b.text.strip()
         if not text:
             return {"spec": None, "notes": [copy.DRAFT_NOTHING], "source": "none"}
-        m = llm() if mgr.count_draft() else None  # the cap only guards the model; a table is read by code
-        return draft(text, m)
+        m = llm()
+        return draft(text, _Counted(m, mgr.count_draft) if m else None)  # the cap only guards the model; a table is read by code
 
     @app.post("/api/play/worlds")
     def new_world(b: WorldBody, request: Request):
@@ -140,15 +160,30 @@ def register(app: FastAPI, mgr: Manager, llm_factory=None) -> None:
         keep = {k: v for k, v in r.headers.items() if k.lower() in ("content-type", "content-disposition")}
         return Response(r.content, status_code=r.status_code, headers=keep)
 
+    streams: dict = {"all": 0, "ip": {}}
+
     @app.get("/play/{wid}/events")
-    async def proxy_events(wid: str):
+    async def proxy_events(wid: str, request: Request):
         w = reachable(wid)  # no touch: watching a stream is not activity
+        ip = client_ip(request)
+        if streams["all"] >= MAX_STREAMS or streams["ip"].get(ip, 0) >= MAX_STREAMS_IP:
+            raise HTTPException(429, copy.PLAY_STREAMS)  # the page falls back to polling
+        streams["all"] += 1
+        streams["ip"][ip] = streams["ip"].get(ip, 0) + 1
+        freed = []
+
+        def release():
+            if not freed:  # once, however the stream ends
+                freed.append(1)
+                streams["all"] -= 1
+                streams["ip"][ip] -= 1
         h = http()
         req = h.build_request("GET", f"http://127.0.0.1:{w.port}/events", timeout=httpx.Timeout(None, connect=2.0))
         try:
             up = await h.send(req, stream=True)
         except httpx.HTTPError:
             await h.aclose()
+            release()
             raise HTTPException(503, copy.WORLD_STARTING) from None
 
         async def gen():
@@ -160,5 +195,5 @@ def register(app: FastAPI, mgr: Manager, llm_factory=None) -> None:
             finally:
                 await up.aclose()
                 await h.aclose()
-        return StreamingResponse(gen(), media_type="text/event-stream",
+        return StreamingResponse(gen(), media_type="text/event-stream", background=BackgroundTask(release),
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

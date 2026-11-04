@@ -12,6 +12,7 @@ from .config import employer_name
 from .gate import REASON_CODES
 
 BUSY = "Someone else just pressed a button on this shared demo. Try again in a moment."
+TOO_BIG = "That request is too large for this demo."
 BUSY_RESET = "Someone started over a moment ago. Try again in 20 seconds."
 WORLD_SETUP_FAILED = "Couldn't reach the Airwallex sandbox ({code}). Nothing was sent. Try Simulated bank."
 TOO_FAST = "That was a little fast. Try again in a second."
@@ -105,7 +106,32 @@ SCENARIO_EVIDENCE["metal_overpull"] = ("The agent tries to take 1 coin more than
 SCENARIO_EVIDENCE["metal_poison"] = ("An email asks the platform to send Harbour's money to a lookalike wallet (address poisoning).",
                                      "METAL_MANDATE_PAYEE", "Our checks, then the Metal blockchain",
                                      "We compare the whole address, not just the start and end, so the fake is caught. The blockchain only pays the one wallet Harbour Foods named, so it refuses too.")
-METAL_FALLBACK = "The Metal blockchain didn't answer, so we used the simulated top-up."
+METAL_FALLBACK = "Crypto wallet didn't answer, so we used Airwallex's simulated deposit."
+ALREADY_FUNDED = "{t}'s top-up for this run was already sent. Nothing more was added."
+NOT_SHORT = "{t} is not waiting for funds right now."
+HELD_NO_ACCOUNT = "{t} has no {ccy} account, so this rule can't be met."
+RESET_UNREACHABLE = "Airwallex didn't answer, so nothing was wiped. Try again in a moment."
+RESET_PARTIAL = "The demo was wiped, but setting up the accounts failed. Press Start over again."
+NO_RUN_TO_STAGE = "Every payroll in this take has already gone out. Press Start over to run it again."
+BUSY_METAL = "The crypto wallet is already busy with another test. Try again in a minute."
+PLAY_STREAMS = "Too many live views are open. This page checks again every few seconds instead."
+PLAY_IP_DAILY = "You've used today's runs from this connection. Come back tomorrow, or open Three employers."
+
+
+def plain_refusal(msg: str) -> str:
+    """The state machine's refusals carry run ids and state names. A person gets a sentence instead."""
+    m = msg.lower()
+    for needle, text in (("may not approve", "That person may not approve this employer's payroll. Switch to its finance approver."),
+                         ("not awaiting_approval", "This payroll isn't waiting for approval right now. It may already be approved or sent."),
+                         ("not draft", "This payroll was already submitted."),
+                         ("only a held run", "Only a held payroll can be resumed."),
+                         ("cannot hold", "This payroll has already gone out, so it can't be held."),
+                         ("already exists", "This payroll was already created."),
+                         ("no run", "There is no payroll yet. Press Run Friday payroll first."),
+                         ("no beneficiary", "A contractor has no bank details on file, so the payroll can't start.")):
+        if needle in m:
+            return text
+    return msg  # rules and gate refusals are already written for a person
 
 # Codes raised by the executor and the agent tools outside the gate.
 EXTRA_TEXT = {
@@ -196,7 +222,8 @@ def lane_text(name: str, run: dict | None, d: dict | None, req: dict | None, now
         return {"status": f"Paid {plural(len(run['lines']), 'contractor')} · {tot}",
                 "next": "", "action": "proof", "tone": "green"}
     if st == "HELD":
-        return {"status": "Held. Nothing was sent.", "next": "Next: a person decides whether to resume.",
+        why = run.get("hold_reason") or ""
+        return {"status": "Held. Nothing was sent.", "next": why if " " in why else "Next: a person decides whether to resume.",
                 "action": "resume", "tone": "red"}
     return {"status": f"Run created · {tot}", "next": "Next: the agent prepares it.", "action": "none", "tone": "idle"}
 
@@ -283,6 +310,10 @@ def timeline_row(e: dict) -> dict | None:
         row = ("Decide", f"Blocked a fake lookalike wallet ({p['to'][:10]}…{p['to'][-4:]}). The blockchain refused it too.")
     elif k == "METAL_REFUSED":
         row = ("Decide", f"The blockchain blocked a payment of {p['usdz']} coins: more than {T} allowed.")
+    elif k == "ALERT" and p.get("kind") == "metal_recycle_failed":
+        row = ("Reconcile", "The test coins could not be sent back to the crypto wallet. It may run low until someone tops it up.")
+    elif k == "ALERT" and p.get("kind") == "start_failed":
+        row = ("Decide", START_FAILED)
     elif k == "RESET":
         row = ("Observe", "Started again. The previous run is saved.")
     if row is None:

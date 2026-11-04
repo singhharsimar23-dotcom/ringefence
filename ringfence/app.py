@@ -70,7 +70,16 @@ class Engine:
         self._docs_seen: dict[str, set[str]] = {}
         self.agent_busy: str | None = None
         self.notes: dict[str, dict] = {}
-        self.llm_day, self.llm_ticks = "", 0  # shortcut: in memory, resets on restart; upgrade to a ledger count if abused
+        self._budget = var_dir() / "budget.json"  # the daily Claude count survives a restart
+        try:
+            b = json.loads(self._budget.read_text())
+            self.llm_day, self.llm_ticks = str(b["day"]), int(b["ticks"])
+        except (OSError, ValueError, KeyError, TypeError):
+            self.llm_day, self.llm_ticks = "", 0
+        self.fell_back = False  # the last tick wanted Claude and got the rules engine
+        self.proof_cache: tuple | None = None  # (head hash, monotonic time, result) for /api/proof
+        self.start_job: Future | None = None
+        self.max_queue = 8
         threading.Thread(target=self._work, name="money-worker", daemon=True).start()
 
     # -- plumbing ----------------------------------------------------------------------------------------
@@ -91,6 +100,10 @@ class Engine:
         use_llm = self.llm and not capped
         if use_llm:
             self.llm_ticks += 1
+            try:
+                self._budget.write_text(json.dumps({"day": self.llm_day, "ticks": self.llm_ticks}))
+            except OSError:
+                log.warning("could not save the Claude budget")
         self.agent_busy = tenant
         self.ver += 1
         try:
@@ -98,6 +111,7 @@ class Engine:
         finally:
             self.agent_busy = None
             self.ver += 1
+        self.fell_back = bool(use_llm and r.mode != "claude")
         self.notes[tenant] = {"headline": copy.agent_line(r.headline) or f"{employer_name(tenant, plain=True)}: review finished",
                               "explanation": copy.agent_line(r.explanation) or "", "mode": r.mode,
                               "at": dt.datetime.now(dt.UTC).isoformat()}
@@ -107,9 +121,17 @@ class Engine:
     def agent_mode(self) -> str:
         return "claude" if self.llm else "offline agent"
 
-    def call(self, fn, timeout: float = 90.0):
+    def submit(self, fn, quiet: bool = False) -> Future:
+        """Queue a job for the worker. A full queue is a 429, so a flood cannot pile up work. `quiet` jobs only read:
+        they do not bump `ver`, so polling them cannot wake every page."""
+        if self.q.qsize() >= self.max_queue:
+            raise HTTPException(429, copy.BUSY)
         f: Future = Future()
-        self.q.put((fn, f))
+        self.q.put((fn, f, quiet))
+        return f
+
+    def call(self, fn, timeout: float = 90.0, quiet: bool = False):
+        f = self.submit(fn, quiet)
         try:
             return f.result(timeout)
         except JobTimeout:
@@ -118,7 +140,7 @@ class Engine:
     def _work(self) -> None:
         while True:
             try:
-                fn, f = self.q.get(timeout=self.idle)
+                fn, f, *rest = self.q.get(timeout=self.idle)
             except queue.Empty:
                 self._guard(self._autopilot)
                 continue
@@ -126,7 +148,8 @@ class Engine:
                 f.set_result(fn())
             except BaseException as e:  # noqa: BLE001
                 f.set_exception(e)
-            self._guard(self._refresh)
+            if not (rest and rest[0]):
+                self._guard(self._refresh)
 
     def _guard(self, fn) -> None:
         try:
@@ -146,6 +169,9 @@ class Engine:
         if not self.ready:
             return  # a live world is still opening its accounts
         rid, now = self.rid(), time.monotonic()
+        self._auto_resume_kill()
+        if self.sim.restore_if_due():
+            self.proof_cache = None
         for t in EMPLOYERS:
             run = store.get_run(self.L, rid, t)
             if run is None:
@@ -163,6 +189,18 @@ class Engine:
                 settle_step(self.awx, self.L, rid, t)
         self.o.poll()
         self._refresh(naive=now - self.cache["naive_at"] >= self.cache_every)
+
+    def kill_resumes_at(self, kill: dict | None = None) -> str | None:
+        """On the public demo a kill switch left on turns itself off after KILL_AUTO_S, so one visitor cannot stall the rest."""
+        kill = kill or self.L.query("SELECT on_, by, ts FROM kill_switch WHERE id=1")[0]
+        if os.environ.get("RF_PUBLIC") != "1" or not kill["on_"] or not kill["ts"]:
+            return None
+        return (dt.datetime.fromisoformat(kill["ts"]) + dt.timedelta(seconds=KILL_AUTO_S)).isoformat()
+
+    def _auto_resume_kill(self) -> None:
+        at = self.kill_resumes_at()
+        if at and clock.utc_now() >= dt.datetime.fromisoformat(at):
+            self.o.set_kill_switch(False, "Auto-resume")
 
     def _refresh(self, naive: bool = False) -> None:
         rid = self.rid()
@@ -191,7 +229,8 @@ class Engine:
             "run_id": rid, "pay_date": seed.load()["pay_date"], "now": now.isoformat(), "backend": self.backend,
             "agent": self.agent_mode, "agent_busy": self.agent_busy, "agent_capped": self._capped(),
             "model": getattr(self.llm, "model", None), "error": self.error, "autosettle": self.autosettle, "head": self.L.head()[0],
-            "kill": {"on": bool(kill["on_"]), "by": kill["by"], "ts": kill["ts"]},
+            "kill": {"on": bool(kill["on_"]), "by": kill["by"], "ts": kill["ts"], "resumes_at": self.kill_resumes_at(kill)},
+            "fell_back": self.fell_back, "tamper": self.sim.tamper_state(),
             "users": [{"id": k, **v, "label": _user_label(k, v)} for k, v in users.items()],
             "naive": None if naive is None else {
                 "amount": str(naive[0]), "currency": "AUD", "complete": naive[1],
@@ -269,8 +308,57 @@ class Kill(Who):
     on: bool
 
 
+PROOF_TTL_S = 10.0
+KILL_AUTO_S = 300  # public demo: a kill switch left on resumes after 5 minutes
+MAX_BODY = 64 * 1024
 PUBLIC_GAP_S = 1.0
 PATH_GAP_S = {"/api/reset": 20.0}  # one visitor must not keep wiping the shared demo
+
+
+class _TooBig(Exception):
+    pass
+
+
+class BodyLimit:
+    """Pure ASGI, so a streamed body is counted as it arrives: no route needs more than MAX_BODY."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] not in ("POST", "PUT", "PATCH"):
+            return await self.app(scope, receive, send)
+        n = dict(scope["headers"]).get(b"content-length", b"")
+        if n.isdigit() and int(n) > MAX_BODY:
+            return await self._reject(scope, receive, send)
+        seen, over = 0, False
+
+        async def counted():
+            nonlocal seen, over
+            msg = await receive()
+            seen += len(msg.get("body", b"")) if msg["type"] == "http.request" else 0
+            if seen > MAX_BODY:
+                over = True
+                raise _TooBig
+            return msg
+
+        async def send_413(msg):  # the framework turns a failed body read into a 400: say 413 instead
+            if not over:
+                return await send(msg)
+            if msg["type"] == "http.response.start":
+                body = json.dumps({"detail": copy.TOO_BIG}).encode()
+                return await send({"type": "http.response.start", "status": 413,
+                                   "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]})
+            if msg["type"] == "http.response.body":
+                return await send({"type": "http.response.body", "body": json.dumps({"detail": copy.TOO_BIG}).encode()})
+        try:
+            await self.app(scope, counted, send_413)
+        except _TooBig:
+            await self._reject(scope, receive, send)
+
+    @staticmethod
+    async def _reject(scope, receive, send):
+        await JSONResponse({"detail": copy.TOO_BIG}, status_code=413)(scope, receive, send)
 
 
 def _gap_key(request: Request) -> tuple[str, float] | None:
@@ -287,6 +375,9 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
     app = FastAPI(title="Ringfence", docs_url=None, redoc_url=None)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     public, last_post, last_path = os.environ.get("RF_PUBLIC") == "1", [0.0], {}
+    metal_busy = threading.Lock()
+
+    app.add_middleware(BodyLimit)
 
     @app.middleware("http")
     async def shared_demo_throttle(request: Request, call_next):
@@ -312,18 +403,26 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
             raise HTTPException(422, "Unknown user.")
         return u
 
-    def act(fn, timeout: float = 90.0):
+    def act(fn, timeout: float = 90.0, quiet: bool = False):
         """Run an operator action on the worker and turn the failures a person can fix into plain 409s."""
+        return act_here(lambda: E.call(fn, timeout, quiet))
+
+    def act_here(fn):
         try:
-            return {"ok": True, **(E.call(fn, timeout) or {})}
+            return {"ok": True, **(fn() or {})}
         except (Refused, PermissionError, LookupError, ValueError) as e:  # a person can fix these
-            raise HTTPException(409, str(e)) from None
+            raise HTTPException(409, copy.plain_refusal(str(e))) from None
         except (AwxError, OSError):
             raise HTTPException(502, "Airwallex didn't answer. Nothing was changed; try again in a moment.") from None
 
     @app.get("/")
     def index():
         return FileResponse(STATIC / "index.html")
+
+    @app.get("/healthz")
+    def healthz():
+        """For the load balancer and scripts/preflight.py: alive, ledger intact, worker draining."""
+        return {"ok": E.ready, "head": E.L.head()[0], "queue": E.q.qsize(), "ready": E.ready, "backend": E.backend}
 
     @app.get("/api/state")
     def get_state():
@@ -362,6 +461,8 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
     @app.post("/api/start")
     def start(b: Who):
         user(b.user)
+        if E.start_job is not None and not E.start_job.done():  # a second press while one is running is that same job
+            return {"ok": True, "queued": True}
 
         def guarded_job():
             E.error = ""
@@ -372,7 +473,7 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
                 log.exception("start failed")
                 E.error = copy.START_FAILED
                 E.L.append("ALERT", {"kind": "start_failed", "detail": copy.START_FAILED}, None, None)
-        E.q.put((guarded_job, Future()))
+        E.start_job = E.submit(guarded_job)
         return {"ok": True, "queued": True}
 
     @app.post("/api/approve")
@@ -410,18 +511,32 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
         user(b.user)
 
         def job():
-            E.o.reset(b.user)
-            E.results.clear()
-            E.notes.clear()
-            E.certs.clear()
-            E.sim._tamper = None
-            E._ready_since.clear()
-            E._docs_seen.clear()
-            E.cache.update(diff={}, balances={}, naive=None, naive_at=0.0)
+            try:
+                for t in EMPLOYERS:  # nothing is wiped unless Airwallex answers for every employer
+                    E.awx.for_tenant(t).balances()
+            except (AwxError, OSError):
+                raise HTTPException(502, copy.RESET_UNREACHABLE) from None
+            E.sim.restore()  # a tampered row goes back first, so the archive of this take is whole
+            failed = False
+            try:
+                E.o.reset(b.user)
+            except (AwxError, OSError):  # the ledger is already new by now: say so
+                log.warning("reset: the wipe is done, the account setup failed")
+                failed = True
+            finally:
+                E.proof_cache, E.autosettle, E.fell_back, E.start_job = None, True, False, None
+                E.sim.reset()
+                for d in (E.results, E.notes, E.certs, E._ready_since, E._docs_seen):
+                    d.clear()
+                E.cache.update(diff={}, balances={}, naive=None, naive_at=0.0)
+            if failed:
+                E.L.append("ALERT", {"kind": "reset_partial", "detail": copy.RESET_PARTIAL}, None, None)
+                raise HTTPException(502, copy.RESET_PARTIAL)
         return act(job)
 
     @app.post("/api/autosettle")
     def autosettle(b: Kill):
+        user(b.user)
         E.autosettle = b.on
         return {"ok": True, "autosettle": b.on}
 
@@ -430,10 +545,23 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
         if name not in scenario_cards():
             raise HTTPException(404, "No such scenario.")
 
+        if name.startswith("metal"):  # a Metal step waits on testnet, so it runs on this thread and hops onto the worker only for Airwallex and state
+            if not metal_busy.acquire(blocking=False):
+                raise HTTPException(409, copy.BUSY_METAL)
+            try:
+                def run_metal():
+                    r = E.sim.run(name, tenant, w=E.call)
+                    E.call(lambda: (E.results.__setitem__(name, r), setattr(E, "proof_cache", None)))  # also bumps ver for every page
+                    return {"result": r}
+                return act_here(run_metal)
+            finally:
+                metal_busy.release()
+
         def job():
             E.results[name] = r = E.sim.run(name, tenant)
+            E.proof_cache = None  # a card can change the ledger without moving its head (tamper)
             return {"result": r}
-        return act(job, 180.0 if name.startswith("metal") else 90.0)  # a Metal step is a few testnet transactions
+        return act(job)
 
     @app.post("/api/rules/draft")
     def rule_draft(b: Rule):
@@ -472,6 +600,11 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
 
     @app.get("/api/proof")
     def proof():
+        head = E.L.head()[1]
+        hit = E.proof_cache
+        if hit and hit[0] == head and time.monotonic() - hit[1] < PROOF_TTL_S:
+            return {"ok": True, **hit[2]}
+
         def job():
             rep = verify.report(E.awx, E.L, E.cert_dir)
             run_id = verify.current_run_id(E.L)
@@ -484,8 +617,9 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
                    "balances": E.cache["balances"]}
             if metal.enabled():
                 out["metal"] = metal.history(E.L)
+            E.proof_cache = (head, time.monotonic(), out)
             return out
-        return act(job)
+        return act(job, quiet=True)
 
     @app.get("/api/calls")
     def get_calls(since: str = ""):
@@ -553,6 +687,8 @@ def main() -> int:
     engine = build_engine(a.backend, a.agent)  # first: a fake demo moves RF_VAR to a temp dir
     play = None if os.environ.get("RF_WORLD") else Manager()  # a world never spawns worlds
     app = create_app(engine, play)
+    if metal.enabled():
+        metal.prewarm()  # the first judge's Metal click should not wait on an npx download
     print(f"Ringfence on http://127.0.0.1:{a.port}/  (backend {a.backend or os.environ.get('RF_BACKEND', 'live')})")
     try:
         uvicorn.run(app, host="127.0.0.1", port=a.port, workers=1, reload=False, log_level="warning")

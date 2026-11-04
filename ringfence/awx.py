@@ -108,7 +108,7 @@ class TenantClient:
                 r = self._awx._http.request(method, f"{self._awx.base}/{path.lstrip('/')}", params=params,
                                             headers=h, content=content)
                 log.debug("%s %s -> %s [%s]", method, path, r.status_code, self._tenant.key)
-                r = self._awx._simulate(method, path, r)
+                r = self._awx._simulate(method, path, r, self._tenant.key)
             except httpx.TransportError:
                 self._awx._log_call(self._tenant.key, method, path, None, t0, bool(extra))
                 raise
@@ -226,15 +226,24 @@ class Awx:
     def __repr__(self) -> str:
         return f"<Awx {self.base}>"
 
-    def inject(self, kind: str, path: str, method: str = "POST", **kw: Any) -> None:
+    def inject(self, kind: str, path: str, method: str = "POST", tenant: str | None = None, **kw: Any) -> None:
         """[SIMULATED] one-shot client-side fault that works on the live sandbox too:
-        timeout_after_commit (the request really lands, the answer is lost) | rate_shift(bps) on a quote answer."""
+        timeout_after_commit (the request really lands, the answer is lost) | rate_shift(bps) on a quote answer.
+        With `tenant` set it fires only on that employer's calls."""
         with self._lock:
-            self._faults.append({"kind": kind, "path": path, "method": method, **kw})
+            self._faults.append({"kind": kind, "path": path, "method": method, "tenant": tenant, **kw})
 
-    def _simulate(self, method: str, path: str, r: httpx.Response) -> httpx.Response:
+    def disarm(self, tenant: str | None = None) -> int:
+        """Drop faults that never fired (all of them, or one employer's). Returns how many."""
         with self._lock:
-            hit = next((f for f in self._faults if f["method"] == method and f["path"] in path), None)
+            keep = [f for f in self._faults if tenant is not None and f.get("tenant") != tenant]
+            n, self._faults = len(self._faults) - len(keep), keep
+            return n
+
+    def _simulate(self, method: str, path: str, r: httpx.Response, tenant: str | None = None) -> httpx.Response:
+        with self._lock:
+            hit = next((f for f in self._faults if f["method"] == method and f["path"] in path
+                        and f.get("tenant") in (None, tenant)), None)
             if hit:
                 self._faults.remove(hit)
         if hit is None:

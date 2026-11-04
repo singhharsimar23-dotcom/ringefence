@@ -38,7 +38,6 @@ from .money import Contractor, price_line
 log = logging.getLogger("ringfence.play")
 SLOTS = ("northwind", "kestrel", "harbour")
 PRESETS = ["weekly", "bank_change", "hidden", "limit", "short_aud", "two_employers"]
-MAX_BODY = 16 * 1024
 
 
 # -- corridors: only banks that were verified on the sandbox --------------------------------------------------
@@ -248,7 +247,7 @@ class DraftLLM:
 
     def __init__(self) -> None:
         import anthropic
-        self.client = anthropic.Anthropic()
+        self.client = anthropic.Anthropic(timeout=30, max_retries=1)
         self.model = env("RF_DRAFT_MODEL", "claude-haiku-5-5")
         self.errors = (anthropic.RateLimitError, anthropic.APIStatusError, anthropic.APIConnectionError)
 
@@ -405,6 +404,7 @@ class Manager:
         i = lambda k, d: int(os.environ.get(k) or d)
         self.live_max, self.fake_max, self.queue_max = i("RF_PLAY_LIVE_MAX", 1), i("RF_PLAY_FAKE_MAX", 2), i("RF_PLAY_QUEUE", 4)
         self.daily, self.drafts, self.tick_cap = i("RF_PLAY_DAILY", 40), i("RF_PLAY_DRAFTS", 120), i("RF_PLAY_TICK_CAP", 12)
+        self.ip_daily = i("RF_PLAY_IP_DAILY", 8)  # worlds one connection may open per day
         self.idle_s, self.total_s = i("RF_PLAY_IDLE_S", 20 * 60), i("RF_PLAY_TOTAL_S", 30 * 60)
         self.ready_live_s, self.ready_fake_s = i("RF_PLAY_READY_LIVE_S", 90), i("RF_PLAY_READY_FAKE_S", 20)
         self.spawn, self.probe, self.now = spawn or self._spawn, probe or _probe_state, now
@@ -414,6 +414,7 @@ class Manager:
         self.queue: list[str] = []
         self.lock = threading.RLock()
         self.day, self.n_worlds, self.n_drafts = "", 0, 0
+        self.ip_worlds: dict[str, int] = {}
         self._live_ok: tuple[float, bool] | None = None
         self._live_failed = False
         self._last_reap = 0.0
@@ -463,6 +464,8 @@ class Manager:
                     return w
             if self.n_worlds + self.n_drafts / 4 >= self.daily:
                 raise PlayError(429, copy.PLAY_DAILY)
+            if self.ip_worlds.get(ip, 0) >= self.ip_daily:
+                raise PlayError(429, copy.PLAY_IP_DAILY)
             if self._free(backend) and not any(self.worlds[x].backend == backend for x in self.queue):
                 pass
             elif len(self.queue) >= self.queue_max:
@@ -471,6 +474,7 @@ class Manager:
             self.worlds[w.wid] = w
             self.queue.append(w.wid)
             self.n_worlds += 1
+            self.ip_worlds[ip] = self.ip_worlds.get(ip, 0) + 1
             self._promote()
             return w
 
@@ -507,6 +511,7 @@ class Manager:
         d = datetime.now(UTC).date().isoformat()
         if d != self.day:
             self.day, self.n_worlds, self.n_drafts = d, 0, 0
+            self.ip_worlds.clear()
 
     def _active(self, backend: str) -> int:
         return sum(1 for w in self.worlds.values() if w.backend == backend and w.status in ("starting", "ready"))

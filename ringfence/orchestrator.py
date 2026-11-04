@@ -14,9 +14,9 @@ from decimal import Decimal
 from pathlib import Path
 
 from . import beneficiaries as ben
-from . import fees, funding, fx, inbox, seed, store
+from . import copy, fees, funding, fx, inbox, seed, store
 from .awx import Awx
-from .config import ROOT, clock, var_dir
+from .config import ROOT, clock, employer_name, var_dir
 from .executor import Executor, current_batch_hash
 from .ledger import Ledger
 from .mandate import Approval, make_request_id, sign_approval
@@ -49,11 +49,11 @@ class Orchestrator:
                     tx.append("MANDATE_SIGNED", {"tenant": m.mandate.tenant, "version": m.mandate.version},
                               None, m.mandate.tenant)
 
-    def create_run(self, tenant: str, pay_date: date, hours: dict[str, Decimal] | None = None) -> str:
+    def create_run(self, tenant: str, pay_date: date, hours: dict[str, Decimal] | None = None, run_id: str | None = None) -> str:
         """DRAFT with PLANNED lines. Hours default to this tenant's parsed timesheet; rates come from the registry."""
         self.ensure_mandates()
         hours = hours or inbox.load_timesheet(tenant)
-        reg, cs, run_id = ben.load_registry(), seed.contractors(tenant), self.run_id(pay_date)
+        reg, cs, run_id = ben.load_registry(), seed.contractors(tenant), run_id or self.run_id(pay_date)
         priced = {cid: price_line(cs[cid], h) for cid, h in hours.items()}  # KeyError = not this tenant's contractor
         diff_empty, new = inbox.diff_flags(tenant, {k: v.amount for k, v in priced.items()})
         with self.L.tx() as tx:
@@ -101,9 +101,13 @@ class Orchestrator:
         run = store.get_run(self.L, run_id, tenant)
         _, _, short = self._plan(run_id, tenant)
         if short:
-            for ccy, amt in short.items():
-                funding.request_funding(self.awx, self.L, run_id, tenant, ccy, amt,
-                                        date.fromisoformat(run["pay_date"]))
+            try:
+                for ccy, amt in short.items():
+                    funding.request_funding(self.awx, self.L, run_id, tenant, ccy, amt,
+                                            date.fromisoformat(run["pay_date"]))
+            except LookupError:  # a signed rule leaves a shortfall in a currency this employer has no account for
+                self.hold(run_id, tenant, copy.HELD_NO_ACCOUNT.format(t=employer_name(tenant, plain=True), ccy=ccy))
+                return "HELD"
             with self.L.tx() as tx:
                 store.set_run(tx, run_id, tenant, state="AWAITING_FUNDS", shortfall={k: str(v) for k, v in short.items()})
             return "AWAITING_FUNDS"

@@ -1,5 +1,8 @@
 # Public demo, no login. Replace __HOST__ (see the README deploy section). Caddy gets the TLS cert itself.
 __HOST__ {
+	request_body {
+		max_size 64KB
+	}
 	reverse_proxy 127.0.0.1:8000
 	header {
 		Strict-Transport-Security "max-age=31536000"

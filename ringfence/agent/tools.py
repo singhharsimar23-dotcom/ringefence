@@ -9,6 +9,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from .. import gate, inbox, seed, store
+from ..awx import AwxError
 from ..money import parse_amount
 from ..orchestrator import Orchestrator, Refused
 from . import prompts
@@ -99,6 +100,8 @@ class ToolBox:
             return self._deny(name, "REFUSED", str(e))
         except (KeyError, ValueError, LookupError, PermissionError) as e:
             return self._deny(name, "INVALID_INPUT", str(e)[:200])
+        except AwxError as e:  # Airwallex did not answer: the model hears it as a tool error and the tick goes on
+            return self._deny(name, "FACTS_UNAVAILABLE", f"Airwallex error {getattr(e, 'status', '')} {getattr(e, 'code', '')}".strip())
 
     def _deny(self, name: str, code: str, detail: str) -> tuple[str, bool]:
         self.o.L.append("GATE_DENY", {"source": "agent_tool", "tool": name, "code": code, "detail": detail[:200]},

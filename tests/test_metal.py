@@ -3,7 +3,7 @@ import json
 import pytest
 from invariants import assert_invariants
 
-from ringfence import copy, metal, store
+from ringfence import copy, metal
 from ringfence.agent import loop
 from ringfence.orchestrator import Orchestrator
 from ringfence.scenarios import SCENARIOS, Simulator, scenario_cards
@@ -40,7 +40,7 @@ def world(awx, L, tmp_path):
             return 0, f"bound 0x{'c' * 64}\ntransaction 0x{'d' * 64}\n"
         return 0, "credential m.json\n"
     sim.metal = metal.Metal(runner, tmp_path)
-    sim.metal.recycle_later = sim.metal.recycle  # same steps, on this thread, so the test can look at them
+    sim.metal.recycle_later = lambda pay, alert=None: sim.metal.recycle(pay)  # same steps, on this thread, so the test can look at them
     return o, sim, rid, calls
 
 
@@ -78,23 +78,63 @@ def Decimal_gt(a, b):
     return Decimal(a) == Decimal(b) + 1
 
 
-def test_metal_down_falls_back_without_touching_the_ledger_or_airwallex(world, L):
-    _, sim, rid, _ = world
+def test_metal_down_falls_back_to_a_real_simulated_topup_and_says_so(world, L):
+    o, sim, rid, _ = world
 
     def down(args, cwd):
         raise metal.MetalError("Metal CLI did not finish: TimeoutExpired")
     sim.metal = metal.Metal(down, sim.metal.dir)
     sim._tick("harbour")
     r = sim.run("metal_topup")
-    assert not r["ok"] and r["summary"] == copy.METAL_FALLBACK
-    assert not L.entries(kind="METAL_PULL") and store.get_run(L, rid(), "harbour")["state"] == "AWAITING_FUNDS"
+    assert r["ok"] and r["fell_back"] and r["summary"].startswith(copy.METAL_FALLBACK) and "[SIMULATED]" in r["summary"]
+    assert not L.entries(kind="METAL_PULL")
+    o.advance(rid(), "harbour")  # the deposit is real: the funding request closes
+    assert L.entries(kind="FUNDING_MATCHED", tenant="harbour")
+    assert not sim.run("metal_topup")["ok"]  # and funding cannot arrive twice
 
 
 def test_not_set_up_is_a_fallback_too(world, L, tmp_path):
     _, sim, _, calls = world
     sim.metal = metal.Metal(sim.metal.runner, tmp_path / "missing")
     sim._tick("harbour")
-    assert sim.run("metal_topup")["summary"] == copy.METAL_FALLBACK and not calls
+    r = sim.run("metal_topup")
+    assert r["summary"].startswith(copy.METAL_FALLBACK) and not calls
+
+
+def test_double_funding_is_refused_whichever_way_the_first_came(world, L):
+    o, sim, rid, calls = world
+    sim._tick("harbour")
+    assert sim.run("harbour_topup")["ok"]
+    for card in ("harbour_topup", "metal_topup"):
+        r = sim.run(card)
+        assert not r["ok"] and "already sent" in r["summary"]
+    assert not calls and not L.entries(kind="METAL_PULL")  # the refused card never reached the chain
+    o.advance(rid(), "harbour")
+    r = sim.run("harbour_topup")
+    assert not r["ok"] and "not waiting for funds" in r["summary"]
+
+
+def test_a_failed_recycle_leaves_an_alert_row(world, L):
+    _, sim, _, _ = world
+    sim._tick("harbour")
+
+    def go(pay, alert=None):
+        alert("could not send the coins back")
+    sim.metal.recycle_later = go
+    assert sim.run("metal_topup")["ok"]
+    row = L.entries(kind="ALERT")[-1]
+    assert row["payload"]["kind"] == "metal_recycle_failed"
+    assert "crypto wallet" in copy.timeline_row(row)["text"]
+
+
+def test_an_expired_mandate_is_signed_again_before_the_refusal(world, L, monkeypatch):
+    _, sim, _, calls = world
+    sim._tick("harbour")
+    assert sim.run("metal_topup")["ok"]
+    n = sum("create" in a for a in calls)
+    monkeypatch.setattr(metal.time, "time", lambda: 9e12)  # past the one-hour life
+    assert sim.run("metal_overpull")["ok"]
+    assert sum("create" in a for a in calls) == n + 1  # one new credential
 
 
 def test_parse_and_scrub(monkeypatch):

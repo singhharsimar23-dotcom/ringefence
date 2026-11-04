@@ -186,7 +186,7 @@ def write_certs(certs: dict[str, dict], run_id: str, dest: Path = CERT_DIR) -> l
 
 
 def current_run_id(L: Ledger) -> str:
-    e = L.entries(kind="RUN_CREATED")
+    e = [x for x in L.entries(kind="RUN_CREATED") if "-x" not in x["run_id"][-5:]]  # not a card's practice run
     return e[-1]["run_id"] if e else f"none-{L.epoch()}"
 
 

@@ -3,7 +3,7 @@
 **A payroll agent that can move every employer's money, but only its own.**
 Airwallex Agentic Banking Hackathon, Kit 06 (multi-employer payroll executor).
 
-**Live demo (no login, test money only):** https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com
+**Live demo (demo identities, no login, test money only):** https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com
 Demo script: [docs/DEMO.md](docs/DEMO.md)
 
 ![Ringfence home](docs/img/home.png)
@@ -42,14 +42,14 @@ Harbour keeps a stablecoin treasury on Metal testnet and signs an on-chain manda
 payable only to the platform. On **Three employers**, the section *Harbour's ringfence, enforced on chain* has three buttons,
 each a real testnet transaction with an explorer link:
 
-1. **Pay the shortfall on Metal**: the pull succeeds; Airwallex then gets a `[SIMULATED]` deposit so the usual matcher closes the request.
-2. **Pull more than the cap**: Metal refuses on chain (`mandate_cap_exceeded`).
-3. **Send to the lookalike wallet** (address poisoning): an email gives a wallet with the same first 6 and last 4 characters.
+1. **Pay from crypto wallet**: the pull succeeds; Airwallex then gets a `[SIMULATED]` deposit so the usual matcher closes the request.
+2. **Try to take too much**: Metal refuses on chain (`mandate_cap_exceeded`).
+3. **Try a fake wallet address** (address poisoning): an email gives a wallet with the same first 6 and last 4 characters.
    Ringfence compares the whole address and flags it; pushed anyway, Metal refuses (`mandate_payee_not_listed`).
 
 ![Metal section](docs/img/chain.png)
 
-Testnet scale is 1 USDZ = USD 10, because the faucet gives about 100 USDZ. If Metal is down the button falls back to the simulated top-up.
+Testnet scale is 1 USDZ = USD 10, because the faucet gives about 100 USDZ. If Metal is down the button does a real Airwallex top-up marked `[SIMULATED]` and says so.
 
 ## Run it yourself
 

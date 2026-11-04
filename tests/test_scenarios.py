@@ -82,8 +82,8 @@ def test_bank_change_email_quarantines_and_pays_nobody(world, fake):
 
 
 def test_cards_that_need_a_run_say_so_instead_of_failing(world):
-    r = world[1].run("rate_move")
-    assert not r["ok"] and "ready to send" in r["summary"]
+    r = world[1].run("late_return", "northwind")
+    assert not r["ok"] and "no paid payout" in r["summary"]
 
 
 def test_late_return_and_topup_story_beats(world, L, fake):

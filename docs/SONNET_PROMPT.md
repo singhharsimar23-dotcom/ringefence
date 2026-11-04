@@ -25,7 +25,7 @@ You are building Ringfence v2 in this repo (branch `build`). Read `CLAUDE.md`, t
 - Windows/Git Bash: `export MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8`. Use `uv run` (system Python 3.10 lacks `datetime.UTC`). Azure CLI and gh live under `/c/Program Files/...` (see `CLAUDE.md`).
 
 **Known state (3 Nov):**
-- `AWX_PLAYGROUND_ACCOUNT=acct_zQZEjmRrNWSCAIfGsxjONA` is set locally and on the VM.
+- `AWX_PLAYGROUND_ACCOUNT=acct_zQZE…` is set locally and on the VM.
 - The playground account is linked to the API key, and login works (verified 3 Nov). The live playground is available.
 - `METAL_RPC_URL` and `METAL_RPC_SECRET` are set locally and on the VM, and the chain id was verified as 63825. T5 is unblocked; see spec section 8, item 4.
 

@@ -101,7 +101,7 @@ def test_kill_switch_pauses_release_and_resume_continues(c, E):
     start(c, E)
     assert c.post("/api/kill", json={"on": True, "user": "maya"}).json()["ok"]
     s = c.get("/api/state").json()
-    assert s["kill"] == {"on": True, "by": "Maya", "ts": s["kill"]["ts"]}
+    assert s["kill"] == {"on": True, "by": "Maya", "ts": s["kill"]["ts"], "resumes_at": None}  # private mode: stays on until a person resumes
     cycle(E)
     assert lane(c, "kestrel")["state"] == "HELD"
     c.post("/api/kill", json={"on": False, "user": "maya"})

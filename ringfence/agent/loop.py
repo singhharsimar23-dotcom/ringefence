@@ -37,7 +37,7 @@ class ClaudeLLM:
 
     def __init__(self):
         import anthropic
-        self.client = anthropic.Anthropic()
+        self.client = anthropic.Anthropic(timeout=30, max_retries=1)
         self.model = env("RF_MODEL", "claude-sonnet-5-5")
         self.errors = (anthropic.RateLimitError, anthropic.APIStatusError, anthropic.APIConnectionError)
 

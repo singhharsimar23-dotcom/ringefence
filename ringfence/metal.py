@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import threading
+import time
 from decimal import ROUND_UP, Decimal
 from pathlib import Path
 
@@ -99,6 +100,14 @@ class Metal:
             raise MetalError(f.get("error") or f.get("reason") or f"Metal CLI exit {rc}")
         return {**f, "rc": rc}
 
+    def _mandate(self, rd: Path, usdz, ref: str, lifetime_s: int) -> dict:
+        """Create and bind Harbour's one-pull mandate (cap = budget = usdz, payee = the settlement wallet) in run dir `rd`."""
+        c, owner = self.cfg(), str(self.dir / "owner.json")
+        self.call(["mandate", "credential", "create", "--principal", c["principal"], "--payee", c["settlement"], "--cap", str(usdz),
+                   "--budget", str(usdz), "--max-occurrences", "1", "--expires-in", str(lifetime_s), "--key", owner,
+                   "--out", "m.json", "--description", f"Ringfence payroll top-up {ref}"], rd)
+        return self.call(["mandate", "bind", "--credential", "m.json", "--key", owner], rd)
+
     def pay_shortfall(self, L, run_id: str, tenant: str, req: dict, quote_c, lifetime_s: int = 3600) -> dict:
         """Mandate then pull. Returns the METAL_PULL payload (already in the ledger)."""
         c = self.cfg()
@@ -106,18 +115,15 @@ class Metal:
         usdz = (usd / USD_PER_USDZ).quantize(Decimal("0.01"), rounding=ROUND_UP)  # rounded up so the pull never undershoots
         ref = re.sub(r"[^A-Za-z0-9-]", "-", req["reference"])[:40]
         rd = self.dir / "runs" / ref
-        owner = str(self.dir / "owner.json")
-        self.call(["mandate", "credential", "create", "--principal", c["principal"], "--payee", c["settlement"], "--cap", str(usdz),
-                   "--budget", str(usdz), "--max-occurrences", "1", "--expires-in", str(lifetime_s), "--key", owner,
-                   "--out", "m.json", "--description", f"Ringfence payroll top-up {ref}"], rd)
-        bound = self.call(["mandate", "bind", "--credential", "m.json", "--key", owner], rd)
+        bound = self._mandate(rd, usdz, ref, lifetime_s)
         pull = self.call(["mandate", "pull", "--credential", "m.json", "--to", c["settlement"], "--amount", str(usdz),
                           "--payment-id", ref], rd)
         if not pull.get("outcome", "").startswith("paid"):
             raise MetalError(f"Metal pull outcome {pull.get('outcome')}")
         pay = {"what": "Harbour's mandate paid the shortfall on Metal testnet", "usdz": str(usdz), "tx": pull["transaction"],
                "explorer_url": EXPLORER + pull["transaction"], "bind_tx": bound.get("transaction"), "mandate": bound.get("bound"),
-               "run_dir": ref, "reference": req["reference"], "aud": req["amount"]}
+               "run_dir": ref, "reference": req["reference"], "aud": req["amount"],
+               "expires_at": int(time.time()) + lifetime_s}
         L.append("METAL_PULL", pay, run_id, tenant)
         return pay
 
@@ -138,16 +144,21 @@ class Metal:
         self.call(["mandate", "pull", "--credential", "m.json", "--to", c["principal"], "--amount", amt,
                    "--payment-id", pay["run_dir"] + "-back"], rd)
 
-    def recycle_later(self, pay: dict) -> None:
+    def recycle_later(self, pay: dict, alert=None) -> None:
+        """Side thread. A failure is logged and, when `alert` is given, written to the ledger so the page can show it."""
         def go():
             try:
                 self.recycle(pay)
             except MetalError as e:
                 log.warning("metal recycle failed: %s", scrub(str(e)))
+                if alert:
+                    alert(scrub(str(e))[:200])
         threading.Thread(target=go, name="metal-recycle", daemon=True).start()
 
     def _refused(self, L, run_id: str, tenant: str, pay: dict, amount, to: str, ev: dict) -> dict:
         """Push a pull Metal must refuse, with the refusal recorded on chain. Returns the METAL_REFUSED payload."""
+        if time.time() >= pay.get("expires_at", 0) - 60:  # the one-hour mandate ran out: sign it again so the refusal is for the right reason
+            self._mandate(self.dir / "runs" / pay["run_dir"], pay["usdz"], pay["run_dir"], 3600)
         r = self.call(["mandate", "pull", "--credential", "m.json", "--to", to, "--amount", str(amount),
                        "--record-refusal", "--key", self.treasury_key()], self.dir / "runs" / pay["run_dir"], ok=(1,))
         if not r.get("outcome", "").startswith("refused"):
@@ -170,6 +181,16 @@ class Metal:
             raise MetalError("not a lookalike address")
         return self._refused(L, run_id, tenant, pay, pay["usdz"], to,
                              {"what": "Metal refused a pull to a lookalike wallet", "flag": "address_poisoning", "to": to, "real": real})
+
+
+def prewarm() -> None:
+    """Fetch the pinned CLI into the npx cache now, so the first judge's click is not a 60 s download. Never raises."""
+    def go():
+        try:
+            run_cli(["--help"], base_dir(), timeout=120)
+        except MetalError:
+            log.warning("metal pre-warm did not finish")
+    threading.Thread(target=go, name="metal-prewarm", daemon=True).start()
 
 
 def lookalike(addr: str) -> str:

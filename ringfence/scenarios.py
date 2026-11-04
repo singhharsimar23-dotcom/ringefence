@@ -2,16 +2,19 @@
 Backend-agnostic: uses only /simulation/* endpoints that both the fake and the live sandbox have."""
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
 import sqlite3
 import threading
+import time
 from decimal import Decimal
 
 from . import copy, metal, store
+from .agent import loop
 from .awx import Awx, AwxError
-from .config import EMPLOYERS, ROOT, employer_name
+from .config import EMPLOYERS, ROOT, employer_name, var_dir
 from .executor import INFLIGHT
 from .ledger import Ledger
 from .orchestrator import Orchestrator, Refused
@@ -74,9 +77,9 @@ WORLD_SCENARIOS = {  # only in a playground world; the three-employer demo keeps
     "injection": ("Hidden instructions", "A document tells the payroll agent to ignore its rules.", "northwind"),
 }
 METAL_SCENARIOS = {  # only with RF_METAL=1 in the three-employer demo (ringfence/metal.py)
-    "metal_topup": ("Pay the shortfall from Metal", "Harbour's mandate on Metal lets the platform pull exactly the shortfall in stablecoin.", "harbour"),
-    "metal_overpull": ("Agent over-pulls on Metal", "The agent asks Metal for more than Harbour's mandate allows.", "harbour"),
-    "metal_poison": ("Lookalike wallet email", "An email gives a new settlement wallet that matches the real one's first 6 and last 4 characters.", "harbour"),
+    "metal_topup": ("Pay from crypto wallet", "Harbour's mandate on Metal lets the platform pull exactly the shortfall in stablecoin.", "harbour"),
+    "metal_overpull": ("Try to take too much", "The agent asks Metal for more than Harbour's mandate allows.", "harbour"),
+    "metal_poison": ("Try a fake wallet address", "An email gives a new settlement wallet that matches the real one's first 6 and last 4 characters.", "harbour"),
 }
 ALL_SCENARIOS = {**SCENARIOS, **WORLD_SCENARIOS, **METAL_SCENARIOS}
 WORLD_CARDS = ("topup", "late_return", "bank_change_email", "injection", "double_click", "cross_tenant_call")
@@ -97,18 +100,72 @@ def scenario_cards() -> dict:
     return {k: ALL_SCENARIOS[k] for k in WORLD_CARDS if k != "cross_tenant_call" or len(EMPLOYERS) > 1}
 
 
+TAMPER_RESTORE_S = 90  # a tampered ledger repairs itself, so a judge who walks away does not leave the demo broken
+PRACTICE = "-x"  # practice runs: `<run id>-x001`, started when a card needs a run and this take's own is spent
+SPENT = ("DONE", "RELEASING", "RELEASED", "HELD")
+
+
+def _inline(fn):
+    return fn()
+
+
+class _OnWorker:
+    """Hands every Airwallex call of a Metal card to the money worker, so the CLI wait never blocks it."""
+
+    def __init__(self, c, w):
+        self._c, self._w = c, w
+
+    def get(self, *a, **k):
+        return self._w(lambda: self._c.get(*a, **k))
+
+    def post(self, *a, **k):
+        return self._w(lambda: self._c.post(*a, **k))
+
+
 class Simulator:
     """[SIMULATED] things the world does. Each scenario returns {id, title, ok, summary, defence, seqs}.
     Must run on the money thread: it drives the orchestrator."""
 
     def __init__(self, orch: Orchestrator, run_id, agent_tick):
         self.o, self.L, self.awx, self._rid, self._tick = orch, orch.L, orch.awx, run_id, agent_tick
-        self._tamper: tuple[int, str] | None = None
         self.metal = metal.Metal()
+        self.now = time.time
+        self._tamper_path = var_dir() / "tamper.json"
 
-    def run(self, name: str, tenant: str | None = None) -> dict:
+    # -- the tampered row survives a restart and repairs itself --------------------------------------------
+    def _tamper_load(self) -> dict | None:
+        try:
+            return json.loads(self._tamper_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
+    def tamper_state(self) -> dict | None:
+        t = self._tamper_load()
+        return {"seq": t["seq"], "restores_at": t["at"] + TAMPER_RESTORE_S} if t else None
+
+    def restore(self) -> bool:
+        """Put the original row back. True when a row was repaired."""
+        t = self._tamper_load()
+        if not t:
+            return False
+        self._write(t["seq"], t["original"])
+        self._tamper_path.unlink(missing_ok=True)
+        return True
+
+    def restore_if_due(self) -> bool:
+        t = self._tamper_load()
+        return bool(t and self.now() >= t["at"] + TAMPER_RESTORE_S and self.restore())
+
+    def reset(self) -> None:
+        """Start over: nothing armed, nothing tampered."""
+        self.awx.disarm()
+        self._tamper_path.unlink(missing_ok=True)
+
+    def run(self, name: str, tenant: str | None = None, w=_inline) -> dict:
+        """`w` runs a function on the money worker. Metal cards wait on a CLI, so they run on the caller's own thread and use `w`."""
         title, _, default = ALL_SCENARIOS[name]
-        res = getattr(self, f"_{name}")(tenant or default)
+        handler = getattr(self, f"_{name}")
+        res = handler(tenant or default, w) if name.startswith("metal") else handler(tenant or default)
         return {"id": name, "title": title, **res, **self._evidence(name, res)}
 
     def _evidence(self, name: str, res: dict) -> dict:
@@ -132,13 +189,23 @@ class Simulator:
     def _head(self) -> int:
         return self.L.head()[0]
 
+    def _run(self, tenant: str) -> str:
+        """The run a card acts on: this take's own, or the newest practice run once that one is spent."""
+        return next(iter(self._runs(tenant)), self._rid())
+
+    def _runs(self, tenant: str) -> list[str]:
+        """This take's run ids for one employer, newest first (practice runs sort after the take's own)."""
+        main = self._rid()
+        return [r["run_id"] for r in self.L.query("SELECT run_id FROM runs WHERE tenant=? AND (run_id=? OR run_id LIKE ?) "
+                                                  "ORDER BY run_id DESC", (tenant, main, main + PRACTICE + "%"))]
+
     def _state(self, tenant: str) -> str | None:
-        run = store.get_run(self.L, self._rid(), tenant)
+        run = store.get_run(self.L, self._run(tenant), tenant)
         return run["state"] if run else None
 
-    def _mine(self, tenant: str) -> tuple[list[dict], list[dict]]:
+    def _mine(self, tenant: str):
         """(this run's lines, the Airwallex transfers that carry one of those lines' payment keys)"""
-        lines = store.get_lines(self.L, self._rid(), tenant)
+        lines = store.get_lines(self.L, self._run(tenant), tenant)
         keys = {ln["request_id"] for ln in lines}
         got = [t for t in self.awx.for_tenant(tenant).get("/transfers", {"page_size": 100}).get("items", [])
                if t.get("request_id") in keys]
@@ -147,25 +214,41 @@ class Simulator:
     def _not_ready(self, then: str) -> dict:
         return {"ok": False, "summary": "No employer has a run that is ready to send.", "defence": then, "seqs": []}
 
+    def _fresh_run(self, tenant: str) -> bool:
+        """Give a card something to act on. No run yet: start this take's own, as Start would. The take's run already spent:
+        a practice run (same rules, own payment keys), so a card can be pressed again and again. Harbour needs real funds, so no."""
+        st = self._state(tenant)
+        if st is None:
+            self._tick(tenant)
+        elif st in SPENT and tenant != "harbour":
+            n = len(self.L.query("SELECT 1 FROM runs WHERE tenant=? AND run_id LIKE ?", (tenant, self._rid() + PRACTICE + "%"))) + 1
+            rid = self.o.create_run(tenant, loop.pay_date(), run_id=f"{self._rid()}{PRACTICE}{n:03d}")
+            self.o.submit(rid, tenant)
+        return self._state(tenant) in ("READY", "AWAITING_APPROVAL")
+
     def _stage(self, tenant: str) -> bool:
         """True when the run is READY. A run waiting for approval gets a [SIMULATED] approval first, so a card can act
         on it inside one job (nothing can release it in between)."""
+        if self._state(tenant) not in ("READY", "AWAITING_APPROVAL") and not self._fresh_run(tenant):
+            return False
         if self._state(tenant) == "AWAITING_APPROVAL":
+            run_id = self._run(tenant)
             role = store.latest_mandate(self.L, tenant).mandate.approver_role
             try:
-                self.o.approve(self._rid(), tenant, "demo-approver", role)
+                self.o.approve(run_id, tenant, "demo-approver", role)
             except Refused:
                 return False
             self.L.append("SIMULATED", {"what": f"[SIMULATED] approval given for {employer_name(tenant, plain=True)} to stage this test"},
-                          self._rid(), tenant)
+                          run_id, tenant)
         return self._state(tenant) == "READY"
 
     def _pick(self, tenant: str | None, order: tuple[str, ...]) -> str | None:
-        """The asked-for employer, else the first one that has a run waiting to be sent."""
-        for t in ([tenant] if tenant else order):
+        """The asked-for employer, else the first one that can be staged."""
+        ts = [tenant] if tenant else order
+        for t in ts:  # a run that already exists first; only then start one
             if self._state(t) in ("READY", "AWAITING_APPROVAL") and self._stage(t):
                 return t
-        return None
+        return next((t for t in ts if self._stage(t)), None)
 
     # -- the six cards -----------------------------------------------------------------------------------
     def _bank_change_email(self, tenant: str) -> dict:
@@ -212,9 +295,9 @@ class Simulator:
         return res
 
     def _double_click(self, tenant: str) -> dict:
-        before, run_id = self._head(), self._rid()
+        before = self._head()
         self._stage(tenant)
-        state = self._state(tenant)
+        run_id, state = self._run(tenant), self._state(tenant)
         if state not in ("READY", "RELEASED", "DONE"):
             return self._not_ready("Get a run approved first, then click pay four times.")
         threads = [threading.Thread(target=self.o.advance, args=(run_id, tenant)) for _ in range(4)]
@@ -230,8 +313,11 @@ class Simulator:
         before = self._head()
         if not (tenant := self._pick(tenant, ("harbour", "northwind", "kestrel"))):
             return self._not_ready("Get a run to the approval step first, then drop the network.")
-        self.awx.inject("timeout_after_commit", "transfers/create")
-        self.o.advance(self._rid(), tenant)
+        self.awx.inject("timeout_after_commit", "transfers/create", tenant=tenant)
+        try:
+            self.o.advance(self._run(tenant), tenant)
+        finally:
+            self.awx.disarm(tenant)  # a held release never reaches the call: the fault must not wait for the next one
         lines, got = self._mine(tenant)
         return {"ok": len(got) == len(lines), "tenant": tenant,
                 "summary": f"[SIMULATED] One answer was lost. Ringfence asked Airwallex by payment key: {len(got)} payment(s) for {len(lines)} line(s).",
@@ -239,23 +325,23 @@ class Simulator:
                 "seqs": self._seqs(before, "UNKNOWN", "RECONCILED", "SUBMITTED")}
 
     def _tamper_ledger(self, tenant: str | None) -> dict:
-        if self._tamper:  # a second press repairs
-            seq, original = self._tamper
-            self._write(seq, original)
-            self._tamper = None
-            return {"ok": self.L.verify().ok, "summary": f"Row {seq} restored. The chain verifies again.", "defence": "", "seqs": [seq]}
+        if t := self._tamper_load():  # a second press repairs
+            self.restore()
+            return {"ok": self.L.verify().ok, "summary": f"Row {t['seq']} restored. The chain verifies again.", "defence": "", "seqs": [t["seq"]]}
+        if not self.L.verify().ok:  # never remember a row from an already-broken chain: restoring it would write the wrong thing
+            return {"ok": False, "summary": "The chain is already broken, so there is nothing safe to change.", "defence": "", "seqs": []}
         rows = self.L.entries(kind="INTENT") or self.L.entries(kind="PRICED")
         if not rows:
             return {"ok": False, "summary": "Nothing to tamper with yet: run payroll first.", "defence": "", "seqs": []}
         seq = rows[-1]["seq"]
         original = self.L.query("SELECT payload_json FROM ledger WHERE seq=?", (seq,))[0]["payload_json"]
-        self._tamper = (seq, original)
+        self._tamper_path.write_text(json.dumps({"seq": seq, "original": original, "at": self.now()}), encoding="utf-8")
         self._write(seq, original.replace('"amount": "', '"amount": "0.0', 1) if '"amount": "' in original
                     else original[:-1] + ', "edited": true}')
         v = self.L.verify()
         return {"ok": not v.ok and v.bad_seq == seq, "bad_seq": v.bad_seq,
                 "summary": f"[SIMULATED] Row {seq} was edited. Verification now fails at row {v.bad_seq}.",
-                "defence": "Every row's hash includes the one before it, so one edit breaks the chain at that exact row. Press again to restore it.",
+                "defence": f"Every row's hash includes the one before it, so one edit breaks the chain at that exact row. Press again to restore it; it repairs itself in {TAMPER_RESTORE_S} seconds.",
                 "seqs": [seq]}
 
     def _write(self, seq: int, payload_json: str) -> None:
@@ -283,8 +369,11 @@ class Simulator:
         before = self._head()
         if not (tenant := self._pick(tenant, ("northwind",))):  # the only employer whose mandate converts currency
             return self._not_ready("Get Northwind's run to the approval step first, then move the rate.")
-        self.awx.inject("rate_shift", "fx/quotes/create", bps=200)
-        state = self.o.advance(self._rid(), tenant)
+        self.awx.inject("rate_shift", "fx/quotes/create", tenant=tenant, bps=200)
+        try:
+            state = self.o.advance(self._run(tenant), tenant)
+        finally:
+            self.awx.disarm(tenant)
         return {"ok": state == "AWAITING_APPROVAL", "tenant": tenant,
                 "summary": f"[SIMULATED] The rate moved 2.00% after approval. {employer_name(tenant, plain=True)}'s run is now {state}.",
                 "defence": "The approval carries the rate that was shown and an allowed range. Outside it, nothing is converted or sent.",
@@ -294,47 +383,67 @@ class Simulator:
     def _other_tenant_deposit(self, tenant: str) -> dict:
         before, c = self._head(), self.awx.for_tenant(tenant)
         gas = c.get("/global_accounts", {"page_num": 0, "page_size": 100}).get("items", [])
-        if not gas:
-            return {"ok": False, "summary": f"{employer_name(tenant, plain=True)} has no global account to receive into.", "defence": "", "seqs": []}
-        c.post("/simulation/deposit/create", {"global_account_id": gas[0]["id"], "amount": Decimal(50000),
+        usd = next((g for g in gas if any(f.get("currency") == "USD" for f in g.get("required_features", []))), None)  # the card says USD, so the deposit must land in the USD account
+        if not usd:
+            return {"ok": False, "summary": f"{employer_name(tenant, plain=True)} has no USD global account to receive into.", "defence": "", "seqs": []}
+        if any("lands in Kestrel" in e["payload"].get("what", "") for e in self.L.entries(kind="SIMULATED", tenant=tenant)):
+            return {"ok": False, "summary": copy.ALREADY_FUNDED.format(t=employer_name(tenant, plain=True)), "defence": "", "seqs": []}  # once per take: Start over trims it back
+        c.post("/simulation/deposit/create", {"global_account_id": usd["id"], "amount": Decimal(50000),
                                               "reference": "RF-DEMO-OTHER", "payer_name": f"{tenant} (simulated payer)"})
         self.L.append("SIMULATED", {"what": "[SIMULATED] USD 50,000 lands in Kestrel's own account"}, None, tenant)
         return {"ok": True, "tenant": tenant,
                 "summary": "[SIMULATED] USD 50,000 arrived in Kestrel. Harbour is still short: only Harbour's own money counts for Harbour.",
                 "defence": "A deposit in another employer's account can never change this employer's state.", "seqs": self._seqs(before)}
 
-    def _harbour_topup(self, tenant: str) -> dict:
-        before, run_id = self._head(), self._rid()
+    def _funding_req(self, tenant: str) -> tuple[dict | None, dict | None]:
+        """(the open funding request, None) or (None, why not). Funding for a run can arrive once: a second press, or a
+        Metal pull followed by a simulated deposit, must not add the money twice."""
+        run_id = self._run(tenant)
+        name = employer_name(tenant, plain=True)
         reqs = self.L.entries(run_id=run_id, kind="FUNDING_REQUESTED", tenant=tenant)
-        if not reqs:
-            return {"ok": False, "summary": f"{employer_name(tenant, plain=True)} has no open funding request.", "defence": "", "seqs": []}
+        if not reqs or self._state(tenant) != "AWAITING_FUNDS":
+            return None, {"ok": False, "summary": copy.NOT_SHORT.format(t=name), "defence": "", "seqs": []}
         req = reqs[-1]["payload"]
-        top_up(self.awx, self.L, run_id, tenant, req)
+        if any(e["payload"].get("reference") == req["reference"] for e in self.L.entries(run_id=run_id, kind="SIMULATED", tenant=tenant)):
+            return None, {"ok": False, "summary": copy.ALREADY_FUNDED.format(t=name), "defence": "", "seqs": []}
+        return req, None
+
+    def _harbour_topup(self, tenant: str) -> dict:
+        before = self._head()
+        req, no = self._funding_req(tenant)
+        if no:
+            return no
+        top_up(self.awx, self.L, self._run(tenant), tenant, req)
         return {"ok": True, "tenant": tenant,
                 "summary": f"[SIMULATED] Harbour's bank sent {req['amount']} {req['currency']} with reference {req['reference']}.",
                 "defence": "The deposit is matched by account, currency and reference, in Harbour's own account only.",
                 "seqs": self._seqs(before)}
 
-    def _metal_topup(self, tenant: str) -> dict:
-        before, run_id = self._head(), self._rid()
-        reqs = self.L.entries(run_id=run_id, kind="FUNDING_REQUESTED", tenant=tenant)
-        if not reqs or self._state(tenant) != "AWAITING_FUNDS":
-            return {"ok": False, "summary": f"{employer_name(tenant, plain=True)} has no open funding request.", "defence": "", "seqs": []}
-        req = reqs[-1]["payload"]
+    def _metal_topup(self, tenant: str, w=_inline) -> dict:
+        before = self._head()
+        req, no = w(lambda: self._funding_req(tenant))
+        if no:
+            return no
+        run_id = w(lambda: self._run(tenant))
+        pulls = self.L.entries(run_id=run_id, kind="METAL_PULL", tenant=tenant)  # pulled but never deposited: finish, do not pull again
         try:
-            pay = self.metal.pay_shortfall(self.L, run_id, tenant, req, self.awx.for_tenant(tenant))
+            pay = pulls[-1]["payload"] if pulls else self.metal.pay_shortfall(self.L, run_id, tenant, req, _OnWorker(self.awx.for_tenant(tenant), w))
         except (metal.MetalError, AwxError) as e:
             log.warning("metal top-up failed: %s", metal.scrub(str(e)))
-            return {"ok": False, "summary": copy.METAL_FALLBACK, "defence": "", "seqs": []}
-        top_up(self.awx, self.L, run_id, tenant, req)  # [SIMULATED] Airwallex credit; the existing matcher closes the request
-        self.metal.recycle_later(pay)
+            w(lambda: top_up(self.awx, self.L, run_id, tenant, req))  # really do the simulated top-up, and say so
+            return {"ok": True, "tenant": tenant, "fell_back": True, "defence": "",
+                    "summary": f"{copy.METAL_FALLBACK} [SIMULATED] Its bank sent {req['amount']} {req['currency']}.",
+                    "seqs": self._seqs(before)}
+        w(lambda: top_up(self.awx, self.L, run_id, tenant, req))  # [SIMULATED] Airwallex credit; the existing matcher closes the request
+        if not pulls:
+            self.metal.recycle_later(pay, alert=lambda why: self.L.append("ALERT", {"kind": "metal_recycle_failed", "detail": why}, run_id, tenant))
         return {"ok": True, "tenant": tenant, "links": [{"label": "Open on blockchain", "url": pay["explorer_url"]}],
                 "summary": f"Paid {pay['usdz']} test coins from Harbour Foods' crypto wallet (1 coin = USD 10). [SIMULATED] Its bank then received {req['amount']} {req['currency']}.",
                 "defence": "Two locks: Metal enforces the mandate (cap, payee, one pull); Ringfence matches the deposit by account, currency and reference.",
                 "seqs": self._seqs(before, "METAL_PULL")}
 
-    def _metal_overpull(self, tenant: str) -> dict:
-        before, run_id = self._head(), self._rid()
+    def _metal_overpull(self, tenant: str, w=_inline) -> dict:
+        before, run_id = self._head(), w(lambda: self._run(tenant))
         pulls = self.L.entries(run_id=run_id, kind="METAL_PULL", tenant=tenant)
         if not pulls:
             return {"ok": False, "summary": "Press Pay from crypto wallet first.", "defence": "", "seqs": []}
@@ -349,8 +458,8 @@ class Simulator:
                 "defence": "The mandate lives on Metal, so even a compromised agent cannot pull more than Harbour signed.",
                 "seqs": self._seqs(before, "METAL_REFUSED")}
 
-    def _metal_poison(self, tenant: str) -> dict:
-        before, run_id = self._head(), self._rid()
+    def _metal_poison(self, tenant: str, w=_inline) -> dict:
+        before, run_id = self._head(), w(lambda: self._run(tenant))
         pulls = self.L.entries(run_id=run_id, kind="METAL_PULL", tenant=tenant)
         if not pulls:
             return {"ok": False, "summary": "Press Pay from crypto wallet first.", "defence": "", "seqs": []}
@@ -367,8 +476,8 @@ class Simulator:
                 "seqs": self._seqs(before, "METAL_REFUSED")}
 
     def _late_return(self, tenant: str) -> dict:
-        before, run_id = self._head(), self._rid()
-        paid = store.get_lines(self.L, run_id, tenant, states=("PAID",))
+        before = self._head()
+        run_id, paid = next(((r, p) for r in self._runs(tenant) if (p := store.get_lines(self.L, r, tenant, states=("PAID",)))), (self._rid(), []))
         if not paid:
             return {"ok": False, "summary": f"{employer_name(tenant, plain=True)} has no paid payout to return yet.", "defence": "", "seqs": []}
         ln = paid[0]

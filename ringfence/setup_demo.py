@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import time
+from decimal import Decimal
 
 from . import beneficiaries as ben
 from . import fx, seed
@@ -17,6 +18,7 @@ from .config import EMPLOYERS
 # tenant -> (country, currency) of the global account the demo needs
 NEEDED_GA = {"kestrel": ("US", "USD"), "harbour": ("AU", "AUD")}
 DRAIN_TENANTS = ("northwind", "harbour")  # the tenants that must start with AUD 0
+KESTREL_USD_BASELINE = Decimal(10_000_000)  # what a new sandbox account starts with; the "other employer's money" card adds 50,000 on top
 
 
 def plan(t: str) -> tuple[list[tuple[str, str]], bool]:
@@ -42,6 +44,11 @@ def setup(awx: Awx, drain: bool = True) -> dict:
         if drain and drain_aud:
             sold = fx.drain(c, "AUD", "USD", f"rf-drain-{t}-{int(time.time())}")
             reg["tenants"][t]["drained_aud"] = str(sold)
+        if drain and t == "kestrel" and seed.load().get("employers", {}).get(t) is None:
+            extra = c.balances().get("USD", Decimal(0)) - KESTREL_USD_BASELINE
+            if extra > 0:  # sell the demo card's deposit back, so Kestrel does not grow 50,000 per take
+                fx.convert(c, f"rf-trim-{t}-{int(time.time())}", fx.get_quote(c, "USD", "GBP", sell_amount=extra), by="trim")
+                reg["tenants"][t]["trimmed_usd"] = str(extra)
     ben.save_registry(reg)
     return reg
 

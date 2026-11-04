@@ -62,6 +62,13 @@ Each row is a fix plus a test. Refs come from the survey; confirm each in the co
 | 23 | Docs use old Metal names (`docs/DEMO.md`, `README.md`) | Rename to "Pay from crypto wallet", "Try to take too much", "Try a fake wallet address". |
 | 24 | Gradients and blobs in the app (`app.css:25`, `play.css:15-16,26-28`) | Remove them. The app adopts the §6 neutral tokens, so the site and the app are one product. |
 
+**As built (WP1; where the code differs from the rows above, the code wins):**
+- Over-size bodies are refused with 413 `TOO_BIG` by header and by streamed count (the framework would otherwise say 400).
+- Metal cards run on the HTTP handler thread and hop onto the money worker for Airwallex/state only; a second Metal card while one runs is a 409 `BUSY_METAL`. `metal.prewarm()` runs at startup when Metal is on.
+- Row 14: `other_tenant_deposit` now picks Kestrel's USD global account (it used the first one, which was GBP in the fake) and works once per take; Start over sells any USD above 10,000,000 back to GBP with `fx` (the frozen module is only called, not edited).
+- An empty `user` on a POST means the registry's first operator (existing behaviour); an unknown user is a 422. Autosettle now goes through that check.
+- `scripts/preflight.py` does not read the Metal wallet balance (the pinned CLI has no read command we verified); it checks the state file and an `eth_blockNumber` call on the RPC.
+
 Add `scripts/preflight.py` (read-only). It checks:
 - the token for each account
 - the platform 401 probe
