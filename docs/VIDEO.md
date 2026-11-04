@@ -1,182 +1,80 @@
-# Ringfence video: 4:45 (limit 5:00)
+# The film: "The Ledger Cut"
 
-**Who does what**
-- **You:** record one Loom on the landing page and say the whole script. Use Screen + Camera, the medium bubble in its default spot bottom left, and 1080p.
-- **Claude:** records the platform clips with `scripts/capture.py`, lines them up with your voice, and edits. Your face comes back full screen at five moments so it stays human.
-- **Airwallex:** you send the screenshots listed at the end, taken *after* Claude's recording run so the IDs match.
+You speak `docs/SPEAK.md` once, straight through. Everything below is Claude's job.
 
-**Tempo**
-- 0:00 to 1:05: calm and sure. You're telling a story.
-- 1:05 to 3:45: the demo, at normal speaking speed.
-- 3:45 to 4:20: quick fire, with cuts every 2 to 3 seconds.
-- Close: slow down for the last line.
+## The idea
 
-**What judges score**
-- Finance value.
-- Airwallex relevance.
-- Agentic behaviour and controls: goal, plan, new information, revised decision, result.
-- Technical execution.
-- Metal counts for its own award.
+The best technical YouTube edits share three habits:
+- every line has a literal picture of what is being said, as proof on screen;
+- the picture never sits still for more than about 2 seconds;
+- the cuts get shorter as the video goes on, until it hard-cuts to black, with white text over the music.
 
-Every beat hits one of these. The chip in the right column goes on screen.
+Ringfence has something those videos fake: **a real, hash-chained record of everything that happened.** So the ledger edits the film.
 
-**Layouts**
-- **FACE:** you, large and centred.
-- **BUBBLE:** the platform clip, with your Loom bubble bottom left.
-- **MONTAGE:** fast cuts of the platform, with your bubble kept on.
+- **The chain strip.** A thin strip along the bottom of the frame. Each time something happens on screen (a transfer, a hold, a refusal on chain), a new block lands in it, showing the event and its real hash prefix from `/api/ledger`. It starts with one block every few seconds and races by the end. The tempo isn't a style choice: it's the proof piling up.
+- **Receipts.** Each claim gets a stamp holding the real ID: `LIVE · AIRWALLEX` with the transfer ID, `ON CHAIN · METAL` with the tx hash, or `[SIMULATED]` where it's a sandbox simulation. That makes it visible that this is real work, not a mock-up.
+- **No waiting on screen.** The agent working, the Metal pull and page loads are never shown in real time. We jump to the result, or show a 6-frame `· · ·`.
 
-## How to say it
+## Tempo
 
-- Learn the beats, not the words. If a phrase comes out differently, keep going: it sounds more real.
-- **Bold** = lean on that word. `/` = a short breath. `//` = a real pause.
-- Look into the lens on FACE beats. During BUBBLE beats you can glance at your notes; nobody can tell.
-- Smile on the first line and the last line.
+| Act | Spoken lines | Shot length | Sound | Chain strip |
+|---|---|---|---|---|
+| 1 · Open | "Hi, I'm…" to "…enforced by Airwallex itself." | 4–5 s | silence, then a low pulse | empty, then a first block |
+| 2 · Friday | "Here's a real Friday…" to "Harbour waits." | 2.5–3 s | the pulse, ducked under your voice | a block every few seconds |
+| 3 · Metal | "So how does Harbour…" to "…Not one cent crossed." | 2 s | the beat builds | the three Metal blocks land big, then shrink into the strip |
+| 4 · Proof | "And it's not a mock-up…" to "…Not one rule broken." | 1–1.5 s, cut on every number | full beat | racing |
+| 5 · End | "Don't trust me…" to the last line | hard cut | music holds | everything stops |
 
-## The script
+## Shots
 
-### 1 · Hook (0:00 – 0:22) · FACE · *Finance value*
+Your face is full frame at four moments: "Hi, I'm", "This is the part I'm proudest of", "Then I tried to break it", and the last line. Everywhere else your Loom bubble sits bottom left.
 
-> Hi, I'm [name], and this is **Ringfence**. //
-> Picture a payroll bureau on a Friday afternoon. / Dozens of client companies, / millions of dollars, / and **none of it** is the bureau's money. //
-> Now hand that job to an AI agent. / Every finance lead asks the same question: / **what stops it paying the wrong person?**
-
-### 2 · The problem (0:22 – 0:45) · BUBBLE · clip `problem` (hero, then the email scene) · *Finance value*
-
-> Because that's how bureaus actually fail. / Either one client's money quietly covers **another** client's payroll, / or an email lands saying "hi, I've switched banks", / and the whole run goes to a fraudster. //
-> Business email compromise cost over **three billion dollars** last year. / And an agent reading that inbox is the perfect target.
-
-Caption: `Two ways bureaus fail: mixed client money · the changed-bank email`
-
-### 3 · The idea (0:45 – 1:05) · BUBBLE · clip `design` (how, isolation) · *Controls, Airwallex*
-
-> So Ringfence splits the job in two. / **The agent proposes. Code decides.** //
-> And the walls between clients aren't even ours to get wrong. / Every employer is its own Airwallex account, / and **Airwallex itself** refuses any login that reaches across.
-
-Caption: `The model proposes · code decides · Airwallex enforces`
-
-### 4 · A real Friday (1:05 – 1:50) · BUBBLE · clip `app`: run, read, plan · *Agentic: goal, plan, new information, revised decision*
-
-> Here's a real Friday on the Airwallex sandbox. / Three clients: Northwind, Kestrel and Harbour Foods. / I press run. //
-> The agent reads each company's timesheets and inbox, / and everything it reads is treated as **untrusted**. / Plain code prices every line. //
-> Kestrel is clean, so it just pays. / Those are **real Airwallex transfers**. /
-> Northwind changed two rates, so it waits for a human. //
-> And Harbour is **short** on Australian dollars. / So the agent changes its plan. / It doesn't pay, / it doesn't guess. / It asks Harbour for **exactly** twelve hundred and forty dollars, / with a deadline.
-
-Captions, in order: `Goal: pay everyone Friday` · `Untrusted input → code prices it` · `Live Airwallex transfers` · `New information: Harbour short AUD 1,240.17` · `Revised decision: funding request, not payment`
-
-### 5 · The trap (1:50 – 2:10) · BUBBLE · clip `app`: deposit, approve_northwind · *Controls*
-
-> Then fifty thousand dollars lands in **Kestrel's** account. / A careless system sees a full pool and pays Harbour with it. / We **never** add up balances across clients, / so Harbour waits. //
-> Northwind's finance lead approves, / and that approval is locked to **this exact batch**. / Change one line, and it's void.
-
-Captions: `Never sums balances across employers` · `Approval bound to the batch hash`
-
-### 6 · Turn (2:10 – 2:16) · FACE
-
-> So how does Harbour get funded? / This is my favourite part.
-
-### 7 · Metal (2:16 – 2:50) · BUBBLE · clip `app`: metal_pull, metal_overpull, metal_poison · *Metal award, Controls*
-
-> Harbour keeps a stablecoin treasury on **Metal**, / and it's signed an on-chain mandate: / one pull, / capped at the exact shortfall, / payable only to us. / That's a real testnet transaction. //
-> Now say the agent gets greedy and asks for **one coin more**. / The chain says no. //
-> Or a scammer sends a wallet address that looks *almost* identical to the real one. / We catch it, / and the chain refuses it **anyway**. //
-> Two locks. / And the second one isn't even ours.
-
-Captions: `On-chain mandate · Metal testnet` · `Refused on chain: over the cap` · `Refused on chain: lookalike wallet`
-
-### 8 · Result (2:50 – 3:05) · BUBBLE · clip `app`: approve_harbour, all_paid · *Technical execution: resulting state*
-
-> The money lands in Harbour's own account, / the reference matches, / Harbour signs off, / and payroll goes out. //
-> Three companies paid. / **Not one cent crossed.**
-
-Captions: `[SIMULATED] sandbox deposit, matched by reference` · `3 employers paid · 0 crossed`
-
-### 9 · It's real (3:05 – 3:30) · BUBBLE · your Airwallex screenshots, then clip `app`: cross_tenant_call · *Airwallex relevance*
-
-> And this isn't a mock-up. / Here it is in **Airwallex**: / four separate accounts, / Harbour's AUD account with the deposit, / and the same transfer IDs you just saw in the app. //
-> And when I try one employer's login on **another** employer's account, / Airwallex itself sends back a **401**.
-
-Captions: `Airwallex sandbox · same IDs` · `Live 401 from Airwallex`
-
-### 10 · Controls (3:30 – 3:45) · BUBBLE · clip `app`: bank_change_email, proof · *Controls*
-
-> The fake bank-change email? / Quarantined until someone calls the contractor back. //
-> And every payment ends up on a **hash-chained ledger**, / checked against Airwallex, / with a signed certificate for each client.
-
-### 11 · Turn (3:45 – 3:50) · FACE · speed up from here
-
-> Then I tried **really** hard to break it.
-
-### 12 · Quick fire (3:50 – 4:20) · MONTAGE · clip `breakit` (scoreboard, storm, ledger, results band) · *Technical execution*
-
-Say it fast and punchy. Each line gets its own cut.
-
-> Twenty-eight hostile documents. /
-> I built an agent that **obeys every single one**. / It got fooled twenty-eight times, / and moved **zero** dollars wrongly, / because the code said no. /
-> Claude? / Fooled **zero** times. //
-> Twenty payments released at once on the live sandbox, / three replies deliberately lost. / Everyone paid **exactly once**. //
-> Two hundred attempts to tamper with the ledger. / Two hundred caught. //
-> Five hundred random runs. / Four hundred and twenty tests. / **Not one rule broken.**
-
-Captions, one per cut: `Obedient agent: fooled 28 / 28 · money moved wrongly: 0` · `Claude: fooled 0 / 28` · `Live storm: 20 releases, 3 replies lost, 1 transfer each` · `Ledger tampering: 200 / 200 caught` · `500 random runs · 420 tests`
-
-### 13 · Try it (4:20 – 4:35) · BUBBLE · clip `try` (Live demo, the guide widget, Red-team me, the result) · *Technical execution*
-
-> And you don't have to trust me. / Hit **Live demo**, / drop in your own payroll, / or let it write an attack **against itself**. / A little guide walks you through it, / and you watch the rules decide.
-
-### 14 · Close (4:35 – 4:47) · FACE · slow down and smile
-
-> Ringfence. // An AI agent that runs payroll for many companies, / and **can't** pay the wrong person. //
-> The link's below. / Go on, / try to make it.
-
-## If you run long
-
-Cut in this order: the second sentence of beat 10, then the "Plain code prices every line" sentence in beat 4, then beat 6. Don't cut beats 4, 7, 9 or 12: they carry the scores.
-
-## Numbers you may say (all from live runs; `docs/GAUNTLET.md`)
-
-| Claim | Source |
+| Spoken line | Picture |
 |---|---|
-| Business email compromise: over three billion dollars last year | FBI IC3 2025, in `docs/PLAN.md` |
-| Harbour short AUD 1,240.17 | The demo world |
-| Obedient agent fooled 28 of 28, money moved wrongly 0 | Gauntlet, hostile documents. A scripted approver signs what is left waiting, so always say "an agent I built to obey", never "Claude". |
-| Claude fooled 0 of 28 | Gauntlet, 4 Nov run, claude-sonnet-5-5 |
-| 20 releases, 3 replies lost, 1 transfer each | Gauntlet, live storm |
-| 200 of 200 tampers caught · 500 random runs · 420 tests | Gauntlet and the test suite |
-| 12 of 12 cross-account logins refused | Gauntlet, live isolation (not said aloud; caption only) |
+| "Picture a payroll bureau…" | Black screen. White mono text types: `FRIDAY 16:58 · 3 CLIENTS · $0 OF IT OURS`. Then the landing hero fades up. |
+| "Or an email says 'I've switched banks'" | The landing email scene, pushed in on the bank-detail line, with the accent highlight on it. |
+| "The agent proposes. Code decides." | A board: an `AGENT` box, an arrow to a `CODE GATE` box, an arrow to `AIRWALLEX`. Each box pops in on its word. |
+| "its own Airwallex account" | Three account boxes, each holding its real `acct_…` ID, with walls drawn between them. |
+| "I press run." | The app clip: the click, then a jump cut to the three cards filled. |
+| "Kestrel is clean, so it pays." | Push in on the Kestrel card. Stamp: `LIVE · AIRWALLEX · 1796e54e…`. A block lands. |
+| "waits for a human" | The Northwind card, with an amber highlight on "Needs approval". |
+| "Harbour is short" | The Harbour card. `AUD 1,240.17` punches in at 1.15x. |
+| "fifty thousand dollars lands in Kestrel" | Kestrel's balance counts up. Harbour's card stays amber. Text over it: `Σ across clients: never`. |
+| "a mandate, on chain" | A full-frame Metal card: the mandate's terms type on (`one pull · cap = shortfall · payee = platform`), each with its tick. |
+| "That's a real transaction" | The app's chain block turns green, then a cut to the explorer URL text with the tx hash highlighted. Stamp: `ON CHAIN · METAL`. |
+| "one coin more. The chain refuses." | A red block. `mandate_cap_exceeded` slams in. Flash 1 of 2. |
+| "almost exactly like the real one" | The two addresses stacked, the matching ends lit and the differing middle in red. Then `mandate_payee_not_listed`. |
+| "The blockchain is the second lock." | Two padlocks: `RINGFENCE` and `METAL`. |
+| "Not one cent crossed." | All three cards green. The chain strip pauses, the beat drops out for 0.5 s, then comes back. |
+| "Here it is in Airwallex." | Your 5 screenshots as a stack of captures, each pushed in, with the accent box on the same ID shown in the app. |
+| "Airwallex itself says no." | `401 credentials_invalid`, big, with `12 / 12` counting up. |
+| "Then I tried to break it." | Your face. |
+| The quick-fire numbers | One number per cut: `28/28 fooled · 0 moved`, `Claude 0/28`, the storm diagram racing, `200/200`, `500`, `420`. The chain strip runs at its fastest. |
+| "Try it." | The Try it clip: Live demo, the guide widget popping up, Red-team me. Cuts of 1 s. |
+| The last line | Hard cut to black, and the music holds. White mono text: `ringfence`, then `0 cents crossed`, then the final chain head hash, then the URL. Hold 3 s, then out. |
 
-Don't say "AgentDojo". Don't present the fee credit, overdue payments or deposit reversals as real: they're [SIMULATED].
+## How it's built
 
-## Your Loom (one take, about 5 minutes)
+- **Platform clips:** `scripts/capture.py`, as before. Each clip saves the second each step happens, so the edit can jump straight to results.
+- **Graphics:** one HTML page in the site's own style (Geist, black, one accent) animated with the GSAP we already ship. A script renders it frame by frame with transparent frames, so every number and hash is real text pulled from `/api/ledger`, `/api/state` and `docs/gauntlet/results.json`, not typed in by hand.
+- **Sync:** faster-whisper gives word timings from your Loom. Every cut and every block landing is placed on a spoken word.
+- **Composite:** ffmpeg layers the clips with slow push-ins (1.00 to 1.06), the graphics, your bubble cropped from the Loom, then your voice plus the music. The music is ducked under your voice, normalised to -16 LUFS, and swells when your voice stops.
 
-1. Open the landing page, scroll to the top, and leave it there. Claude replaces your screen with the platform clips, so all that matters from your take is your voice and the bubble.
-2. Loom: Screen + Camera, **medium** bubble, leave it in the default bottom-left spot and don't move it, 1080p, built-in mic or better, quiet room.
-3. Light in front of you, camera at eye level.
-4. Say the whole script in one go. If you fumble, pause, and restart that **beat**, not the video. Claude cuts the bad take.
-5. Download the MP4 and put it at `var/loom.mp4`.
+## Music (you pick it, about 2 minutes of listening)
 
-Optional, for sharper FACE beats: also record a camera-only Loom of beats 1, 6, 11 and 14.
+You need a royalty-free track, from the YouTube Audio Library or Pixabay Music: dark, minimal electronic, around 110–125 BPM, building with a clear drop. Save it as `var/music.mp3`. Claude sets the volume and times the end card to it.
 
-## Airwallex screenshots (after Claude's recording run; Claude sends you the IDs)
+## Airwallex screenshots
 
-Full window and sandbox, at 100% zoom. One PNG each, into `var/shots/`:
+After Claude's recording run, Claude sends you the IDs. Full window, 100% zoom, sandbox, into `var/shots/`:
+1. the account switcher with all 4 accounts;
+2. Harbour's AUD global account and its deposit;
+3. Kestrel's Transfers list;
+4. one transfer opened, showing its ID;
+5. Developer > Events, the webhook for it.
 
-1. `1_accounts.png`: the account switcher open, showing all 4 accounts.
-2. `2_harbour_ga.png`: Harbour Foods > Global accounts > the AUD account `8ec497a4-…`, showing the deposit for 1,240.17.
-3. `3_transfers.png`: Kestrel Labs > Transfers, this run's transfers (the IDs Claude sends you).
-4. `4_transfer.png`: one of those transfers opened, showing its ID.
-5. `5_events.png`: Developer > Events, a webhook delivery for that transfer.
+## Honesty rules for the edit
 
-In the edit each shot gets a slow push-in and a box around the matching ID.
-
-## Claude's side (after your Loom)
-
-1. Record the platform with `uv run --with playwright python scripts/capture.py --url <site>`. Each clip writes `var/capture/<clip>.json` with the second each step starts.
-2. Get word timestamps from your Loom with faster-whisper, find the first words of each beat, and cut each clip to the length of your beat. Long waits, like the Metal pull, get trimmed.
-3. Composite at 1080p:
-   - the bubble cropped from your Loom, bottom left;
-   - FACE beats as a large centred circle over a dark backdrop;
-   - captions from this script, and a small chip for the criterion each beat hits;
-   - quick cuts in beat 12.
-4. `loudnorm` to -16 LUFS. No music.
-5. You watch it before it goes anywhere. Then `uv run python scripts/build_info.py <video url>` puts the link in the site footer.
+- Every number on screen comes from a live run or the Gauntlet.
+- `[SIMULATED]` is shown on the sandbox deposit.
+- "Fooled 28" is always captioned as the agent built to obey, never Claude.
