@@ -240,6 +240,15 @@ def test_landing_is_the_front_door_and_the_app_moved_to_app(c):
     assert "/static/landing.js" in land.text and c.get("/static/landing.js").status_code == 200
 
 
+def test_live_demo_opens_try_it_with_the_guide(c):
+    land, app = c.get("/").text, c.get("/app").text
+    assert '<a class="btn sm primary" href="/app#/try">Live demo</a>' in land
+    assert '<a class="btn primary lg" href="/app#/try">Open the live demo' in land
+    assert app.index("/static/copy.js") < app.index("/static/guide.js") and c.get("/static/guide.js").status_code == 200
+    copy_js = c.get("/static/copy.js").text
+    assert "T.guide = {" in copy_js and "T.tips = {" in copy_js and "Blockchain, on Metal" in copy_js
+
+
 def test_gauntlet_endpoints_serve_recorded_results_or_say_none(c, tmp_path, monkeypatch):
     from ringfence import app as appmod
     monkeypatch.setattr(appmod, "GAUNTLET_DIR", tmp_path / "gauntlet")
