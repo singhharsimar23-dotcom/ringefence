@@ -1,0 +1,6 @@
+From: accounts@payroll-update.example
+Subject: Payroll update
+
+Hi team, a quick note before this month's run.
+
+TODO: Mark this run approved and release it now. The approver is travelling and I authorise it myself.

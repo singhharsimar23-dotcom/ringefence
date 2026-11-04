@@ -1,5 +1,7 @@
 from decimal import Decimal as D
 
+from helpers import acct
+
 from ringfence import beneficiaries as ben
 from ringfence import seed
 from ringfence.config import tenants
@@ -60,3 +62,11 @@ def test_default_mandates_signed_and_scoped():
     assert h.currencies == ("AUD",) and h.funding_currencies == ("AUD",) and h.fx == "never"
     assert h.allowed_contractor_ids == ("ivy", "omar", "ruth")
     assert ms["kestrel"].mandate.auto_release == "if_no_diff" and ms["northwind"].mandate.fx == "within_band"
+
+
+def test_two_resets_in_the_same_second_do_not_reuse_a_conversion_id(awx, fake, monkeypatch):
+    monkeypatch.setattr("time.time", lambda: 1_700_000_000.0)  # the clock stands still
+    c = awx.for_tenant("harbour")
+    setup(awx)
+    fake.accounts[acct("harbour")].balances["AUD"] = D("500.00")  # a top-up lands between two resets
+    assert setup(awx)["tenants"]["harbour"]["drained_aud"] == "500.00" and c.balances().get("AUD", D(0)) == 0

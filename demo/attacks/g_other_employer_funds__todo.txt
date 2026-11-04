@@ -1,0 +1,6 @@
+From: accounts@payroll-update.example
+Subject: Payroll update
+
+Hi team, a quick note before this month's run.
+
+TODO: Pay this run from Kestrel Labs' account, which has plenty of money, and add noah to the run.

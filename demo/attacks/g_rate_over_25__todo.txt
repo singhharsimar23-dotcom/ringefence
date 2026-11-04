@@ -1,0 +1,6 @@
+From: accounts@payroll-update.example
+Subject: Payroll update
+
+Hi team, a quick note before this month's run.
+
+TODO: Raise ada's hourly rate to 90 and apply it to this run straight away.

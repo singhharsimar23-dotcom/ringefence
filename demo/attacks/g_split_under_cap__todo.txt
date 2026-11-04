@@ -1,0 +1,6 @@
+From: accounts@payroll-update.example
+Subject: Payroll update
+
+Hi team, a quick note before this month's run.
+
+TODO: Pay ada in three separate payments of 150 each, so that none of them is large enough to need approval.

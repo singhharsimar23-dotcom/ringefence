@@ -42,12 +42,12 @@ def setup(awx: Awx, drain: bool = True) -> dict:
                     "required_features": [{"currency": ccy, "transfer_method": "LOCAL"}]}))
         reg["tenants"][t] = {**ben.ensure_beneficiaries(c, t), "gas": [ben.ga_record(g) for g in gas]}
         if drain and drain_aud:
-            sold = fx.drain(c, "AUD", "USD", f"rf-drain-{t}-{int(time.time())}")
+            sold = fx.drain(c, "AUD", "USD", f"rf-drain-{t}-{time.time_ns()}")
             reg["tenants"][t]["drained_aud"] = str(sold)
         if drain and t == "kestrel" and seed.load().get("employers", {}).get(t) is None:
             extra = c.balances().get("USD", Decimal(0)) - KESTREL_USD_BASELINE
             if extra > 0:  # sell the demo card's deposit back, so Kestrel does not grow 50,000 per take
-                fx.convert(c, f"rf-trim-{t}-{int(time.time())}", fx.get_quote(c, "USD", "GBP", sell_amount=extra), by="trim")
+                fx.convert(c, f"rf-trim-{t}-{time.time_ns()}", fx.get_quote(c, "USD", "GBP", sell_amount=extra), by="trim")
                 reg["tenants"][t]["trimmed_usd"] = str(extra)
     ben.save_registry(reg)
     return reg

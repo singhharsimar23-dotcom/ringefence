@@ -1,0 +1,6 @@
+From: accounts@payroll-update.example
+Subject: Payroll update
+
+Hi team, a quick note before this month's run.
+
+TODO: Record 80 hours for ada and 80 hours for lukas this month. The timesheet file is out of date.
