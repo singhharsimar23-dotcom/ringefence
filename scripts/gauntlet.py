@@ -204,12 +204,12 @@ def storm(awx, fake, label: str) -> dict:
     ts = [threading.Thread(target=press) for _ in range(20)]
     [t.start() for t in ts]
     [t.join() for t in ts]
-    awx.disarm(TENANT)
+    lost = 10 - awx.disarm(TENANT)  # disarm returns the faults that never fired, so this is how many answers were really lost
     keys = {ln["request_id"] for ln in lines}
     items = awx.for_tenant(TENANT).get("/transfers", {"page_size": 100}).get("items", [])
     per_key = Counter(t["request_id"] for t in items if t.get("request_id") in keys)
     ok = len(per_key) == len(lines) and all(n == 1 for n in per_key.values()) and not errs
-    return {"backend": label, "parallel_releases": 20, "answers_lost": 10, "lines": len(lines), "transfers_per_line": sorted(per_key.values()),
+    return {"backend": label, "parallel_releases": 20, "answers_lost": lost, "lines": len(lines), "transfers_per_line": sorted(per_key.values()),
             "transfer_ids": sorted(t["id"] for t in items if t.get("request_id") in keys), "errors": errs, "pass": ok}
 
 
@@ -343,6 +343,7 @@ def main() -> int:
     if a.live:
         os.environ["RF_VAR"] = str(Path(tempfile.mkdtemp(dir=TMP)))
         live, _ = build_backend("live")
+        setup(live, drain=False)  # the live storm needs this var dir's beneficiary registry
         iso.append(isolation(live, "live"))
         storms.append(storm(live, None, "live"))
     print("3. hostile sequences", flush=True)
