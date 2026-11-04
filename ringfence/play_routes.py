@@ -5,6 +5,7 @@ no reset, no kill switch, no rule signing, no webhooks, no autosettle.
 """
 from __future__ import annotations
 
+import random
 import re
 from typing import Any, Literal
 
@@ -14,10 +15,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 from starlette.background import BackgroundTask
 
-from . import copy, metal
+from . import attacks, copy, metal
 from .playground import Manager, PlayError, Spec, World, default_draft_llm, draft, errors_of
 
-_GET = [re.compile(p) for p in (r"state", r"timeline", r"ledger", r"proof", r"calls", r"cert/(northwind|kestrel|harbour)",
+_GET = [re.compile(p) for p in (r"state", r"decisions", r"timeline", r"ledger", r"proof", r"calls", r"cert/(northwind|kestrel|harbour)",
                                 r"recheck/[A-Za-z0-9_-]{8,64}")]
 _POST = [re.compile(p) for p in (r"start", r"approve", r"hold", r"resume",
                                  r"scenario/(topup|late_return|bank_change_email|injection|double_click|cross_tenant_call)")]
@@ -37,6 +38,11 @@ def allowed(method: str, path: str) -> bool | None:
 
 class DraftBody(BaseModel):
     text: str = Field(max_length=4000)
+
+
+class RedBody(BaseModel):
+    goal: str | None = Field(default=None, max_length=40)
+    framing: str | None = Field(default=None, max_length=40)
 
 
 class WorldBody(BaseModel):
@@ -67,7 +73,7 @@ class _Counted:
         return self.inner.create(*a)
 
 
-def register(app: FastAPI, mgr: Manager, llm_factory=None) -> None:
+def register(app: FastAPI, mgr: Manager, llm_factory=None, writer_factory=None) -> None:
     def http(**kw) -> httpx.AsyncClient:  # one per request: localhost is cheap, and nothing is tied to one event loop
         return httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=2.0), **kw)
 
@@ -101,6 +107,20 @@ def register(app: FastAPI, mgr: Manager, llm_factory=None) -> None:
             return {"spec": None, "notes": [copy.DRAFT_NOTHING], "source": "none"}
         m = llm()
         return draft(text, _Counted(m, mgr.count_draft) if m else None)  # the cap only guards the model; a table is read by code
+
+    writer_box: list = []
+
+    @app.post("/api/play/redteam")
+    def redteam(b: RedBody | None = None):
+        b = b or RedBody()
+        if (b.goal is not None and b.goal not in attacks.GOALS) or (b.framing is not None and b.framing not in attacks.FRAMINGS):
+            raise HTTPException(422, [{"field": "goal", "message": "unknown attack goal or framing"}])
+        goal = b.goal or random.choice(list(attacks.GOALS))
+        framing = b.framing or random.choice(list(attacks.FRAMINGS))
+        if not writer_box:
+            writer_box.append((writer_factory or attacks.default_writer)())
+        text, source = attacks.write_attack(goal, framing, writer_box[0], mgr.count_draft)
+        return {"text": text, "goal": goal, "label": attacks.GOALS[goal][1], "framing": framing, "source": source}
 
     @app.post("/api/play/worlds")
     def new_world(b: WorldBody, request: Request):

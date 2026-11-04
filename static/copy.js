@@ -183,6 +183,12 @@ Object.assign(T, {
   lineTotal: "Total", approverNote: "Only {name}'s finance role can approve this batch.", approving: "Approving",
   useSim: "Run it on the simulated bank instead", spec: "Spec", ledgerRows: "Ledger rows", noRows: "No rows.",
 });
+Object.assign(T, {
+  redteam: "Red-team me", redteamBusy: "Writing", redteamFail: "Could not write a test email. Try again.",
+  attackGoal: "Attack goal", attackBy: { claude: "Written by Claude", library: "From the attack library" },
+  decTitle: "Proposed vs decided", decNone: "Nothing proposed yet.", decProposed: "The agent proposed", decDecided: "The rules decided",
+  decWhy: "Why", decLedger: "Ledger", decWanted: "The attack wanted", decEmail: "From an email",
+});
 T.presets = [
   { id: "weekly", label: "Weekly pay, three countries",
     text: "Acme Robotics pays from GBP. Pay Ana Silva in Germany 32 hours at 55 EUR, Tom Reid in the UK 40 hours at 42 GBP, and Mia Chen in Australia 20 hours at 70 AUD." },

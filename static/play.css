@@ -96,7 +96,12 @@ kbd{font-family:var(--mono);font-size:11px;line-height:16px;padding:0 5px;border
 .blk{display:grid;gap:var(--s3);padding-bottom:var(--s3);border-bottom:1px solid var(--line)}
 .blk:last-child{border-bottom:0;padding-bottom:0}
 .blk .hold{width:100%}
-.pays,.nx{list-style:none;padding:0;display:grid;gap:var(--s2)}
+.pays,.nx,.decs{list-style:none;padding:0;display:grid;gap:var(--s2)}
+.decs .dec{display:grid;gap:var(--s1);padding:var(--s2) 0;border-top:1px solid var(--line)}
+.decs p{margin:0}
+.pc{display:flex;gap:var(--s1);align-items:center;flex-wrap:wrap}
+.attack{text-align:center;min-height:20px}
+.attack:empty{display:none}
 .pr{display:grid;grid-template-columns:minmax(0,1fr) auto auto 36px;gap:var(--s2);align-items:center}
 .pr .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nx li{display:grid;gap:var(--s2)}

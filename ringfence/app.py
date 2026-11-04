@@ -28,7 +28,20 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from sse_starlette.sse import EventSourceResponse
 
-from . import copy, inbox, metal, play_routes, rules, seed, setup_demo, store, track, verify, webhooks
+from . import (
+    attacks,
+    copy,
+    inbox,
+    metal,
+    play_routes,
+    rules,
+    seed,
+    setup_demo,
+    store,
+    track,
+    verify,
+    webhooks,
+)
 from .agent import loop
 from .agent.tools import funding_state
 from .awx import Awx, AwxError, build_backend
@@ -43,6 +56,7 @@ from .shadow import naive_total
 
 log = logging.getLogger("ringfence")
 STATIC = Path(__file__).resolve().parent.parent / "static"
+GAUNTLET_DIR = STATIC.parent / "docs" / "gauntlet"
 OPEN = ("DRAFT", "AWAITING_FUNDS", "AWAITING_APPROVAL")
 Tenant = Literal["northwind", "kestrel", "harbour"]
 
@@ -275,6 +289,22 @@ class Engine:
                                               **{k: p[k] for k in ("request_id", "code", "reference", "transfer_id") if k in p}}})
         return out[-limit:]
 
+    def decisions(self, limit: int = 40) -> list[dict]:
+        """Proposed vs decided: what the agent asked for, what the rules did, and why. `from_email` marks a row that came
+        from an email (untrusted), so a red-team run can show what the attack wanted next to it."""
+        rows = [e for k in DECISION_KINDS for e in self.L.entries(kind=k)]
+        out, src = [], {}
+        for e in sorted(rows, key=lambda e: e["seq"]):
+            for r in copy.decision_rows(e):
+                t = r["tenant"]
+                if t not in src:
+                    src[t] = {d.id: d.source for d in inbox.all_docs(t)} if t in EMPLOYERS else {}
+                out.append({**r, "from_email": src[t].get(r["doc_id"]) == "email"})
+        return out[-limit:]
+
+
+DECISION_KINDS = ("PROPOSAL", "PRICED", "GATE_DENY", "BENEFICIARY_QUARANTINED", "ALERT")
+
 
 def _user_label(uid: str, u: dict) -> str:
     who = u.get("label") or uid.title()
@@ -418,8 +448,28 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
             raise HTTPException(502, "Airwallex didn't answer. Nothing was changed; try again in a moment.") from None
 
     @app.get("/")
+    def landing():
+        return FileResponse(STATIC / "landing.html")
+
+    @app.get("/app")
     def index():
         return FileResponse(STATIC / "index.html")
+
+    @app.get("/api/gauntlet")
+    def gauntlet():
+        """The Gauntlet's recorded results for the landing page, plus the attack sentences. {} until scripts/gauntlet.py has run."""
+        out = {"goals": {k: {"text": v[0], "label": v[1]} for k, v in attacks.GOALS.items()}, "framings": list(attacks.FRAMINGS)}
+        for key in ("results", "samples"):
+            f = GAUNTLET_DIR / f"{key}.json"
+            out[key] = json.loads(f.read_text(encoding="utf-8")) if f.exists() else None
+        return out
+
+    @app.get("/gauntlet.md")
+    def gauntlet_md():
+        f = GAUNTLET_DIR.parent / "GAUNTLET.md"
+        if not f.exists():
+            raise HTTPException(404, "The Gauntlet has not been run on this server yet.")
+        return PlainTextResponse(f.read_text(encoding="utf-8"), media_type="text/markdown; charset=utf-8")
 
     @app.get("/healthz")
     def healthz():
@@ -434,6 +484,10 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
     def get_timeline(after: int = 0):
         return E.timeline(after)
 
+    @app.get("/api/decisions")
+    def get_decisions():
+        return E.decisions()
+
     @app.get("/api/inbox/{tenant}")
     def get_inbox(tenant: str):
         """What the agent read for this employer: the timesheet CSV and any emails. Untrusted text, shown as text."""
@@ -444,7 +498,7 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
     @app.get("/api/ledger")
     def get_ledger(seqs: str):
         wanted = {int(s) for s in seqs.split(",") if s.strip().isdigit()}
-        return [{"seq": e["seq"], "ts": e["ts"], "kind": e["kind"], "tenant": e["tenant"], "hash": e["hash"],
+        return [{"seq": e["seq"], "ts": e["ts"], "run_id": e["run_id"], "kind": e["kind"], "tenant": e["tenant"], "hash": e["hash"],
                  "prev_hash": e["prev_hash"], "payload": e["payload"]}
                 for e in E.L.entries() if e["seq"] in wanted][:50]
 
@@ -614,7 +668,7 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
             pub = verify.world_pub_path() if E.backend == "fake" or E.world else None  # the demo's live certs verify against the committed key; a world signs with its own
             if rep["ok"]:  # anchors for later chain checks; a failing report must not overwrite a good anchor
                 verify.write_certs(E.certs, run_id, E.cert_dir)
-            out = {"report": rep, "certs": {t: {"valid": verify.check_cert(c, pub), "result": c["body"]["result"], "doc": c}
+            out = {"at": clock.utc_now().isoformat(), "report": rep, "certs": {t: {"valid": verify.check_cert(c, pub), "result": c["body"]["result"], "doc": c}
                                             for t, c in E.certs.items()},
                    "balances": E.cache["balances"]}
             if metal.enabled():

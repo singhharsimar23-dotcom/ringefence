@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from .. import gate, inbox, seed, store
+from .. import copy, gate, inbox, seed, store
 from ..awx import AwxError
 from ..money import parse_amount
 from ..orchestrator import Orchestrator, Refused
@@ -93,18 +93,20 @@ class ToolBox:
             out = getattr(self, f"_{name}")(**args)
             return (out if isinstance(out, str) else json.dumps(out, default=str))[:MAX_TOOL_TEXT], False
         except ValidationError:
-            return self._deny(name, "INVALID_INPUT", "arguments do not match the tool schema")
+            return self._deny(name, "INVALID_INPUT", "arguments do not match the tool schema", raw)
         except ToolError as e:
-            return self._deny(name, e.code, str(e))
+            return self._deny(name, e.code, str(e), raw)
         except Refused as e:
-            return self._deny(name, "REFUSED", str(e))
+            return self._deny(name, "REFUSED", str(e), raw)
         except (KeyError, ValueError, LookupError, PermissionError) as e:
-            return self._deny(name, "INVALID_INPUT", str(e)[:200])
+            return self._deny(name, "INVALID_INPUT", str(e)[:200], raw)
         except AwxError as e:  # Airwallex did not answer: the model hears it as a tool error and the tick goes on
-            return self._deny(name, "FACTS_UNAVAILABLE", f"Airwallex error {getattr(e, 'status', '')} {getattr(e, 'code', '')}".strip())
+            return self._deny(name, "FACTS_UNAVAILABLE", f"Airwallex error {getattr(e, 'status', '')} {getattr(e, 'code', '')}".strip(), raw)
 
-    def _deny(self, name: str, code: str, detail: str) -> tuple[str, bool]:
-        self.o.L.append("GATE_DENY", {"source": "agent_tool", "tool": name, "code": code, "detail": detail[:200]},
+    def _deny(self, name: str, code: str, detail: str, raw: object = None) -> tuple[str, bool]:
+        doc = raw.get("doc_id") if isinstance(raw, dict) and isinstance(raw.get("doc_id"), str) else None
+        self.o.L.append("GATE_DENY", {"source": "agent_tool", "tool": name, "code": code, "detail": detail[:200],
+                                      "proposed": copy.proposed_text(name, raw, self.tenant), "doc_id": doc},
                         self.run_id, self.tenant)
         return f"{code}: {detail}"[:300], True
 

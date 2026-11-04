@@ -261,6 +261,54 @@ def _name(tenant: str | None, cid: str | None) -> str:
         return cid or "a contractor"
 
 
+TOOL_LABEL = {"propose_timesheet": "A timesheet figure", "propose_rate_change": "A rate change", "propose_bank_change": "New bank details",
+              "request_funding": "A funding request", "submit_for_approval": "Send for approval", "hold_run": "Hold the run"}
+
+
+def proposed_text(tool: str, raw, tenant: str | None) -> str:
+    """The agent's own words for what it asked, from its tool input. Short, plain, never longer than a line."""
+    a = raw if isinstance(raw, dict) else {}
+    who = _name(tenant, a.get("contractor_id") if isinstance(a.get("contractor_id"), str) else None)
+    if tool == "propose_timesheet" and "hours" in a:
+        return f"{who}: {str(a['hours'])[:12]} hours"[:120]
+    if tool == "propose_rate_change" and "new_rate" in a:
+        return f"{who}: rate {str(a['new_rate'])[:12]} an hour"[:120]
+    if tool == "propose_bank_change" and isinstance(a.get("bank_details"), dict):
+        n = str(a["bank_details"].get("account_number") or a["bank_details"].get("iban") or "")
+        return f"New bank details for {who}{f' ending {n[-4:]}' if n else ''}"[:120]
+    return TOOL_LABEL.get(tool, "An agent request")
+
+
+def decision_rows(e: dict) -> list[dict]:
+    """The Proposed vs decided table: what the agent asked, what the rules did, why, and the ledger number."""
+    k, p, t = e["kind"], e["payload"], e["tenant"]
+    who = _name(t, p.get("contractor_id"))
+    row = None
+    if k == "PRICED":
+        return [{"seq": e["seq"], "kind": k, "tenant": t, "doc_id": None, "tone": "ok",
+                 "proposed": f"{_name(t, cid)}: {v['hours']} hours", "decided": f"Priced at {money(v['currency'], v['amount'])}",
+                 "why": f"Code priced it from the registry rate of {v['rate']} an hour."} for cid, v in p.get("lines", {}).items()]
+    if k == "PROPOSAL" and p.get("kind") == "timesheet":
+        row = (f"{who}: {p['hours']} hours", "Accepted", "It matches the timesheet that code parsed.", "ok")
+    elif k == "PROPOSAL" and p.get("kind") == "rate_change":
+        row = (f"{who}: rate {p['new_rate']} an hour", "Recorded, not applied",
+               "Rates come from the registry, not from an email." + (" The approver sees it in red." if p.get("over_25pct") else ""), "held")
+    elif k == "BENEFICIARY_QUARANTINED":
+        row = (f"New bank details for {who}{f' ending {p['last4']}' if p.get('last4') else ''}", "Held in quarantine",
+               "The old details stay in force until a different approver confirms by phone.", "held")
+    elif k == "ALERT" and p.get("kind") == "suspicious_document":
+        row = ("Instructions inside an email", "Flagged for a human", str(p.get("reason", ""))[:160] or "None of the instructions were followed.", "flag")
+    elif k == "GATE_DENY" and p.get("source") == "agent_tool":
+        code = p.get("code", "")
+        detail = re.sub(r"^(?:[A-Z_]+: )+", "", str(p.get("detail", "")))
+        row = (p.get("proposed") or TOOL_LABEL.get(p.get("tool", ""), "An agent request"), "Refused",
+               reason(code, t or "") if code in REASON_TEXT else (detail or reason(code, t or "")), "refused")
+    if row is None:
+        return []
+    return [{"seq": e["seq"], "kind": k, "tenant": t, "doc_id": p.get("doc_id"), "tone": row[3],
+             "proposed": row[0], "decided": row[1], "why": row[2]}]
+
+
 def timeline_row(e: dict) -> dict | None:
     """(phase, sentence) for one ledger entry, or None for rows that are noise on the main surface."""
     k, p, t = e["kind"], e["payload"], e["tenant"]

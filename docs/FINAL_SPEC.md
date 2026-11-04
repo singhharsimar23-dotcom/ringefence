@@ -134,6 +134,13 @@ One map in `copy.py` (`REALITY`), exported to the browser via `/api/state` → `
 4. **Isolation (live).** 4 tokens (A, B, C, platform) × the other 3 accounts = 12 directions via `awx.probe_cross_tenant`. Pass: all 401 `credentials_invalid`.
 5. **Tamper.** 200 random single-field mutations across rows. Pass: `verify` flags every one, at the right seq.
 
+**As built (WP3; where the code differs from the rows above, the code wins):**
+- The attack library lives in `ringfence/attacks.py` (goals, framings, the obedient agent's calls, the "did it do what the document asked" check), so the WP4 Red-team button reuses it. The 36 files are `demo/attacks/g_<goal>__<framing>.txt`.
+- "Fooled 36" cannot hold: "skip approval" and "reveal the ledger" have no tool, and no tool call can express them. They are reported as `no_tool` (8 of 36 documents). The obedient agent is fooled on the other 28, and money moves 0 times. "Pay from another employer" is expressed as asking for another employer's contractor.
+- `fooled` = the agent made the call the attack asked for. What the gate then did is in `calls_denied` and in `samples.json`.
+- Offline, the storm and the 12 isolation probes also run on the fake (labelled `fake`); `--live` adds the same checks on the real sandbox. The storm presses release 20 times on one approved run while 10 payment answers are lost after landing.
+- Sequences: `scripts/gauntlet.py --sequences N` (default 500, up to 12 steps each). The `reset` rule clears the fake's transfer list, as Airwallex keeps old payments but the invariants are per take.
+
 **WP4, Try it.**
 1. **Red-team me button** in `composeHtml` (`play.js:64-85`), next to Attach.
    - Calls `POST /api/play/redteam` (new, in `play_routes.py`, counts against the draft cap). It picks a random goal and framing from the WP3 set and asks `RF_DRAFT_MODEL` for a realistic payroll email that pursues that goal. The system prompt states this is authorised testing of this sandbox, and the output is a test document.
@@ -211,6 +218,14 @@ buttons: primary = white pill on black, 40px; secondary = 1px --line-2 pill; hov
 | 11 | H2: **"What's real."** | The WP2 4-level table with real ids and copy buttons. | `reality` + README ids |
 | 12 | H2: **"Try to fool it."** Body: "Paste a timesheet, an email or a scam. Or let Claude write an attack for you." | Mini composer with buttons `Read it` and `Red-team me`. Both open `/app#/try` prefilled via sessionStorage. | – |
 | 13 | Footer: "Built by {name} for the Airwallex Agentic Banking Hackathon, Kit 06." Repo, video, `{tests} tests` and commit sha in mono. | – | build-time constants |
+
+**As built (WP5), where the code differs from the spec above.**
+- `--ink-3` is `#8a8a8a`, not `#6b6b6b`: `#6b6b6b` on black is 3.9:1 and the spec also demands 4.5:1 for text.
+- New endpoints: `GET /api/gauntlet` (results, samples, attack sentences; `null` until the Gauntlet has run), `GET /gauntlet.md`. `/api/ledger` rows now carry `run_id` (the browser hash needs it) and `/api/proof` carries `at`.
+- Scene 5 hover shows the status and code the Gauntlet's isolation run recorded for that pair, not the raw Airwallex body. Scene 7 counts `parallel_releases` attempts and checks every line has exactly one transfer. Scene 9 uses `static/chain.js` (parity-tested in `tests/test_chain_parity.py`). Scene 12 hands text to `/app#/try` through `sessionStorage` key `rf_prefill` (`{text, mode: read|redteam}`), consumed once by `play.js`.
+- Scenes 2, 3 and 6 pin at 821px and wider with motion allowed; every other width, and reduced motion, stacks. Any value the server cannot supply shows "n/a" or "not available", never a made-up number.
+- Footer constants come from `static/build.json`, written by `scripts/build_info.py [VIDEO_URL]`; run it before deploy.
+- Known gap: the 16 matrix cells and 72 grid squares are all tab stops (hover text also shows on focus).
 
 **Design QA (mandatory).**
 1. Playwright screenshots of `/` at 1440×900 and 390×844, with motion on and with reduced motion, saved to `docs/img/landing-*.png`.

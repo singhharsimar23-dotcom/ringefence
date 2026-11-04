@@ -18,7 +18,7 @@ const Play = (() => {
 
   /* ---------- state ---------- */
   let info = { live: false, presets: [], limits: {} };
-  const H = { text: "", backend: "fake", phase: "compose", reading: false, form: null, notes: [], src: "", serr: {}, ferr: "", note: [], starting: false, rerr: null, drag: 0 };
+  const H = { attack: null, text: "", backend: "fake", phase: "compose", reading: false, form: null, notes: [], src: "", serr: {}, ferr: "", note: [], starting: false, rerr: null, drag: 0 };
   let R = null;  // the open run, or null
 
   /* ---------- routing ---------- */
@@ -71,6 +71,7 @@ const Play = (() => {
       <div class="veil" id="pl-veil" hidden>${esc(T.dropHere)}</div>
       <div class="cbar">
         <label class="btn" for="pl-file">${esc(T.attach)}</label><input type="file" id="pl-file" accept=".csv,.txt,text/csv,text/plain" hidden>
+        <button type="button" class="btn" id="pl-red" data-pl="redteam">${esc(T.redteam)}</button>
         <span class="counter small" id="pl-count" aria-live="polite"></span>
         <span class="grow"></span>
         <span id="pl-seg">${segHtml()}</span>
@@ -79,6 +80,7 @@ const Play = (() => {
     </div>
     <p class="small muted pl-segnote" id="pl-segnote">${esc(segNote())}</p>
     <p class="small ferr" id="pl-ferr" role="alert">${esc(H.ferr)}</p>
+    <p class="small attack" id="pl-attack" role="status">${attackHtml()}</p>
     <div class="pl-notes" id="pl-notes" role="status">${H.note.map((n) => `<p>${esc(n)}</p>`).join("")}</div>
     <div class="examples"><div class="exs">${ex}</div></div>
     <p class="small faint">${esc(T.retention)}</p>`;
@@ -101,10 +103,41 @@ const Play = (() => {
   function wireHome() {
     const ta = $("#pl-text");
     if (ta) {
-      ta.addEventListener("input", () => { H.text = ta.value; H.ferr = ""; $("#pl-ferr").textContent = ""; paintRead(); });
+      ta.addEventListener("input", () => { H.text = ta.value; if (H.attack && !ta.value.includes(H.attack.text)) { H.attack = null; paintAttack(); } H.ferr = ""; $("#pl-ferr").textContent = ""; paintRead(); });
       $("#pl-file").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) takeFile(f); });
       paintRead();
+      takePrefill(ta);
     } else paint();
+  }
+
+  /* The landing page's mini composer hands over its text (and which button was pressed) through sessionStorage, once. */
+  function takePrefill(ta) {
+    let p = null;
+    try { p = JSON.parse(sessionStorage.getItem("rf_prefill") || "null"); sessionStorage.removeItem("rf_prefill"); } catch (_) { /* none */ }
+    if (!p || typeof p.text !== "string") return;
+    if (p.text.trim()) { ta.value = p.text; H.text = p.text; paintRead(); }
+    if (p.mode === "redteam") doRedteam(); else if (p.mode === "read" && ta.value.trim()) doRead();
+  }
+
+  const attackHtml = () => (H.attack ? `<span class="chip">${esc(T.attackGoal)}: ${esc(H.attack.label)}</span> <span class="muted">${esc(T.attackBy[H.attack.source] || "")}</span>` : "");
+  function paintAttack() { const el = $("#pl-attack"); if (el) el.innerHTML = attackHtml(); }
+
+  /* The attack email is added to the payroll text; the server writes it (Claude or the library) and caps it at 2000 characters. */
+  async function doRedteam() {
+    const ta = $("#pl-text"), b = $("#pl-red");
+    if (!ta || !b || H.reading || b.disabled) return;
+    b.disabled = true; b.textContent = T.redteamBusy;
+    try {
+      const d = await api("/api/play/redteam", {});
+      let base = ta.value;
+      if (H.attack && base.includes(H.attack.text)) base = base.replace(H.attack.text, "");
+      base = base.trim() || T.presets[0].text;
+      base = base.slice(0, Math.max(0, MAX_TEXT - d.text.length - 2)).trimEnd();
+      ta.value = `${base}\n\n${d.text}`; H.text = ta.value; H.ferr = ""; H.note = []; $("#pl-notes").innerHTML = ""; $("#pl-ferr").textContent = "";
+      H.attack = { goal: d.goal, label: d.label, framing: d.framing, source: d.source, text: d.text };
+      paintAttack(); paintRead(); $("#pl-read").focus();
+    } catch (e) { H.ferr = e.message || T.redteamFail; $("#pl-ferr").textContent = H.ferr; }
+    finally { b.disabled = false; b.textContent = T.redteam; }
   }
 
   async function takeFile(f) {
@@ -287,7 +320,10 @@ const Play = (() => {
     const spec = toSpec(H.form), be = backend();
     try {
       const w = await api("/api/play/worlds", { spec, backend: be });
-      try { sessionStorage.setItem(`rf_spec_${w.wid}`, JSON.stringify(spec)); } catch (_) { /* private mode */ }
+      try {
+        sessionStorage.setItem(`rf_spec_${w.wid}`, JSON.stringify(spec));
+        if (H.attack) sessionStorage.setItem(`rf_attack_${w.wid}`, JSON.stringify({ goal: H.attack.goal, label: H.attack.label, source: H.attack.source }));
+      } catch (_) { /* private mode */ }
       location.hash = `#/try/${w.wid}`;
     } catch (e) {
       H.starting = false;
@@ -303,9 +339,9 @@ const Play = (() => {
   const PH = [0, 1, 2, 3];
   function openRun(wid) {
     stopRun();
-    let spec = null;
-    try { spec = JSON.parse(sessionStorage.getItem(`rf_spec_${wid}`) || "null"); } catch (_) { /* none */ }
-    R = { wid, spec, view: null, S: null, TL: [], calls: [], proof: null, proofHead: -1, ended: false, gone: false, es: null, timers: [], last: 0, open: new Set(), seen: new Set(),
+    let spec = null, attack = null;
+    try { spec = JSON.parse(sessionStorage.getItem(`rf_spec_${wid}`) || "null"); attack = JSON.parse(sessionStorage.getItem(`rf_attack_${wid}`) || "null"); } catch (_) { /* none */ }
+    R = { wid, spec, attack, dec: [], view: null, S: null, TL: [], calls: [], proof: null, proofHead: -1, ended: false, gone: false, es: null, timers: [], last: 0, open: new Set(), seen: new Set(),
       baseline: {}, disp: {}, html: {}, rows: {}, rechecks: {}, started: !!sessionStorage.getItem(`rf_started_${wid}`), pulling: false, lastVer: null, shared: false,
       pending: new Set(), errShown: false, rstate: {} };
     document.title = "Ringfence run";
@@ -313,7 +349,7 @@ const Play = (() => {
     root().innerHTML = `<div class="rv-top" id="rv-top"></div><p class="small muted" id="rv-note" role="status"></p>
       <div class="runcols"><section class="trace" id="rv-trace" aria-label="${esc(T.trace)}"></section>
       <aside class="result" id="rv-result" aria-label="${esc(T.result)}">
-        <section id="r-bal"></section><section id="r-act"></section><section id="r-pay"></section><section id="r-next"></section><section id="r-cert"></section></aside></div>`;
+        <section id="r-bal"></section><section id="r-act"></section><section id="r-dec"></section><section id="r-pay"></section><section id="r-next"></section><section id="r-cert"></section></aside></div>`;
     renderHead();
     pollView();
   }
@@ -369,11 +405,11 @@ const Play = (() => {
     mine.pulling = true;
     try {
       const after = mine.TL.length ? mine.TL[mine.TL.length - 1].detail.seq : 0;
-      const [s, tl, c] = await Promise.all([api(`${base()}/state`), api(`${base()}/timeline?after=${after}`), api(`${base()}/calls`)]);
+      const [s, tl, c, dec] = await Promise.all([api(`${base()}/state`), api(`${base()}/timeline?after=${after}`), api(`${base()}/calls`), api(`${base()}/decisions`).catch(() => mine.dec)]);
       if (R !== mine) return;
       mine.S = s;
       mine.TL = s.head < after ? await api(`${base()}/timeline?after=0`) : mine.TL.concat(tl).slice(-300);
-      mine.calls = c.calls || [];
+      mine.calls = c.calls || []; mine.dec = Array.isArray(dec) ? dec : [];
       $("#rv-note").textContent = "";
       maybeStart(); await maybeProof();
       if (R === mine) renderRun();
@@ -426,7 +462,7 @@ const Play = (() => {
   function renderPre() {
     const v = R.view, tr = $("#rv-trace");
     root().querySelector(".runcols").hidden = false;
-    $("#r-bal").innerHTML = ""; $("#r-act").innerHTML = ""; $("#r-pay").innerHTML = ""; $("#r-next").innerHTML = ""; $("#r-cert").innerHTML = "";
+    $("#r-bal").innerHTML = ""; $("#r-act").innerHTML = ""; $("#r-dec").innerHTML = ""; $("#r-pay").innerHTML = ""; $("#r-next").innerHTML = ""; $("#r-cert").innerHTML = "";
     if (R.gone || (!v && R.ended)) {
       setHtml("trace", tr, `<div class="card state"><p>${esc(T.gone)}</p><a class="btn primary" href="#/">${esc(T.startNew)}</a></div>`);
       return;
@@ -536,7 +572,7 @@ const Play = (() => {
       quote = r.kind === "AGENT_NOTE";
       title = (multi && r.tenant ? `${nm2(r.tenant)}: ` : "") + r.text;
       const id = r.detail.transfer_id || r.detail.request_id;
-      chips = `${verdict(r)}${id ? chipHtml(mid(id, 6, 4)) : chipHtml(`#${r.detail.seq}`)}`;
+      chips = `${verdict(r)}${realChip(r.reality)}${id ? chipHtml(mid(id, 6, 4)) : chipHtml(`#${r.detail.seq}`)}`;
       raw = R.rows[r.detail.seq] ? JSON.stringify(R.rows[r.detail.seq], null, 1) : "…";
     }
     return `<li class="tr ${enter ? "enter" : ""} ${quote ? "quote" : ""}" style="--i:${Math.min(i, 5)}" data-k="${esc(it.key)}">
@@ -645,13 +681,29 @@ const Play = (() => {
     });
   }
 
+  /* what is real: a fake backend is never "live" */
+  function realChip(level) {
+    const L = (R.S && R.S.reality) || {}, k = R.S && R.S.backend === "fake" && (level === "live" || level === "awx_sim") ? "fake" : level;
+    return L[k] ? `<span class="chip" data-reality="${esc(k)}">${esc(L[k])}</span>` : "";
+  }
+
+  /* Proposed vs decided: what the agent asked for, what the rules did, and why. A red-team run says what the attack wanted. */
+  function renderDec() {
+    const rows = R.dec || [];
+    const li = (d) => `<li class="dec ${esc(d.tone)}"><p class="dp">${esc(d.proposed)}${d.from_email ? ` <span class="chip">${esc(T.decEmail)}</span>` : ""}</p>
+      <p class="dd"><span class="pill ${d.tone === "ok" ? "green" : d.tone === "refused" ? "red" : "amber"}">${esc(d.decided)}</span> <span class="small muted">${esc(d.why)}</span></p>
+      <p class="small muted mono">${esc(T.decLedger)} #${esc(d.seq)}</p></li>`;
+    const want = R.attack ? `<p class="small">${esc(T.decWanted)}: <strong>${esc(R.attack.label)}</strong></p>` : "";
+    setHtml("dec", $("#r-dec"), `<h3>${esc(T.decTitle)}</h3>${want}${rows.length ? `<ul class="decs">${rows.map(li).join("")}</ul>` : `<p class="small muted">${esc(T.decNone)}</p>`}`);
+  }
+
   function renderPay() {
     const lanes = Object.entries(R.S.lanes), multi = lanes.length > 1;
     const out = lanes.map(([t, l]) => l.lines.map((ln) => {
       const tid = tidOf(ln), rc = tid && R.rechecks[tid];
       const rcHtml = !rc ? "" : rc.busy ? `<p class="small muted">${esc(T.rechecking)}</p>` : rc.err ? `<p class="small ferr">${esc(rc.err)}</p>`
         : `<p class="small"><span class="muted">${esc(T.asOf)}</span> <span class="mono">${esc(clockSec(rc.fetched_at))}</span> · <span class="muted">${esc(T.status)}</span> <span class="mono">${esc(rc.status)}</span> <button type="button" class="link" data-pl="raw" data-id="${esc(tid)}">${esc(T.rawJson)}</button></p>${R.open.has(`rc:${tid}`) ? `<pre class="raw">${esc(JSON.stringify(rc.raw, null, 1))}</pre>` : ""}`;
-      return `<li><div class="pr"><span class="nm" title="${esc(ln.name)}">${esc(ln.name)}${multi ? ` <span class="small muted">${esc(l.name)}</span>` : ""}</span><span class="num">${money(ln.currency, ln.amount)}</span>${pillHtml(ln.pill)}
+      return `<li><div class="pr"><span class="nm" title="${esc(ln.name)}">${esc(ln.name)}${multi ? ` <span class="small muted">${esc(l.name)}</span>` : ""}</span><span class="num">${money(ln.currency, ln.amount)}</span><span class="pc">${pillHtml(ln.pill)}${realChip(ln.reality)}</span>
         ${tid ? `<button type="button" class="quiet icon" data-pl="recheck" data-id="${esc(tid)}" title="${esc(T.recheck)}" aria-label="${esc(T.recheck)}: ${esc(ln.name)}">⟳</button>` : "<span></span>"}</div>${rcHtml}</li>`;
     }).join("")).join("");
     setHtml("pay", $("#r-pay"), `<h3>${esc(T.payouts)}</h3>${out ? `<ul class="pays">${out}</ul>` : `<p class="small muted">${esc(T.noPayouts)}</p>`}`);
@@ -695,7 +747,7 @@ const Play = (() => {
     renderHead();
     root().querySelector(".runcols").hidden = false;
     const trace = renderTrace();
-    renderBalances(); renderAct(); renderPay(); renderNext(); renderCert();
+    renderBalances(); renderAct(); renderDec(); renderPay(); renderNext(); renderCert();
     if (trace && !R.focusing) root().querySelectorAll(".rowbtn[aria-expanded='true']").forEach(() => {});
     document.title = `${names().join(" · ")} · Ringfence`;
   }
@@ -732,6 +784,7 @@ const Play = (() => {
       paintRead(); $("#pl-read").focus();
     }
     else if (a === "read") doRead();
+    else if (a === "redteam") doRedteam();
     else if (a === "edit") { H.phase = "compose"; home(); $("#pl-text").focus(); }
     else if (a === "run") doRun();
     else if (a === "runfake") { H.backend = "fake"; H.touchedBackend = true; paintSeg(); doRun(); }

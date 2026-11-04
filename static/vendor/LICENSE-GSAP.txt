@@ -1,0 +1,7 @@
+GSAP 3.15.1 (gsap.min.js, ScrollTrigger.min.js, DrawSVGPlugin.min.js)
+Copyright 2026, GreenSock. All rights reserved.
+
+Used under the GreenSock Standard "No Charge" License, which allows use in commercial and
+non-commercial sites and apps as long as end users are not charged a fee to use the product.
+Full terms: https://gsap.com/standard-license
+The files are unmodified copies from the npm package gsap@3.15.1 (dist/).

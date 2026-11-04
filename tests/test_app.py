@@ -230,3 +230,31 @@ def test_inbox_shows_what_the_agent_read_and_rejects_other_names(c):
     docs = c.get("/api/inbox/harbour").json()
     assert docs[0]["source"] == "timesheet" and docs[0]["text"].startswith("contractor_id")
     assert c.get("/api/inbox/..%2Fsecrets").status_code == 404
+
+
+def test_landing_is_the_front_door_and_the_app_moved_to_app(c):
+    land, app = c.get("/"), c.get("/app")
+    assert land.status_code == app.status_code == 200
+    assert "A payroll agent that can't pay one company's people" in land.text and "landing.js" in land.text
+    assert "landing.js" not in app.text and land.text != app.text
+    assert "/static/landing.js" in land.text and c.get("/static/landing.js").status_code == 200
+
+
+def test_gauntlet_endpoints_serve_recorded_results_or_say_none(c, tmp_path, monkeypatch):
+    from ringfence import app as appmod
+    monkeypatch.setattr(appmod, "GAUNTLET_DIR", tmp_path / "gauntlet")
+    g = c.get("/api/gauntlet").json()
+    assert g["results"] is None and g["samples"] is None and len(g["goals"]) == 9 and len(g["framings"]) == 4
+    assert c.get("/gauntlet.md").status_code == 404
+    (tmp_path / "gauntlet").mkdir()
+    (tmp_path / "gauntlet" / "results.json").write_text('{"x": 1}', encoding="utf-8")
+    (tmp_path / "GAUNTLET.md").write_text("# Gauntlet", encoding="utf-8")
+    assert c.get("/api/gauntlet").json()["results"] == {"x": 1}
+    r = c.get("/gauntlet.md")
+    assert r.status_code == 200 and r.text == "# Gauntlet" and r.headers["content-type"].startswith("text/markdown")
+
+
+def test_ledger_rows_carry_run_id_and_proof_says_when(c, E):
+    start(c, E)
+    assert all("run_id" in r for r in c.get("/api/ledger", params={"seqs": "1,2"}).json())
+    assert c.get("/api/proof").json()["at"].startswith("20")
