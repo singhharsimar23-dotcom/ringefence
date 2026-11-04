@@ -25,6 +25,8 @@ def test_isolation_report_passes_and_certificates_verify(world, awx, L):
     rep = verify.report(awx, L)
     assert rep["ok"], rep
     assert all(p["status"] == 401 for p in rep["probes"])
+    names = [c["name"] for t in rep["tenants"].values() for c in t["checks"]]
+    assert any("offline test double" in n for n in names) and not any("Airwallex" in n and "401" in n for n in names)  # the fake never claims to be Airwallex
     certs = verify.certificates(rep, "r1", "fake")
     assert {c["body"]["result"] for c in certs.values()} == {"PASS"}
     assert all(verify.check_cert(c) for c in certs.values())

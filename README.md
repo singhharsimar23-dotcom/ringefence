@@ -60,7 +60,7 @@ Every card, timeline row and payout in the app carries one of four badges:
 | Live on Airwallex | A real call to the Airwallex sandbox: transfers, FX quotes and conversions, beneficiaries, balances, webhooks, the cross-company 401. |
 | On Metal testnet | A real transaction on the Metal test network. |
 | Airwallex simulator | The sandbox's own simulator moved it: deposits, SENT and PAID steps, a returned payout. |
-| Simulated by us | Our own stand-in: the exchange-rate move, the platform fee credit, the lost reply on the network-drop card. |
+| Simulated by us | Our own stand-in: the exchange-rate move, the platform fee credit, the lost reply on the network-drop card, the tampered ledger, the bank-change email and the hidden instruction. |
 
 On the offline fake the first and third badges read "Offline test double", because nothing there is Airwallex.
 
@@ -85,7 +85,7 @@ No keys needed for the offline demo (fake Airwallex, scripted agent). Needs [uv]
 ```
 make sync
 make fake-demo        # open http://127.0.0.1:8000
-make check            # ruff + 361 offline tests, invariants I1-I9 after every scenario
+make check            # ruff + 419 offline tests, invariants I1-I9 after every scenario
 ```
 
 Live sandbox: set `AWX_CLIENT_ID`, `AWX_API_KEY`, `AWX_BASE_URL`, `AWX_PLATFORM_ACCOUNT`, `AWX_EMPLOYER_A/B/C` as
@@ -115,6 +115,6 @@ their own payment.
 
 ## Honest notes
 
-- Fee credits and some deposits are marked `[SIMULATED]` because the Airwallex sandbox cannot do them. Everything else on the live demo is real sandbox calls.
+- Fee credits and some deposits are marked `[SIMULATED]` because the Airwallex sandbox cannot do them. Every Airwallex call on the live demo is real; the triggers listed under "Simulated by us" are scripted and marked.
 - The live demo is shared and public. Runs reset on request (once per 20 s) and playground runs are deleted after 30 minutes.
 - No secrets are in the repo. Deploy steps are in [deploy/](deploy/) and `deploy/metal_vm.sh`.

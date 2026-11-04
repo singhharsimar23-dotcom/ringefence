@@ -152,9 +152,10 @@ def report(awx: Awx, L: Ledger, cert_dir: Path | None = None) -> dict:
         probes.append({"from": a, "to": b, "status": status, "code": code, "ok": status == 401})
     chain = L.verify(cert_dir)
     head = {"seq": chain.head_seq, "hash": chain.head_hash}
+    src = "401 from the offline test double" if awx.base.startswith("https://fake.awx") else "live 401 from Airwallex"
     for t in tenants.values():
         mine = next((p for p in probes if p["from"] == t["tenant"]), None)
-        t["checks"].append(_chk("Another employer's account is out of reach (live 401 from Airwallex)", mine["ok"],
+        t["checks"].append(_chk(f"Another employer's account is out of reach ({src})", mine["ok"],
                                 f"HTTP {mine['status']} {mine['code']}") if mine else
                            _chk("Cross-employer check: needs two employers (see Three employers)", True, "not applicable"))
         t["checks"].append(_chk("Ledger hash chain verifies", chain.ok, chain.reason))

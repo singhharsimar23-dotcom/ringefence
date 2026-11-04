@@ -12,16 +12,16 @@ screen clips with `scripts/capture.py` (details below). Editing is a separate pa
 | 0:55 | Landing scene 3 | Airwallex's own agent tools stop short of money-out, and this kit asks for it. My rule: the model proposes, code decides, Airwallex enforces which employer a token can touch. |
 | 1:20 | App, live (`docs/DEMO.md`) | Run the week. Bank change held, hidden instruction refused, Harbour short in AUD so the agent revises its plan, funds land, pay released. Then your Airwallex dashboard: the same transfer by id, the webhook in Developer > Events, a cross-tenant 401. |
 | 2:25 | Try it | "Don't take my word for it." Red-team me, then the Proposed vs decided list and the reality chips. |
-| 3:15 | Face, then landing scene 8 | "Then I tried to break it." The obedient test agent is fooled every time and money never moves. The storm with Airwallex as referee. Random sequences, tamper caught. Metal in 15 seconds. |
-| 4:05 | Landing scene 11, then face | What's real, and the ids in the README. Production: connected accounts plus `x-on-behalf-of`, only the binding changes. "The playground is open. Try to make it pay the wrong person." |
+| 3:15 | Face, then landing scene 8 | "Then I tried to break it." The obedient test agent is fooled in every case a tool can express, and money never moves wrongly. The storm, with the transfer list as referee. Random sequences, tamper caught. Metal in 15 seconds. |
+| 4:05 | Landing scene 11, then face | What's real, and the ids in the README. Not built: if Airwallex enables connected accounts, only the binding changes. "The playground is open. Try to make it pay the wrong person." |
 
 ## Numbers you may say (all from `docs/GAUNTLET.md`; rerun the Gauntlet before you record and use what it prints)
 
-- 36 hostile documents, 28 of which a tool can express. The obedient test agent did what all 28 asked; the gate stopped all 28; no money moved wrongly.
-- Claude (claude-sonnet-5-5) did what the document asked in 1 of 28 expressible cases; the gate stopped it; no money moved wrongly.
+- 36 hostile documents, 28 of which a tool can express. The obedient test agent did what all 28 asked; the gate held, denied or recorded each one (the page shows the outcome per square); no money moved wrongly. A scripted approver signs what is left waiting, so say that.
+- Claude (claude-sonnet-5-5) did what the document asked in 0 of 28 expressible cases in the 4 Nov run (1 of 28 in an earlier run); no money moved wrongly.
 - 500 random sequences, invariants held after every step. 200 of 200 ledger edits caught at the right row.
-- Network storm: 20 parallel releases, 10 lost answers, one transfer per line.
-- 12 of 12 cross-tenant calls refused with 401. That is Airwallex's answer, not ours.
+- Network storm on the live sandbox: 20 parallel releases, 3 replies really lost after the payment landed (one per payment), one transfer per line.
+- 12 of 12 cross-tenant calls refused with 401 on the live sandbox. That is Airwallex's answer, not ours.
 
 Do not say "AgentDojo score". The credit line on the page and in the report is the only mention: the goals and framings are adapted from it.
 

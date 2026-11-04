@@ -11,6 +11,10 @@
   const T = { name: "Harsimar Singh", ago: (s) => (s < 90 ? "just now" : s < 5400 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`) };
   const fmt = (s) => { const [i, f = ""] = String(s).split("."); return `${i.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${`${f}00`.slice(0, 2)}`; };
 
+  /* a recorded run on the live sandbox beats an offline one; every figure says which it was */
+  const pick = (a) => (a || []).find((x) => x.backend === "live") || (a || [])[0];
+  const where = (x) => (x && x.backend === "live" ? "Airwallex sandbox" : "offline test double, not Airwallex");
+
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const motion = !reduce && !!(window.gsap && window.ScrollTrigger);
   if (motion) {
@@ -40,8 +44,9 @@
     }
     const reach = $("#st-reach"), dot = $(".strip .dot");
     const ok = !!(p && p.report && p.report.probes && p.report.probes.length && p.report.probes.every((x) => x.ok));
-    reach.textContent = ok ? "Airwallex sandbox reachable" : p ? "Airwallex sandbox: a check failed" : "Airwallex sandbox: no answer yet";
-    if (!ok) dot.classList.add("off");
+    const fake = !!(s && s.backend && s.backend !== "live");
+    reach.textContent = fake ? "Offline test double, not Airwallex" : ok ? "Airwallex sandbox reachable" : p ? "Airwallex sandbox: a check failed" : "Airwallex sandbox: no answer yet";
+    if (!ok || fake) dot.classList.add("off");
     $("#st-proof").textContent = p && p.at ? `last proof ${T.ago((Date.now() - Date.parse(p.at)) / 1000)}` : "last proof not available";
     const h = p && p.report && p.report.chain && p.report.chain.hash;
     $("#st-head").textContent = h ? `ledger head ${h.slice(0, 4)}…` : "ledger head not available";
@@ -70,13 +75,15 @@
 
   /* 5. isolation matrix: the reply for each cell comes from the Gauntlet's isolation run */
   gaunt.then((g) => {
-    const iso = g && g.results && g.results.isolation && g.results.isolation[0];
+    const iso = pick(g && g.results && g.results.isolation);
+    if (iso) $("#m-src").textContent = `Replies recorded from the ${where(iso)}, ${iso.rows.length} cross-account calls.`;
     const out = $("#m-detail");
     const names = { northwind: 0, kestrel: 1, harbour: 2, platform: 3 };
     const cells = $$(".matrix .r").slice(1).flatMap((r, i) => $$(".cell", r).map((c, k) => ({ c, from: Object.keys(names)[i], to: Object.keys(names)[k] })));
     for (const { c, from, to } of cells) {
       c.tabIndex = 0;
       const row = iso && iso.rows.find((x) => x.from === from && x.to === to);
+      if (from !== to) { c.textContent = row ? String(row.status) : "n/a"; c.classList.toggle("no", !!row && row.status === 401); }
       const say = () => { out.textContent = from === to ? `${from} token on its own account: allowed.` : row ? `${from} token on ${to}: HTTP ${row.status} ${row.code}` : `${from} token on ${to}: not recorded on this server.`; };
       c.addEventListener("mouseenter", say); c.addEventListener("focus", say);
     }
@@ -88,6 +95,7 @@
     if (!hit) return;
     const id = hit.detail.transfer_id;
     $('[data-id="tr"]').textContent = id;
+    state.then((s) => { if (s && s.backend !== "live") $("#rc-out").textContent = "[SIMULATED] offline test double: this id does not exist at Airwallex."; });
     const btn = $("#recheck"), out = $("#rc-out");
     btn.disabled = false; out.textContent = "";
     btn.addEventListener("click", async () => {
@@ -100,11 +108,13 @@
 
   /* 7. network storm */
   gaunt.then((g) => {
-    const n = g && g.results && g.results.network_storm && g.results.network_storm[0];
+    const n = pick(g && g.results && g.results.network_storm);
     if (!n) return;
+    $("#storm-bar").textContent = `${n.backend === "live" ? "airwallex sandbox" : "offline test double"} / transfers`;
     const once = n.transfers_per_line.every((x) => x === 1);
     $("#storm-count").textContent = `${n.parallel_releases} attempts · ${once ? "1 transfer per payment" : `up to ${Math.max(...n.transfers_per_line)} transfers per payment`}`;
-    $("#storm-sub").textContent = `${n.answers_lost} replies were dropped after the payment had landed. ${n.pass ? "Nobody was paid twice." : "A payment was duplicated."}`;
+    const lost = Number.isInteger(n.answers_lost) ? `${n.answers_lost} replies` : "Replies";
+    $("#storm-sub").textContent = `${lost} were dropped after the payment had landed. ${n.pass ? `No payment was duplicated across ${n.lines} payments and ${n.parallel_releases} releases` : "A payment was duplicated"} (${where(n)}).`;
   });
 
   /* 8. scoreboard */
@@ -121,12 +131,15 @@
         const b = $$("button", grid)[i]; if (!b) return;
         const cls = r.status === "no_tool" ? "" : r.fooled ? "hold" : "ok";
         if (cls) b.classList.add(cls);
-        const say = () => { detail.textContent = `${g.goals[r.goal] ? g.goals[r.goal].text : r.goal} (${r.framing.replace(/_/g, " ")}): ${r.status === "no_tool" ? "no tool can express this" : r.fooled ? "the agent did it, the gate stopped it" : "the agent refused"}`; };
+        const out = r.status === "no_tool" ? "no tool can express this" : r.fooled ? `the agent did it. Run ended ${String(r.state || "unknown").toLowerCase()}, ${r.calls_denied} calls denied, ${r.payments} payments, ${r.money_moved} moved wrongly` : "the agent refused";
+        const say = () => { detail.textContent = `${g.goals[r.goal] ? g.goals[r.goal].text : r.goal} (${r.framing.replace(/_/g, " ")}): ${out}`; };
         b.addEventListener("mouseenter", say); b.addEventListener("focus", say);
       });
     };
     paint("claude", $("#g-claude"), $("#c-fooled"), $("#c-money"));
     paint("evil", $("#g-evil"), $("#e-fooled"), $("#e-money"));
+    const when = [g.results.date, g.results.commit].filter(Boolean).join(", commit ");
+    if (when) $("#g-run").textContent = `One run per document (${when}). A scripted approver signs whatever the agent leaves waiting, then every payment is compared with the trusted timesheet.`;
     const sq = g.results.sequences, tm = g.results.tamper;
     if (sq) $("#f-seq").textContent = `${sq.steps_run} steps in ${sq.sequences} random sequences · invariants ${sq.pass ? "held" : "broke"}`;
     if (tm) $("#f-tamper").textContent = `${tm.caught_at_the_right_row}/${tm.mutations} ledger edits caught`;
@@ -166,13 +179,15 @@
     const td = $('[data-real="chain"]');
     if (chain && td) td.innerHTML = `<a href="${esc(chain.explorer_url)}" target="_blank" rel="noopener">${esc(String(chain.tx).slice(0, 18))}…</a>`;
   });
-  j("/api/timeline?after=0").then((rows) => {
+  Promise.all([state, j("/api/timeline?after=0")]).then(([s, rows]) => {
     const hit = [...rows].reverse().find((r) => r.detail && r.detail.transfer_id);
     const td = $('[data-real="live"]');
-    if (hit && td) {
-      td.innerHTML = `${esc(hit.detail.transfer_id)} <button type="button" class="btn cp">Copy</button>`;
-      $(".cp", td).addEventListener("click", (e) => { navigator.clipboard && navigator.clipboard.writeText(hit.detail.transfer_id); e.target.textContent = "Copied"; });
-    }
+    if (!hit || !td) return;
+    if (!s || s.backend !== "live") { td.textContent = "[SIMULATED] offline test double: this id does not exist at Airwallex."; return; }
+    td.innerHTML = `${esc(hit.detail.transfer_id)} <button type="button" class="btn cp">Copy</button>`;
+    $(".cp", td).addEventListener("click", async (e) => {
+      try { await navigator.clipboard.writeText(hit.detail.transfer_id); e.target.textContent = "Copied"; } catch (_) { e.target.textContent = "Copy failed"; }
+    });
   }).catch(() => {});
 
   /* 12. composer: hand the text to the app's Try tab */
@@ -187,7 +202,7 @@
   build.then((b) => {
     $("#f-tests").textContent = b && b.tests ? `${b.tests} tests` : "tests";
     $("#f-sha").textContent = b && b.sha ? b.sha : "commit";
-    if (b && b.video) $$("[data-video]").forEach((a) => { a.href = b.video; });
+    if (b && b.video) $$("[data-video]").forEach((a) => { if (a.tagName === "A") a.href = b.video; a.hidden = false; });
   });
 
   /* ---- motion ---- */
