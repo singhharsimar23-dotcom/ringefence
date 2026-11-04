@@ -101,7 +101,6 @@ const BEATS = [
   "Proof: each employer's money stayed in its own account. Edit one ledger row and verification fails there.",
 ];
 
-const SIMULATED_CARDS = new Set(["bank_change_email", "network_drop", "tamper_ledger", "rate_move", "other_tenant_deposit", "harbour_topup", "late_return"]);
 const CARD_ORDER = ["bank_change_email", "double_click", "network_drop", "tamper_ledger", "cross_tenant_call", "rate_move"];
 const EVENT_ORDER = ["other_tenant_deposit", "harbour_topup", "late_return"];
 

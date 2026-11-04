@@ -136,7 +136,7 @@ main{padding:var(--s5) var(--s5) var(--s6)}
 .lines{list-style:none;padding:0;max-height:320px;overflow:auto;border-top:1px solid var(--line)}
 .lines li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s1) var(--s2);align-items:center;padding:var(--s2) 0;border-bottom:1px solid var(--line)}
 .lines li>.num{text-align:right}
-.lines li>.pill{justify-self:start}
+.lines li>.pr{justify-self:start;display:flex;gap:var(--s1);align-items:center;flex-wrap:wrap}
 .lines li>a.btn{justify-self:end}
 .lines .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lines .detail{grid-column:1/-1}

@@ -178,6 +178,24 @@ LINE_PILL = {
 }
 
 
+# What is real, what is the sandbox's simulator, what we made up. One map; the browser reads it from /api/state.
+REALITY = {"live": "Live on Airwallex", "chain": "On Metal testnet", "awx_sim": "Airwallex simulator", "ours": "Simulated by us",
+           "fake": "Offline test double"}
+CARD_REALITY = {
+    "double_click": "live", "network_drop": "live", "cross_tenant_call": "live", "tamper_ledger": "ours", "rate_move": "ours",
+    "bank_change_email": "ours", "injection": "ours", "other_tenant_deposit": "awx_sim", "harbour_topup": "awx_sim",
+    "topup": "awx_sim", "late_return": "awx_sim", "metal_topup": "chain", "metal_overpull": "chain", "metal_poison": "chain"}
+ROW_REALITY = {"SUBMITTED": "live", "UNKNOWN": "live", "RECONCILED": "live", "FX_CONVERTED": "live", "FEE_CHARGED": "live",
+               "FUNDING_MATCHED": "awx_sim", "STATUS": "awx_sim", "FEE_CREDIT": "ours", "METAL_PULL": "chain", "METAL_REFUSED": "chain"}
+
+
+def row_reality(kind: str, p: dict) -> str | None:
+    """Which level a timeline row belongs to. Decisions our own code makes (gate, approval, hold) have none: nothing outside is involved."""
+    if kind == "SIMULATED":
+        return "ours" if "fee credit" in p.get("what", "") or "approval given" in p.get("what", "") else "awx_sim"
+    return ROW_REALITY.get(kind)
+
+
 def pill(line_state: str, run_state: str) -> str:
     if line_state in ("PLANNED", "READY") and run_state in ("AWAITING_APPROVAL", "AWAITING_FUNDS", "DRAFT"):
         return "Needs OK" if run_state == "AWAITING_APPROVAL" else "Planned"
@@ -319,4 +337,4 @@ def timeline_row(e: dict) -> dict | None:
     if row is None:
         return None
     return {"seq": e["seq"], "ts": e["ts"], "tenant": t, "phase": row[0], "text": row[1], "kind": k,
-            "blocked": k == "GATE_DENY" or (k == "ALERT"), "simulated": row[1].startswith("[SIMULATED]")}
+            "blocked": k == "GATE_DENY" or (k == "ALERT"), "simulated": row[1].startswith("[SIMULATED]"), "reality": row_reality(k, p)}

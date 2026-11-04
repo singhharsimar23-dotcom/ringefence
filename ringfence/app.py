@@ -237,7 +237,9 @@ class Engine:
                 "covers": bool(harbour_req and naive[0] >= Decimal(harbour_req["amount"]))},
             "lanes": lanes,
             "metal": metal.history(self.L) if metal.enabled() else None,  # the on-chain section of the demo page
-            "scenarios": [{"id": k, "title": v[0], "line": v[1], "last": self.results.get(k)} for k, v in scenario_cards().items()],
+            "scenarios": [{"id": k, "title": v[0], "line": v[1], "last": self.results.get(k), "reality": copy.CARD_REALITY.get(k)}
+                          for k, v in scenario_cards().items()],
+            "reality": copy.REALITY,
         }
 
     def _lane(self, rid: str, t: str, now) -> dict:
@@ -248,7 +250,7 @@ class Engine:
         if run:
             names = {k: c.name for k, c in seed.contractors(t).items()}
             lines = [{"contractor_id": ln["contractor_id"], "name": names[ln["contractor_id"]], "amount": ln["amount"],
-                      "currency": ln["currency"], "state": ln["state"], "pill": copy.pill(ln["state"], run["state"]),
+                      "currency": ln["currency"], "state": ln["state"], "pill": copy.pill(ln["state"], run["state"]), "reality": "live",
                       "request_id": ln["request_id"], "track": f"/track/{track.token(t, rid, ln['contractor_id'])}"} for ln in store.get_lines(self.L, rid, t, round=run["round"])]
             run = {**run, "lines": lines}
         req = funding_state(self.o, rid, t) if run and run["state"] == "AWAITING_FUNDS" else None

@@ -229,7 +229,7 @@ function laneHtml(t) {
   const fx = l.path.fx.length ? `<div class="fxpath">${l.path.fx.map((g) => `${esc(g.sell)} ${ICON.arrow} ${esc(g.buy)}`).join(" · ")}</div>` : "";
   const amount = l.lines.length ? `<div class="amount" aria-label="Total">${sums(l.lines).map(([c, a]) => `<span>${money(c, a)}</span>`).join("")}</div>${fx}` : "";
   const wallet = Object.keys(l.wallet).length ? `<div class="wallet" aria-label="Own wallet">${Object.entries(l.wallet).map(([c, a]) => `<span class="chip num">${esc(fmtMoney(c, a))}</span>`).join("")}</div>` : "";
-  const rows = l.lines.length ? `<ul class="lines">${l.lines.map((ln) => `<li><span class="nm" title="${esc(ln.name)}">${esc(ln.name)}</span><span class="num">${money(ln.currency, ln.amount)}</span>${pillHtml(ln.pill)}<a class="btn quiet" href="${esc(ln.track)}" target="_blank" rel="noopener" title="${T.contractorLink}" aria-label="${T.contractorLink}: ${esc(ln.name)}">${ICON.link}</a><span class="detail" title="${esc(ln.request_id)}">${esc(mid(ln.request_id, 10, 6))}</span>${rcHtml(ln)}</li>`).join("")}</ul>` : "";
+  const rows = l.lines.length ? `<ul class="lines">${l.lines.map((ln) => `<li><span class="nm" title="${esc(ln.name)}">${esc(ln.name)}</span><span class="num">${money(ln.currency, ln.amount)}</span><span class="pr">${pillHtml(ln.pill)}${realChip(ln.reality)}</span><a class="btn quiet" href="${esc(ln.track)}" target="_blank" rel="noopener" title="${T.contractorLink}" aria-label="${T.contractorLink}: ${esc(ln.name)}">${ICON.link}</a><span class="detail" title="${esc(ln.request_id)}">${esc(mid(ln.request_id, 10, 6))}</span>${rcHtml(ln)}</li>`).join("")}</ul>` : "";
   return `<article class="lane" data-t="${t}" aria-label="${esc(l.name)}">
     <div class="lane-head"><div class="row"><h2>${esc(l.name)}</h2><span class="mono muted" title="${esc(l.account)}">${esc(mid(l.account))}</span></div>
       <div class="meta">${ICON.lock}<span>${T.about[t] || ""} · ${T.walled}</span><span class="grow"></span><button class="link small" data-act="inbox" data-t="${t}">${T.inboxBtn}</button></div></div>
@@ -272,6 +272,12 @@ function renderChain() {
     <p class="small faint">${esc(T.chainScale)}</p>`;
 }
 
+/* what is real: live on Airwallex, the sandbox simulator, the Metal chain, or made up by us (a fake backend is never "live") */
+function realChip(level) {
+  const L = S.reality || {}, k = S.backend === "fake" && (level === "live" || level === "awx_sim") ? "fake" : level;
+  return L[k] ? `<span class="chip" data-reality="${k}">${esc(L[k])}</span>` : "";
+}
+
 /* attacks */
 function renderCards() {
   const byId = Object.fromEntries(S.scenarios.map((s) => [s.id, s]));
@@ -279,7 +285,7 @@ function renderCards() {
     const s = byId[id]; if (!s) return "";
     const r = s.last, tamperOn = id === "tamper_ledger" && r && r.bad_seq != null;  // only the edit result carries bad_seq
     return `<div class="card" data-id="${id}"><div class="title"><span>${esc(s.title)}</span>${PRESENT && i !== undefined ? `<span class="key">${i + 1}</span>` : ""}</div>
-      <p class="line">${esc(s.line)}${SIMULATED_CARDS.has(id) ? ` <span class="chip sim">${T.simulated}</span>` : ""}</p>
+      <p class="line">${esc(s.line)}${s.reality ? ` ${realChip(s.reality)}` : ""}</p>
       ${r ? `<div class="result"><div class="verdict ${r.ok ? "ok" : "no"}">${r.ok ? ICON.check : ICON.alert}<span>${esc(r.summary)}</span></div><details><summary class="small">${T.whyHeld}</summary><p>${esc(r.defence || "")}</p>${Play.evidenceHtml(r, `data-act="rows" data-id="${id}"`)}</details>${(r.links || []).map((k) => `<a class="link" href="${esc(k.url)}" target="_blank" rel="noopener">${esc(k.label)}</a>`).join(" ")}${(r.seqs || []).length && !r.evidence ? `<button class="link" data-act="rows" data-id="${id}">${T.viewRows}</button>` : ""}</div>` : ""}
       <div class="acts"><button data-act="scenario" data-id="${id}" ${busy ? "disabled" : ""}>${tamperOn ? T.restore : T.runTest}</button></div></div>`;
   };
@@ -298,7 +304,7 @@ function renderTimeline() {
   ol.innerHTML = rows.length ? rows.map((r) => {
     const d = r.detail || {}, isNew = tlSeen >= 0 && d.seq > tlSeen;
     const det = Object.entries(d).map(([k, v]) => `${k} ${k === "request_id" ? mid(v, 10, 6) : v}`).join(" · ");
-    return `<li class="${r.blocked ? "blocked" : r.tenant ? "mine-" + r.tenant : ""} ${isNew ? "new" : ""}"><time>${clockSec(r.ts)}</time><span><span class="phase ${r.phase}">${r.phase}</span><br>${esc(r.text)}</span><span class="detail">${esc(det)}</span></li>`;
+    return `<li class="${r.blocked ? "blocked" : r.tenant ? "mine-" + r.tenant : ""} ${isNew ? "new" : ""}"><time>${clockSec(r.ts)}</time><span><span class="phase ${r.phase}">${r.phase}</span>${r.reality ? ` ${realChip(r.reality)}` : ""}<br>${esc(r.text)}</span><span class="detail">${esc(det)}</span></li>`;
   }).join("") : `<li class="empty">${TL.length ? T.emptyFilter : T.emptyTimeline}</li>`;
   if (TL.length) tlSeen = TL[TL.length - 1].detail.seq;
   if (stick) ol.scrollTop = ol.scrollHeight;

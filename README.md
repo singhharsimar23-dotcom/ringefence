@@ -51,6 +51,33 @@ each a real testnet transaction with an explorer link:
 
 Testnet scale is 1 USDZ = USD 10, because the faucet gives about 100 USDZ. If Metal is down the button does a real Airwallex top-up marked `[SIMULATED]` and says so.
 
+## What is real
+
+Every card, timeline row and payout in the app carries one of four badges:
+
+| Badge | Means |
+|---|---|
+| Live on Airwallex | A real call to the Airwallex sandbox: transfers, FX quotes and conversions, beneficiaries, balances, webhooks, the cross-company 401. |
+| On Metal testnet | A real transaction on the Metal test network. |
+| Airwallex simulator | The sandbox's own simulator moved it: deposits, SENT and PAID steps, a returned payout. |
+| Simulated by us | Our own stand-in: the exchange-rate move, the platform fee credit, the lost reply on the network-drop card. |
+
+On the offline fake the first and third badges read "Offline test double", because nothing there is Airwallex.
+
+## Check it yourself
+
+Everything marked live leaves an ID you can look up in the Airwallex web app (sandbox): search the ID in the search bar, or open Settings, Developer, Events for webhook events. Metal transactions open in the explorer from the link on the card.
+
+| What | Where to find it |
+|---|---|
+| Transfer IDs (`transfer_id`) | Payments, search by ID; also on the Proof tab of the demo |
+| FX conversion (`conversion_id`) | Transactions, FX; the quote id is in the same ledger row |
+| Global account ID | Global Accounts, the account's detail page |
+| Webhook event IDs | Settings, Developer, Events |
+| Metal transaction hashes | The explorer link on the crypto wallet card |
+
+The IDs from the final live run are listed here when it is done.
+
 ## Run it yourself
 
 No keys needed for the offline demo (fake Airwallex, scripted agent). Needs [uv](https://docs.astral.sh/uv/).
