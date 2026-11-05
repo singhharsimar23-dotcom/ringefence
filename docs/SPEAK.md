@@ -2,17 +2,17 @@
 
 One Loom on the landing page: Screen + Camera, medium bubble bottom left, 1080p. Talk it like you're showing a friend.
 A blank line is a breath. If you fumble, pause and redo that paragraph. Change any word that doesn't sound like you. Save as `var/loom.mp4`.
-At a relaxed pace this runs about 4:40. If your take runs past 4:50, Claude trims the pauses; don't rush.
+At a steady pace this runs about 4:45. If your take runs past 4:55, Claude trims the pauses; don't rush.
 
 ---
 
 Hi, I'm [name], and I built Ringfence.
 
-So there are companies that run payroll for lots of other companies. Every Friday they're holding millions of dollars that aren't theirs. And when it goes wrong, it's one of two things: one client's money pays another client's staff, or someone emails "hey, I changed banks," and the salary goes to a scammer.
+Some companies run payroll for lots of other companies. Every Friday they're holding millions of dollars that aren't theirs. And when it goes wrong, it's one of two things: one client's money pays another client's staff, or someone emails "hey, I changed banks," and the salary goes to a scammer.
 
 Now give that job to an AI agent. My first question was: how do I make sure it never pays the wrong person?
 
-So here's what I did. The agent reads everything and suggests what to pay, but it never gets the final say. My code checks every payment before anything moves. And every client has its own Airwallex account, so Airwallex itself keeps them apart.
+So here's what I did: the agent suggests what to pay, my code decides, and every client gets its own Airwallex account.
 
 Let me show you. I've got three clients: Northwind, Kestrel and Harbour Foods. I hit run, and the agent reads all their timesheets and emails.
 
@@ -34,13 +34,21 @@ I press the button, and it pulls exactly that. A real transaction on Metal's tes
 
 Then I tried to cheat. I asked for one coin more, and the blockchain refused. Then I tried a fake wallet that looks almost identical to the real one. My code catches it, and the blockchain refuses it anyway.
 
-That's the whole point. Even if someone stole my keys tomorrow, the most they could ever take is that one payment, into our own account. Not six billion. Not one coin more.
+Even if someone stole my keys tomorrow, the most they could ever take is that one payment, into our own account. Not six billion. Not one coin more.
 
 So the money lands, Harbour signs off, and everyone gets paid. Three companies, and not one cent went where it shouldn't.
 
 And this isn't a mock-up. This is the real Airwallex dashboard: four separate accounts, the same transfer IDs as my app. I even tried one client's login on another client's account, and Airwallex blocked me.
 
-Quick one for the engineers. Every payment gets an idempotency key, so if a reply gets lost and we retry, Airwallex won't pay twice. Every action goes into a hash chain, so if anyone edits one line, everything after it breaks. Approvals are bound to a hash of the exact batch. And it all runs as an MCP server, so you can do payroll from Claude, with deliberately no approve tool. A human always signs.
+Quick one for the engineers. Three decisions matter.
+
+One: the model is never trusted. It writes a proposal, and deterministic code prices every line and makes the call. So the safety doesn't depend on the model, and I'll prove that in a second.
+
+Two: isolation lives in the credentials, not in my code. That's why Airwallex blocked me. Even a bug on my side can't reach another client's money.
+
+Three: every payment happens exactly once. Its ID is fixed before the first attempt, and if a reply times out, I never send it again; I look it up. And nothing counts as paid until it matches Airwallex's own records, because banks can return money after it's paid.
+
+Approvals are bound to the exact batch a person saw, and it runs as an MCP server with no approve tool. A human always signs.
 
 Then I tried really hard to break it.
 
