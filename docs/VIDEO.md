@@ -50,10 +50,12 @@ Your face is full frame at four moments: "Hi, I'm", "This is the part I'm proude
 | "Airwallex itself says no." | `401 credentials_invalid`, big, with `12 / 12` counting up. |
 | "You probably saw Binance last week" | Black, white mono: `29 OCT · $6.3B · ~4 HOURS OF OUTFLOW`, with the source name small underneath. No logos. |
 | "Not six billion. Not one coin more." | `$6,300,000,000` struck through, then the real pull amount in USDZ beside it. |
-| "Three decisions matter." | Three numbered lines type on, one per point, each lit as it's spoken. |
+| "Four decisions matter." | Four numbered lines type on, one per point, each lit as it's spoken. |
 | "the model is never trusted" | `AGENT → proposal → CODE → decision`, with the agent box dimmed. |
 | "isolation lives in the credentials" | Four `acct_…` boxes, each with its own key icon; a dotted line from one key to another account ends in `401`. |
-| "every payment happens exactly once" | One request ID, three retry arrows, one transfer ID. Then `PAID → RETURNED` ticking to show why we reconcile. |
+| "every payment happens exactly once" | One request ID, three retry arrows, one transfer ID. Then `PAID → FAILED` (bank returned) ticking to show why we reconcile. |
+| "a bank change from an email never takes effect" | The quarantine card from the app: old details `in force`, new details `held · confirm by phone · different approver`. |
+| "nothing can be swapped between sign-off and release" | The approval's batch hash; one amount changes and the hash goes red, `release refused`. |
 | "no approve tool" | The MCP tool list from `ringfence/mcp_server.py`, with the gap where `approve` would be highlighted. |
 | "Then I tried to break it." | Your face. |
 | The quick-fire numbers | One number per cut: `28/28 fooled · 0 moved`, `Claude 0/28`, the storm diagram racing, `200/200`, `500`, `420`. The chain strip runs at its fastest. |
