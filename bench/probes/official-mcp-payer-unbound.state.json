@@ -2,7 +2,16 @@
  "ben_a": "b593208b-960a-4485-a6d9-85a01f2d265e",
  "ben_b": "f7996377-e67b-48f6-bdf0-e8e8d54db1e6",
  "moves": [
-  "fx 83eab6fc-5dd4-4419-b478-1d5e77c73f4f USD 3.92 -> SGD 5.00"
+  "fx 83eab6fc-5dd4-4419-b478-1d5e77c73f4f USD 3.92 -> SGD 5.00",
+  "transfer b6aac731-294e-44ad-971e-18877c99060e PRB-mcp-a1-79173",
+  "transfer 87418272-0670-4a5e-a925-de4803886f8f PRB-mcp-a2-79204",
+  "transfer dc4e546e-02bb-4ca8-812d-e6a2e6532723 PRB-mcp-d10-79286",
+  "transfer d38bed40-0fd6-4013-be85-fafd1a4ba375 PRB-mcp-d11-79317",
+  "transfer 75e9e1d4-0c9d-4b91-a9a6-f367f8a18be8 PRB-mcp-d20-79349",
+  "transfer ec14f968-4dda-4fe0-9586-8a5e697ef34b PRB-mcp-d20-79372",
+  "transfer 1a3fef15-a10b-4347-a0e9-17c2eed6c3a4 PRB-mcp-d21-79382",
+  "transfer 97ed284b-59d8-4472-b3e8-1f92feea71a4 PRB-mcp-d21-79401",
+  "transfer 7c4d5e70-8bc1-4481-8eb1-e7909c965133 PRB-mcp-d22-79432"
  ],
  "stale_b": "93b9442a-aa0d-4b83-8a27-bf0074560eaf",
  "fx_request_id": "prb-mcpfx-1793978732",
