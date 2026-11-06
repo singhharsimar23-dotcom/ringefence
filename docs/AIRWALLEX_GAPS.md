@@ -248,7 +248,7 @@ payee is identified by account number plus name from `GET /account/wallet_info`.
 **What held.** Switching an existing bank payee to a wallet in place is refused: 400 `beneficiary_switch_unsupported`.
 So the repoint-in-place attack does not extend to this rail, and an attacker needs a new payee.
 
-**Ringfence gap.** Ringfence's snapshot checks skip a missing `bank_details` (fails open). This is in the handoff.
+**Ringfence gap (fixed 6 Nov, `5d001ac`).** The snapshot checks used to skip a missing `bank_details` (fail open). The drift check, the recall and Proof now fingerprint a wallet destination (`dest_fp`) and fail closed on an unknown one.
 
 **Video line.** "On Airwallex Pay, a payment to another employer's wallet was final in two seconds. No recall."
 
@@ -266,7 +266,7 @@ So the repoint-in-place attack does not extend to this rail, and an attacker nee
 | Gap | Receipt | Why the loss was refuted |
 |---|---|---|
 | **12.** One bank return produces FAILED, then an automatic CANCELLED 0.14 s later (two documented events). | `b2452320-45e8-4777-97dc-d78ce2c38c43` | The docs warn about the auto-cancel. Re-paying on both events is not advised. The `failure` object (code 90802) survives the cancel. |
-| **13.** `GET /beneficiaries/{id}` returns 200 with 0 bytes for a deleted id, a random uuid, or another employer's id. A 404 would be correct. | `probe_ben_fail_open.out.txt` | An existence check that treats 200 as "exists" fails open. But a create against that id is refused (400 `045`). It crashed Ringfence's release check with a TypeError (fixed in the working tree). |
+| **13.** `GET /beneficiaries/{id}` returns 200 with 0 bytes for a deleted id, a random uuid, or another employer's id. A 404 would be correct. | `probe_ben_fail_open.out.txt` | An existence check that treats 200 as "exists" fails open. But a create against that id is refused (400 `045`). It crashed Ringfence's release check with a TypeError (fixed in `b9403e6`: an empty 200 reads as not-found and holds the run). |
 | **14.** `?company_name=` is documented ("Filter on company name") but ignored, and returns all payees. COMPANY payees don't even store `company_name`. AgentOS `beneficiary-creation/SKILL.md` Step 9: "Search by name/company_name… If match exists, user decides: skip, update". | `Probe Co`: `?company_name=Probe%20Co` → 16, `?name=Probe%20Co` → 1 | A human still has to choose "update" on a plainly different payee. |
 | **15.** `GET /batch_transfers/{id}/items` returns 200 `{"items": []}` for another account's batch or a nonexistent one. `GET /batch_transfers/{id}` correctly returns 404. | `e9fa7e41…` read under Kestrel | The docs resubmit only BOOKING_FAILED items, and an empty list has none. A wrong-bound resubmit with Northwind's beneficiary id fails at 400. |
 
@@ -277,6 +277,38 @@ So the repoint-in-place attack does not extend to this rail, and an attacker nee
 - **Destination snapshots.** Single transfers, including future-dated ones, keep the destination they had at create.
 - **The in-place switch to a wallet is refused** (`beneficiary_switch_unsupported`).
 - **`request_id` dedupe within an account.** It did most of the retry safety in the bench, for both systems.
+
+## Ringfence status per gap (6 Nov, 446 offline tests)
+
+**Fixed or mitigated in Ringfence, with a test.**
+
+| Gap | What Ringfence does now | Commit |
+|---|---|---|
+| 1, 2 | Approved bank details are sent **inline** with each transfer (`payees` in the registry), so an id repointed after approval cannot redirect it. The pin check and post-create recall remain as the backstop. Batches are not used. | `39a2bf9` |
+| 3, 8, 9 | Duplicate `request_id` is never retried with a new id. The CA spelling `request_id_duplicate` + `details.source_id` is normalised. Every adopt-by-request_id (duplicate, 409, timeout, restart) checks payee, amount and currency, and holds on mismatch. | `b9403e6`, `7d8ff13` |
+| 4 | Proof pages `/transfers` with the cursor and fails if the cursor stalls. | `0e1bcb7` |
+| 7 | Wallet (DIGITAL_WALLET) destinations are fingerprinted, not skipped. | `5d001ac` |
+| 10 | PAID lines are polled while the run lives, including a reopened run. A late return keeps a HELD run held. | `39a2bf9`, `7d8ff13` |
+| 12 | The first terminal event reopens the line; the second is ignored (status never moves backwards). | earlier |
+| 13 | An empty 200 on a payee read holds the run by name. | `b9403e6` |
+| (409) | `409` / `request_pending` on create goes to UNKNOWN, then reconciles by request_id. | `39a2bf9` |
+| (IN_APPROVAL) | `IN_APPROVAL` transfers are reserved in funding (they are not debited yet). | `39a2bf9` |
+| H4 | Each transfer carries the ledger head (`metadata.rf_seq`, `rf_hash`). Airwallex stores and returns it (`transfer_metadata_anchor.out.txt`), and Proof fails if the local ledger no longer matches. | `7d8ff13` |
+| H5 | `RF_STRICT_NAME_MATCH=1` blocks any verdict but FULL_MATCH. Default stays lax because the sandbox calls real accounts INVALID. | `7d8ff13` |
+
+**Not fixable by Ringfence (Airwallex-side), and documented only:** 5 (SDK retry drops the query), 6 (the official MCP; payer
+trial 0/17, not reproduced), 11 (cancel is refused for a few seconds; Ringfence retries the recall), 14 (`company_name` filter
+ignored), 15 (empty batch items list).
+
+**Never tested live (do not claim these):**
+- A batch under "API-initiated transfers require approval" (#2 under approval): needs the user to enable the policy and click approve.
+- APPROVAL_REJECTED / RECALLED, then edit and resubmit: same.
+- Cancelling a transfer while IN_APPROVAL: same. If it is refused, the race recall is disabled in approval mode.
+- Market-agent faults `dupamt` (duplicate_request_id at a different amount) and `late` (PAID then FAILED): coded in `bench/market_agent.py`, never run, because the Anthropic API returned "credit balance too low".
+- The Haiku arm, and the payer trial with a prompt that lists no account ids.
+- Metadata limits (key count, value length) beyond a 2-key, 64-character value.
+- The strict name-match flag against live Airwallex (offline only).
+- The 400 `fee_unknown` seen on 4 consecutive creates (the same body succeeded on the 5th): intermittent sandbox error, cause not found.
 
 ## One-line thesis for the film
 

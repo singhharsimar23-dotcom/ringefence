@@ -71,6 +71,10 @@ The suite passed (432) **before** the `_raise_for` change. Steps:
    on an env flag, not the demo.
 7. **FROZEN, H4:** anchor each run's ledger head hash outside the server (transfer `metadata` or a Metal payment id).
 
+**Status 6 Nov: items 1-7 are DONE** (`5d001ac`, `39a2bf9`, `7d8ff13`; the user approved the frozen edits). Item 2 of the Step 1 list was
+the wallet fix. Still open from this document: Step 2 probes P0 batch-approval and the P1 approval probes (need the user),
+the P1 market-agent faults (need Anthropic credit), and Step 3.
+
 ## Step 2: remaining Airwallex probes
 
 Template: copy the helpers from `bench/probes/snapshot_timing.py` (`ben`, `repoint`, `dest`, `body`, `call`,
