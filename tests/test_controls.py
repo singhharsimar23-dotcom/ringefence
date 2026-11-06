@@ -61,7 +61,8 @@ def test_callback_needs_a_different_person_and_a_reference_then_voids_the_old_ap
     assert fake.accounts[acct("northwind")].transfers == {}
     orch.approve(rid, "northwind", "priya", r)
     assert orch.advance(rid, "northwind") == "RELEASED"
-    t = [x for x in fake.accounts[acct("northwind")].transfers.values() if x["beneficiary_id"] == new_id]
+    t = [x for x in fake.accounts[acct("northwind")].transfers.values()
+         if x["beneficiary"]["bank_details"].get("account_number") == NEW_BANK["account_number"]]  # sent inline: no id on it
     assert len(t) == 1
 
 
@@ -97,7 +98,25 @@ def test_payee_repointed_in_place_on_airwallex_holds_the_run(orch, fake, L):
     assert orch.resume(rid, "kestrel") == "READY" and orch.advance(rid, "kestrel") == "HELD"  # resuming does not wash it
 
 
-def test_a_repoint_that_wins_the_race_with_the_release_check_still_fails_the_proof(orch, L, monkeypatch):
+def test_a_repoint_after_the_release_check_cannot_redirect_a_transfer_sent_with_inline_details(orch, fake, L, monkeypatch):
+    rid = orch.create_run("kestrel", PAY)
+    orch.submit(rid, "kestrel")
+    monkeypatch.setattr(ben, "drifted", lambda *a: [])  # the edit lands between the release check and the create
+    ln = store.get_lines(L, rid, "kestrel")[0]
+    repoint(orch.awx, "kestrel", ln["beneficiary_id"])
+    assert orch.advance(rid, "kestrel") == "RELEASED"
+    pin = ben.load_registry()["tenants"]["kestrel"]["pins"][ln["beneficiary_id"]]
+    t = next(x for x in fake.accounts[acct("kestrel")].transfers.values() if x["request_id"] == ln["request_id"])
+    assert t["beneficiary"]["bank_details"].get("account_number") != "99999901"
+    assert ben.dest_fp(t["beneficiary"]) == pin and t["status"] != "CANCELLED"  # it went to the pinned account
+    assert not [e for e in L.entries(kind="ALERT") if e["payload"].get("what") == "PAID_TO_UNAPPROVED_ACCOUNT"]
+    assert verify.report(orch.awx, L)["tenants"]["kestrel"]["ok"]
+
+
+def test_a_repoint_that_wins_the_race_still_fails_the_proof_on_a_registry_without_inline_payees(orch, L, monkeypatch):
+    reg = ben.load_registry()
+    reg["tenants"]["kestrel"].pop("payees")  # a registry from before inline sends: the id is sent, the recall is the backstop
+    ben.save_registry(reg)
     rid = orch.create_run("kestrel", PAY)
     orch.submit(rid, "kestrel")
     monkeypatch.setattr(ben, "drifted", lambda *a: [])  # the edit lands between the release check and the create

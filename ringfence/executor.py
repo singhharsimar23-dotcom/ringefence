@@ -125,7 +125,8 @@ class Executor:
             if stop is None:
                 ln = store.get_line(tx, run_id, tenant, cid)
                 tx.append("INTENT", {"contractor_id": cid, "request_id": ln["request_id"], "amount": ln["amount"],
-                                     "currency": ln["currency"], "attempt": ln["attempt"]}, run_id, tenant)
+                                     "currency": ln["currency"], "attempt": ln["attempt"],
+                                     "beneficiary_id": ln["beneficiary_id"]}, run_id, tenant)
                 store.set_line(tx, run_id, tenant, cid, "INTENT")
                 return None
         return self._stop(run_id, tenant, stop[0], stop[1])
@@ -164,7 +165,7 @@ class Executor:
         avail = c.balances()  # this tenant's own balances; never summed across tenants
         legs = fx.plan(c, mandate.mandate, need, avail) if mandate else []
         undebited: dict[str, Decimal] = {}  # other OVERDUE transfers of this tenant are not debited yet
-        for o in store.lines_in_states(self.L, ("OVERDUE",)):
+        for o in store.lines_in_states(self.L, ("OVERDUE", "IN_APPROVAL")):  # neither is debited yet
             if o["tenant"] == tenant:
                 undebited[o["currency"]] = undebited.get(o["currency"], Decimal(0)) + Decimal(o["amount"])
         facts = ReleaseFacts(
@@ -203,10 +204,17 @@ class Executor:
     # one transfer
     # ---------------------------------------------------------------------------------------------
     def _body(self, ln: dict) -> dict:
-        return {"request_id": ln["request_id"], "beneficiary_id": ln["beneficiary_id"],
+        body = {"request_id": ln["request_id"], "beneficiary_id": ln["beneficiary_id"],
                 "transfer_amount": Decimal(ln["amount"]), "transfer_currency": ln["currency"],
                 "source_currency": ln["currency"], "transfer_method": ln["method"], "reason": REASON,
                 "reference": reference(ln["run_id"], ln["tenant"])}
+        payee = ben.load_registry().get("tenants", {}).get(ln["tenant"], {}).get("payees", {}).get(ln["beneficiary_id"])
+        if payee:  # the approved bank details travel with the request, so an id repointed after release cannot redirect it
+            body.pop("beneficiary_id")
+            body["beneficiary"] = payee
+        # shortcut: a registry without `payees` (made before 6 Nov) falls back to the id, guarded by the drift check and
+        # the post-create recall; re-run setup_demo to get inline sends
+        return body
 
     def _submit(self, c: TenantClient, ln: dict, again: bool = True) -> None:
         try:
@@ -216,7 +224,7 @@ class Executor:
         except AwxError as e:
             if e.code == "duplicate_request_id":
                 return self._adopt(c, ln, e)
-            if e.status >= 500:
+            if e.status >= 500 or e.status == 409 or e.code == "request_pending":  # a 409 may have booked: find out by request_id
                 return self._unknown(ln, again)
             funds = e.code in FUNDS_CODES
             with self.L.tx() as tx:
@@ -243,7 +251,10 @@ class Executor:
             t = c.get(f"/transfers/{tid}") if tid else c.transfer_by_request(ln["request_id"])
         except (AwxError, AwxTimeout):
             t = None
-        ok = (t is not None and t.get("beneficiary_id") == ln["beneficiary_id"]
+        pin = ben.load_registry().get("tenants", {}).get(ln["tenant"], {}).get("pins", {}).get(ln["beneficiary_id"])
+        same_payee = t is not None and (t["beneficiary_id"] == ln["beneficiary_id"] if t.get("beneficiary_id")
+                                        else pin is not None and ben.dest_fp(t.get("beneficiary") or {}) == pin)
+        ok = (same_payee
               and Decimal(t["transfer_amount"]) == Decimal(ln["amount"]) and t["transfer_currency"] == ln["currency"])
         if not ok:
             self._hold(ln, "HOLD", "DUPLICATE_MISMATCH", "an existing transfer holds this request_id but differs")
@@ -362,7 +373,8 @@ class Executor:
     def poll_inflight(self) -> None:
         """GET each in-flight transfer by id (and PAID ones of live runs, for late returns); apply forward moves."""
         paid = [ln for ln in store.lines_in_states(self.L, ("PAID",))
-                if (store.get_run(self.L, ln["run_id"], ln["tenant"]) or {}).get("state") in ("RELEASED", "DONE")]
+                if (store.get_run(self.L, ln["run_id"], ln["tenant"]) or {}).get("state") in
+                ("RELEASED", "DONE", "AWAITING_APPROVAL", "READY", "HELD")]  # a reopened run still has PAID lines
         # shortcut: PAID lines are polled for as long as their run lives; add an age cut-off at volume
         for ln in [*store.lines_in_states(self.L, INFLIGHT), *paid]:
             if not ln.get("transfer_id"):

@@ -39,7 +39,8 @@ def assert_invariants(L, fake, *, chain: bool = True, cert_dir=None) -> None:
         for x in ts:
             owner = by_req.get(x["request_id"])
             assert owner is None or owner["tenant"] == t, f"I1: {x['id']} in {t} belongs to {owner['tenant']}"
-            assert x["beneficiary_id"] in own, f"I1: {x['id']} in {t} pays a beneficiary that is not {t}'s"
+            pid = x["beneficiary_id"] or ((owner or {}).get("payload") or {}).get("beneficiary_id")  # inline sends: null on the transfer
+            assert pid in own, f"I1: {x['id']} in {t} pays a beneficiary that is not {t}'s"
 
     # I2: one transfer per request_id; at most one live transfer per (run, contractor, round)
     for t, ts in transfers.items():
@@ -94,7 +95,8 @@ def assert_invariants(L, fake, *, chain: bool = True, cert_dir=None) -> None:
         if number:
             for t in EMPLOYERS:
                 for x in transfers[t]:
-                    assert number not in json.dumps(fake.accounts[acct[t]].beneficiaries.get(x["beneficiary_id"], {}), default=str), \
+                    pid = x["beneficiary_id"] or (by_req.get(x["request_id"]) or {}).get("payload", {}).get("beneficiary_id")
+                    assert number not in json.dumps([fake.accounts[acct[t]].beneficiaries.get(pid, {}), x.get("beneficiary")], default=str), \
                         f"I6: {x['id']} paid quarantined details"
 
     # I7: no payout INTENT without an approval (or an auto-release) for that run and tenant, and none since a reopen

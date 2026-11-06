@@ -258,3 +258,39 @@ def test_money_invariants_hold_under_any_fault_pattern(awx, fake, L, faults):
     assert sum(t["transfer_amount"] for t in ts) == D("1050.00")
     assert fake.balance(acct("kestrel"), "USD") == D("10000000.00") - D("1050.00")  # debited exactly once
     assert L.verify().ok
+
+
+def test_a_409_on_create_is_looked_up_by_request_id_not_failed(awx, fake, L, ex):
+    new_run(awx, L, "kestrel", {"noah": D(10)})
+    fake.inject("error_before_commit", status=409, n=1)  # request_pending: the create may or may not have booked
+    ex.release(RUN, "kestrel")
+    assert lines(L, "kestrel")["noah"]["state"] == "SCHEDULED" and n_transfers(fake, "kestrel") == 1
+    assert len(kinds(L, "UNKNOWN")) == 1 and not [e for e in kinds(L, "STATUS") if e["payload"].get("state") == "FAILED_TO_SUBMIT"]
+
+
+def test_a_late_return_is_caught_while_the_run_is_reopened_and_waiting_for_approval(awx, fake, L):
+    ex = fee_executor(awx, L)
+    new_run(awx, L, "kestrel")
+    ex.release(RUN, "kestrel")
+    settle(awx, ex, L, "kestrel")
+    first = lines(L, "kestrel")
+    fake.late_failure(acct("kestrel"), first["noah"]["transfer_id"])
+    ex.poll_inflight()
+    assert store.get_run(L, RUN, "kestrel")["state"] == "AWAITING_APPROVAL"  # reopened by noah's return
+    fake.late_failure(acct("kestrel"), first["zoe"]["transfer_id"])  # the other payee bounces while we wait
+    ex.poll_inflight()
+    after = lines(L, "kestrel")
+    assert after["zoe"]["state"] == "PLANNED" and after["zoe"]["attempt"] == 2
+
+
+def test_a_transfer_in_approval_is_reserved_against_the_next_run(awx, fake, L, ex):
+    new_run(awx, L, "kestrel", {"noah": D(10)})
+    ex.release(RUN, "kestrel")
+    ln = lines(L, "kestrel")["noah"]
+    fake.set_status(acct("kestrel"), ln["transfer_id"], "IN_APPROVAL")  # created, not debited yet
+    ex.poll_inflight()
+    assert lines(L, "kestrel")["noah"]["state"] == "IN_APPROVAL"
+    new_run(awx, L, "kestrel", {"zoe": D(10)}, run_id="run-2")
+    run2 = store.get_run(L, "run-2", "kestrel")
+    facts, _ = ex._facts(awx.for_tenant("kestrel"), run2, store.get_lines(L, "run-2", "kestrel"))
+    assert facts.undebited_inflight == {ln["currency"]: D(ln["amount"])}

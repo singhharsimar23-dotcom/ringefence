@@ -6,6 +6,7 @@ import pytest
 from helpers import acct
 
 from ringfence import __main__ as cli
+from ringfence import beneficiaries as ben
 from ringfence import verify
 from ringfence.orchestrator import Orchestrator
 from ringfence.setup_demo import setup
@@ -40,7 +41,7 @@ def test_a_transfer_with_no_ledger_intent_fails_that_tenant_only(world, awx, fak
     kes = fake.accounts[acct("kestrel")]
     some = next(iter(kes.transfers.values()))
     rogue = awx.for_tenant("kestrel").post("/transfers/create", {
-        "request_id": "rogue-not-in-ledger-0001", "beneficiary_id": some["beneficiary_id"], "transfer_amount": D("1.00"),
+        "request_id": "rogue-not-in-ledger-0001", "beneficiary_id": next(iter(ben.load_registry()["tenants"]["kestrel"]["beneficiaries"].values())), "transfer_amount": D("1.00"),
         "transfer_currency": "USD", "source_currency": "USD", "transfer_method": "LOCAL", "reason": "x"})
     rep = verify.report(awx, L)
     assert not rep["ok"] and not rep["tenants"]["kestrel"]["ok"]

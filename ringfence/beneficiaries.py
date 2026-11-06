@@ -73,6 +73,12 @@ def dest_fp(rec: dict) -> str:
     return "unknown"
 
 
+def inline(payload: dict) -> dict:
+    """The approved payee as a transfers/create `beneficiary` object: with no id in the request there is nothing to repoint
+    (live 6 Nov: transfer 05bf3293-e9b9-43b4-ab30-bd47ae282b0b went to the inline account, beneficiary_id null)."""
+    return {**payload["beneficiary"], "bank_details": stored(payload)}
+
+
 def stored(payload: dict) -> dict:
     """The bank details as Airwallex keeps them for this create payload, so a pin matches the live record exactly."""
     bd = dict(payload["beneficiary"]["bank_details"])
@@ -118,6 +124,7 @@ def ensure_beneficiaries(c: TenantClient, tenant: str) -> dict[str, Any]:
     # pinned from what we MEANT to create, not from what is there now: an id already repointed is caught at release
     out["pins"] = {out["beneficiaries"][cid]: fingerprint(stored(p)) for cid, p in want.items()}
     out["pins"][out["fee_beneficiary"]] = fingerprint(stored(fee_payload()))
+    out["payees"] = {out["beneficiaries"][cid]: inline(p) for cid, p in want.items()}  # what executor._body sends inline
     return out
 
 
@@ -246,6 +253,7 @@ def confirm_callback(awx, L, tenant: str, qid: int, approver_id: str, role: str,
     reg = load_registry()
     reg["tenants"][tenant]["beneficiaries"][cid] = new_id
     reg["tenants"][tenant].setdefault("pins", {})[new_id] = fingerprint(stored(payload))
+    reg["tenants"][tenant].setdefault("payees", {})[new_id] = inline(payload)
     save_registry(reg)
     with L.tx() as tx:
         tx.execute("UPDATE quarantine SET status='CONFIRMED', data=? WHERE id=?",

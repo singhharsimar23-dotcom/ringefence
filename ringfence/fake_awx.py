@@ -316,7 +316,10 @@ class FakeAirwallex:
             return _err(400, "validation_error", "request_id must be 10-50 chars")
         if rid in a.req_index:
             return _err(400, "duplicate_request_id", "duplicate request_id", details={"id": a.req_index[rid]})
-        ben = a.beneficiaries.get(b.get("beneficiary_id", ""))
+        if b.get("beneficiary") and not b.get("beneficiary_id"):  # inline bank details, as live: the transfer has beneficiary_id null
+            ben = {"beneficiary": _as_stored({"beneficiary": b["beneficiary"], "transfer_methods": [b.get("transfer_method")]})}
+        else:
+            ben = a.beneficiaries.get(b.get("beneficiary_id", ""))
         if ben is None:
             return _err(400, "validation_error", "beneficiary not found", source="beneficiary_id")
         if b.get("transfer_method") not in ("LOCAL", "SWIFT"):
@@ -334,7 +337,7 @@ class FakeAirwallex:
                 return _err(400, "balance_insufficient", "There is insufficient Wallet balance to fund this transfer.")
             status = "OVERDUE"
         tid = self._nid("tr")
-        t = {"id": tid, "request_id": rid, "status": status, "beneficiary_id": b["beneficiary_id"],
+        t = {"id": tid, "request_id": rid, "status": status, "beneficiary_id": b.get("beneficiary_id"),
              "transfer_amount": amt, "transfer_currency": ccy, "source_currency": src,
              "transfer_method": b["transfer_method"], "reason": b.get("reason"), "reference": b.get("reference"),
              "created_at": datetime.now(UTC).isoformat(), "fee_amount": fee, "debited": False,

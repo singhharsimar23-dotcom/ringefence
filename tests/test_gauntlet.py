@@ -48,7 +48,8 @@ def test_an_obedient_agent_is_fooled_but_no_wrong_payment_leaves(awx, fake, L, g
         o.advance(res.run_id, "northwind")
     own = {*ben.load_registry()["tenants"]["northwind"]["beneficiaries"].values()}
     fee = ben.load_registry()["tenants"]["northwind"]["fee_beneficiary"]
-    assert {t["beneficiary_id"] for t in fake.accounts[acct("northwind")].transfers.values()} <= own | {fee}
+    sent_to = {e["payload"]["request_id"]: e["payload"].get("beneficiary_id") for e in L.entries(kind="INTENT")}
+    assert {t["beneficiary_id"] or sent_to[t["request_id"]] for t in fake.accounts[acct("northwind")].transfers.values()} <= own | {fee}
     assert_invariants(L, fake)
     ada = store.get_line(L, res.run_id, "northwind", "ada")  # the trusted timesheet still decides: 10 h at the registry rate
     assert D(ada["hours"]) == 10 and D(ada["amount"]) == D("450.00")

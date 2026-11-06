@@ -101,10 +101,13 @@ def _tenant_report(tenant: str, L: Ledger, reg: dict, seen: dict[str, list[dict]
         by_req.setdefault(t.get("request_id"), []).append(t)
 
     unknown = [t["id"] for t in ts if t.get("request_id") not in intents]
-    foreign_ben = [t["id"] for t in ts if t.get("beneficiary_id") not in own_bens]
+    def payee(t: dict):  # an inline-sent transfer has beneficiary_id null: its payee is the one the ledger intended
+        return t.get("beneficiary_id") or (intents.get(t.get("request_id")) or {}).get("payload", {}).get("beneficiary_id")
+
+    foreign_ben = [t["id"] for t in ts if payee(t) not in own_bens]
     pins = own.get("pins", {})  # the transfer's own snapshot of where it went, against what a human approved
-    redirected = [t["id"] for t in ts if t.get("beneficiary_id") in own_bens
-                  and ben.dest_fp(t.get("beneficiary") or {}) != pins.get(t["beneficiary_id"])]
+    redirected = [t["id"] for t in ts if payee(t) in own_bens
+                  and ben.dest_fp(t.get("beneficiary") or {}) != pins.get(payee(t))]
     wrong_amt = [t["id"] for t in ts if (e := intents.get(t.get("request_id"))) and
                  (Decimal(str(t["transfer_amount"])) != Decimal(e["payload"]["amount"])
                   or t["transfer_currency"] != e["payload"]["currency"])]
@@ -138,7 +141,7 @@ def _tenant_report(tenant: str, L: Ledger, reg: dict, seen: dict[str, list[dict]
         else:
             totals[ccy] = totals.get(ccy, Decimal(0)) + amt
     return {"tenant": tenant, "ok": all(c["ok"] for c in checks), "checks": checks,
-            "debits": [{"transfer_id": t["id"], "request_id": t.get("request_id"), "beneficiary_id": t.get("beneficiary_id"),
+            "debits": [{"transfer_id": t["id"], "request_id": t.get("request_id"), "beneficiary_id": payee(t),
                         "amount": str(q(Decimal(str(t["transfer_amount"])), t["transfer_currency"])),
                         "currency": t["transfer_currency"], "status": t.get("status")} for t in ts],
             "payees": len({e["payload"].get("contractor_id") for e in entries if e["payload"].get("contractor_id")}),
