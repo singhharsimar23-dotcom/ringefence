@@ -1,0 +1,77 @@
+{
+ "fault": "restart",
+ "trial": 0,
+ "tag": "BENCHRFRE750060",
+ "run_id": "20261231-BENCHRFRE750060",
+ "events": [
+  "to_ready -> READY",
+  "process died after the first create landed",
+  "restart, same ledger: advance -> RELEASED",
+  "restart, ledger lost: to_ready -> READY, advance -> HELD"
+ ],
+ "states": [
+  {
+   "who": "first process",
+   "run": "RELEASING",
+   "hold": null,
+   "lines": {
+    "ada": "INTENT",
+    "lukas": "READY"
+   },
+   "ledger": []
+  },
+  {
+   "who": "restarted, same ledger",
+   "run": "RELEASED",
+   "hold": null,
+   "lines": {
+    "ada": "PROCESSING",
+    "lukas": "SCHEDULED"
+   },
+   "ledger": [
+    "RECONCILED {\"awx_status\": \"PROCESSING\", \"contractor_id\": \"ada\", \"failure_type\": null, \"request_id\": \"rf-7lqw4f7gs7qik5dvhgdqj5h77twm5mmipm3hpmsqhpvmcih\", \"state\": \"PROCESS",
+    "SUBMITTED {\"awx_status\": \"SCHEDULED\", \"contractor_id\": \"lukas\", \"failure_type\": null, \"request_id\": \"rf-npzdruh6bgsdhs6sd4fohejt4rnsu2e334d7vyliial3uem\", \"state\": \"SCHEDU"
+   ]
+  },
+  {
+   "who": "restarted, ledger lost",
+   "run": "HELD",
+   "hold": "already_paid_on_airwallex",
+   "lines": {
+    "ada": "PLANNED",
+    "lukas": "PLANNED"
+   },
+   "ledger": [
+    "ALERT {\"contractors\": [\"ada\", \"lukas\"], \"what\": \"ALREADY_PAID_ON_AIRWALLEX\"}",
+    "HOLD {\"note\": \"Airwallex already holds a payment for this obligation that this ledger does not know about\", \"reason\": \"already_paid_on_airwallex\"}"
+   ]
+  }
+ ],
+ "transfers": [
+  {
+   "id": "d95dd32c-863a-44e1-b3b3-27ea9667cd9c",
+   "request_id": "rf-npzdruh6bgsdhs6sd4fohejt4rnsu2e334d7vyliial3uem",
+   "beneficiary_id": "9ad7bf60-e308-441b-89dc-30423f004349",
+   "amount": "400.0",
+   "currency": "EUR",
+   "status": "PROCESSING",
+   "account_last4": ""
+  },
+  {
+   "id": "5b52ff0f-33da-47d3-a236-81ebe75b2770",
+   "request_id": "rf-7lqw4f7gs7qik5dvhgdqj5h77twm5mmipm3hpmsqhpvmcih",
+   "beneficiary_id": "14057733-20c9-4d84-8874-fdd1c8b6b787",
+   "amount": "450.0",
+   "currency": "GBP",
+   "status": "PROCESSING",
+   "account_last4": "5601"
+  }
+ ],
+ "paid_twice": [],
+ "unpaid": [],
+ "to_mule": [],
+ "closed": [
+  "d95dd32c CANCELLED",
+  "5b52ff0f CANCELLED"
+ ]
+}

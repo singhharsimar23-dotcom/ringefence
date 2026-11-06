@@ -1,0 +1,64 @@
+{
+ "fault": "double",
+ "trial": 2,
+ "tag": "BENCHRFDO750582",
+ "run_id": "20261231-BENCHRFDO750582",
+ "events": [
+  "concurrent advance -> {'worker1': 'RELEASING', 'other_host': 'RELEASED', 'worker2': 'RELEASED'}"
+ ],
+ "states": [
+  {
+   "who": "shared ledger",
+   "run": "RELEASED",
+   "hold": null,
+   "lines": {
+    "ada": "SCHEDULED",
+    "lukas": "SCHEDULED"
+   },
+   "ledger": [
+    "SUBMITTED {\"awx_status\": \"SCHEDULED\", \"contractor_id\": \"ada\", \"failure_type\": null, \"request_id\": \"rf-tdqzr6jm7nilsz3f7kgarrarb6s4i2odifbog5d6sot7bco\", \"state\": \"SCHEDULE",
+    "SUBMITTED {\"awx_status\": \"SCHEDULED\", \"contractor_id\": \"lukas\", \"failure_type\": null, \"request_id\": \"rf-hpceouyxmr3ajspfpgdfwaltfmqsvn4gdfet6y2vuz7njnr\", \"state\": \"SCHEDU"
+   ]
+  },
+  {
+   "who": "other host",
+   "run": "RELEASED",
+   "hold": null,
+   "lines": {
+    "ada": "SCHEDULED",
+    "lukas": "FAILED_TO_SUBMIT"
+   },
+   "ledger": [
+    "RECONCILED {\"awx_status\": \"SCHEDULED\", \"contractor_id\": \"ada\", \"failure_type\": null, \"request_id\": \"rf-tdqzr6jm7nilsz3f7kgarrarb6s4i2odifbog5d6sot7bco\", \"state\": \"SCHEDULE",
+    "STATUS {\"code\": \"request_pending\", \"contractor_id\": \"lukas\", \"detail\": \"The request with request_id rf-hpceouyxmr3ajspfpgdfwaltfmqsvn4gdfet6y2vuz7njnr is currently bei"
+   ]
+  }
+ ],
+ "transfers": [
+  {
+   "id": "c00c6b61-30b8-4e69-95d7-962d555ac9ce",
+   "request_id": "rf-hpceouyxmr3ajspfpgdfwaltfmqsvn4gdfet6y2vuz7njnr",
+   "beneficiary_id": "af6c7585-6d01-489e-a4b6-1c100fb85928",
+   "amount": "400.0",
+   "currency": "EUR",
+   "status": "PROCESSING",
+   "account_last4": ""
+  },
+  {
+   "id": "2622a20a-b9ba-4e94-a8ba-33c7a5f55c4f",
+   "request_id": "rf-tdqzr6jm7nilsz3f7kgarrarb6s4i2odifbog5d6sot7bco",
+   "beneficiary_id": "2aa31ab9-8318-4e42-a330-aa3a9dd56bf7",
+   "amount": "450.0",
+   "currency": "GBP",
+   "status": "PROCESSING",
+   "account_last4": "5601"
+  }
+ ],
+ "paid_twice": [],
+ "unpaid": [],
+ "to_mule": [],
+ "closed": [
+  "c00c6b61 CANCELLED",
+  "2622a20a CANCELLED"
+ ]
+}

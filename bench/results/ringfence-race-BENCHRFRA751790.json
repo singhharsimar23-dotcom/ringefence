@@ -1,0 +1,55 @@
+{
+ "fault": "race",
+ "trial": 0,
+ "tag": "BENCHRFRA751790",
+ "run_id": "20261231-BENCHRFRA751790",
+ "events": [
+  "to_ready -> READY",
+  "repointed ada in place to ..9901",
+  "advance -> RELEASED"
+ ],
+ "states": [
+  {
+   "who": "first process",
+   "run": "RELEASED",
+   "hold": null,
+   "lines": {
+    "ada": "SCHEDULED",
+    "lukas": "SCHEDULED"
+   },
+   "ledger": [
+    "SUBMITTED {\"awx_status\": \"SCHEDULED\", \"contractor_id\": \"ada\", \"failure_type\": null, \"request_id\": \"rf-jtacn2hyzhymreleie53eb7xiwqd34gswm437sxdgxxbode\", \"state\": \"SCHEDULE",
+    "SUBMITTED {\"awx_status\": \"SCHEDULED\", \"contractor_id\": \"lukas\", \"failure_type\": null, \"request_id\": \"rf-tc4m2wfzpemchx4yo6fzozsr6kgononzvqlf644gb77ur3l\", \"state\": \"SCHEDU",
+    "ALERT {\"cancelled\": true, \"contractor_id\": \"ada\", \"transfer_id\": \"0aaad98f-80ef-4685-9c54-6f71ba7d1994\", \"what\": \"PAID_TO_UNAPPROVED_ACCOUNT\"}"
+   ]
+  }
+ ],
+ "transfers": [
+  {
+   "id": "bf32b230-6f40-4c40-94fd-30f978dd5f07",
+   "request_id": "rf-tc4m2wfzpemchx4yo6fzozsr6kgononzvqlf644gb77ur3l",
+   "beneficiary_id": "b52da122-4cb5-46b3-a2b5-c0d7ddbef4dd",
+   "amount": "400.0",
+   "currency": "EUR",
+   "status": "PROCESSING",
+   "account_last4": ""
+  },
+  {
+   "id": "0aaad98f-80ef-4685-9c54-6f71ba7d1994",
+   "request_id": "rf-jtacn2hyzhymreleie53eb7xiwqd34gswm437sxdgxxbode",
+   "beneficiary_id": "1aa98f15-202d-4405-9856-650e20d5a0e4",
+   "amount": "450.0",
+   "currency": "GBP",
+   "status": "CANCELLED",
+   "account_last4": "9901"
+  }
+ ],
+ "paid_twice": [],
+ "unpaid": [
+  "ada"
+ ],
+ "to_mule": [],
+ "closed": [
+  "bf32b230 CANCELLED"
+ ]
+}

@@ -1,0 +1,29 @@
+{
+ "fault": "repoint",
+ "trial": 1,
+ "tag": "BENCHRFRE747411",
+ "run_id": "20261231-BENCHRFRE747411",
+ "events": [
+  "repointed ada in place to ..9901",
+  "to_ready -> READY",
+  "advance -> HELD"
+ ],
+ "states": [
+  {
+   "who": "first process",
+   "run": "HELD",
+   "hold": "beneficiary_changed_outside_ringfence",
+   "lines": {
+    "ada": "PLANNED",
+    "lukas": "PLANNED"
+   }
+  }
+ ],
+ "transfers": [],
+ "paid_twice": [],
+ "unpaid": [
+  "ada",
+  "lukas"
+ ],
+ "to_mule": []
+}

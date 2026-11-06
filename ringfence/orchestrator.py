@@ -15,7 +15,7 @@ from pathlib import Path
 
 from . import beneficiaries as ben
 from . import copy, fees, funding, fx, inbox, seed, store
-from .awx import Awx
+from .awx import Awx, AwxError, AwxTimeout
 from .config import ROOT, clock, employer_name, var_dir
 from .executor import Executor, current_batch_hash
 from .ledger import Ledger
@@ -179,8 +179,35 @@ class Orchestrator:
                     self.hold(run_id, tenant, "beneficiary_changed_outside_ringfence",
                               "a payee's bank account changed on Airwallex, not through Ringfence: re-approve it as a bank change")
                     return "HELD"
-                return self.ex.release(run_id, tenant)
+                st = self.ex.release(run_id, tenant)
+                self._recall_redirected(c, run_id, tenant)
+                return st
         return store.get_run(self.L, run_id, tenant)["state"]
+
+    def _recall_redirected(self, c, run_id: str, tenant: str) -> None:
+        """drifted() and the create are two calls: a repoint landing between them is visible only in the transfer's own
+        snapshot of where it goes. Cancel that transfer while Airwallex still allows it (until SENT)."""
+        pins = ben.load_registry().get("tenants", {}).get(tenant, {}).get("pins", {})
+        for ln in store.get_lines(self.L, run_id, tenant):
+            if not ln.get("transfer_id"):
+                continue
+            try:
+                t = c.get(f"/transfers/{ln['transfer_id']}")
+            except (AwxError, AwxTimeout):
+                continue  # Proof re-checks every snapshot
+            bd = (t.get("beneficiary") or {}).get("bank_details")
+            if not bd or t.get("status") in ("CANCELLED", "FAILED") or ben.fingerprint(bd) == pins.get(ln["beneficiary_id"]):
+                continue
+            cancelled = False
+            for i in range(5):  # live: a transfer refuses updates for a few seconds right after create
+                try:
+                    c.post(f"/transfers/{t['id']}/cancel", {})
+                    cancelled = c.get(f"/transfers/{t['id']}").get("status") == "CANCELLED"
+                    break
+                except (AwxError, AwxTimeout):
+                    self.awx._sleep(2 * (i + 1))
+            self.L.append("ALERT", {"what": "PAID_TO_UNAPPROVED_ACCOUNT", "contractor_id": ln["contractor_id"],
+                                    "transfer_id": t["id"], "cancelled": cancelled}, run_id, tenant)
 
     def poll(self) -> None:
         self.ex.poll_inflight()

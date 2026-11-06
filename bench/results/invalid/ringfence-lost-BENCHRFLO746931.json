@@ -1,0 +1,21 @@
+{
+ "fault": "lost",
+ "trial": 1,
+ "tag": "BENCHRFLO746931",
+ "run_id": "20261231-BENCHRFLO746931",
+ "events": [
+  "to_ready -> READY"
+ ],
+ "states": [
+  {
+   "harness_error": "AttributeError: 'TenantClient' object attribute 'post_money' is read-only"
+  }
+ ],
+ "transfers": [],
+ "paid_twice": [],
+ "unpaid": [
+  "ada",
+  "lukas"
+ ],
+ "to_mule": []
+}

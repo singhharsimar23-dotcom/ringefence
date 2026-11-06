@@ -1,0 +1,92 @@
+lost     trial 0  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [(None, None, None)]
+    ['to_ready -> READY']
+lost     trial 1  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [(None, None, None)]
+    ['to_ready -> READY']
+lost     trial 2  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [(None, None, None)]
+    ['to_ready -> READY']
+restart  trial 0  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [(None, None, None)]
+    ['to_ready -> READY']
+restart  trial 1  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [(None, None, None)]
+    ['to_ready -> READY']
+restart  trial 2  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [(None, None, None)]
+    ['to_ready -> READY']
+Traceback (most recent call last):
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\market_agent.py", line 234, in close
+    c.post(f"/transfers/{t['id']}/cancel", {})  # answers with a bare string, so read the status back
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\ringfence\awx.py", line 160, in post
+    return _raise_for(r)
+           ^^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\ringfence\awx.py", line 57, in _raise_for
+    raise AwxError(r.status_code, d.get("code"), str(d.get("message") or r.text[:200]), d.get("details"))
+ringfence.awx.AwxError: HTTP 400 update_unsupported: The transfer in the current status cannot be updated.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\ringfence_bench.py", line 204, in main
+    r = Trial(awx, fault, n).run()
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\ringfence_bench.py", line 194, in run
+    "states": states, **self.truth()}
+                        ^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\ringfence_bench.py", line 182, in truth
+    res.setdefault("closed", []).append(f"{t['id'][:8]} {close(self.c, t)}")
+                                                         ^^^^^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\market_agent.py", line 239, in close
+    c.post(f"/simulation/transfers/{t['id']}/transition", {"next_status": "FAILED"})
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\ringfence\awx.py", line 160, in post
+    return _raise_for(r)
+           ^^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\ringfence\awx.py", line 57, in _raise_for
+    raise AwxError(r.status_code, d.get("code"), str(d.get("message") or r.text[:200]), d.get("details"))
+ringfence.awx.AwxError: HTTP 500 operation_failed: Request could not be processed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\market_agent.py", line 234, in close
+    c.post(f"/transfers/{t['id']}/cancel", {})  # answers with a bare string, so read the status back
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\ringfence\awx.py", line 160, in post
+    return _raise_for(r)
+           ^^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\ringfence\awx.py", line 57, in _raise_for
+    raise AwxError(r.status_code, d.get("code"), str(d.get("message") or r.text[:200]), d.get("details"))
+ringfence.awx.AwxError: HTTP 400 update_unsupported: The transfer in the current status cannot be updated.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\ringfence_bench.py", line 216, in <module>
+    main()
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\ringfence_bench.py", line 212, in main
+    sweep(awx.for_tenant(TENANT), "BENCHRF")  # never the market bench's, which may be running
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\market_agent.py", line 249, in sweep
+    print("close", t["id"], close(c, t))
+                            ^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\market_agent.py", line 239, in close
+    c.post(f"/simulation/transfers/{t['id']}/transition", {"next_status": "FAILED"})
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\ringfence\awx.py", line 160, in post
+    return _raise_for(r)
+           ^^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\ringfence\awx.py", line 57, in _raise_for
+    raise AwxError(r.status_code, d.get("code"), str(d.get("message") or r.text[:200]), d.get("details"))
+ringfence.awx.AwxError: HTTP 500 operation_failed: Request could not be processed
+repoint  trial 0  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [('first process', 'HELD', 'beneficiary_changed_outside_ringfence')]
+    ['repointed ada in place to ..9901', 'to_ready -> READY', 'advance -> HELD']
+repoint  trial 1  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [('first process', 'HELD', 'beneficiary_changed_outside_ringfence')]
+    ['repointed ada in place to ..9901', 'to_ready -> READY', 'advance -> HELD']
+repoint  trial 2  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [('first process', 'HELD', 'beneficiary_changed_outside_ringfence')]
+    ['repointed ada in place to ..9901', 'to_ready -> READY', 'advance -> HELD']
+close beed4f63-4b12-4310-b3f3-76b34aa49c50 CANCELLED
+close 004d9bbf-add5-4ca4-80b4-39bc69cd5f74 CANCELLED
+deleted beneficiary 0c0052a1-e783-49de-b5d3-7bf4283957cf
+deleted beneficiary b5916473-2f22-4c86-99ae-c07a4a6a47d1
+approval trial 0  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [('first process', 'HELD', 'beneficiary_changed_outside_ringfence')]
+    ['to_ready -> READY', 'repointed ada in place to ..9901', 'advance -> HELD']
+approval trial 1  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [('first process', 'HELD', 'beneficiary_changed_outside_ringfence')]
+    ['to_ready -> READY', 'repointed ada in place to ..9901', 'advance -> HELD']
+approval trial 2  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [('first process', 'HELD', 'beneficiary_changed_outside_ringfence')]
+    ['to_ready -> READY', 'repointed ada in place to ..9901', 'advance -> HELD']

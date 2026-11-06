@@ -1,0 +1,4 @@
+ANTHROPIC_API_KEY is set and takes precedence over the SDK's profile / federation auto-discovery; unset ANTHROPIC_API_KEY to use the auto-discovered credential.
+restart  trial 0  paid_twice=[] unpaid=[] to_mule=0 transfers=3  ends=['crashed after 2 payments', 'done']  -> market-restart-BENCHRE743580.json
+restart  trial 1  paid_twice=[] unpaid=[] to_mule=0 transfers=3  ends=['crashed after 2 payments', 'done']  -> market-restart-BENCHRE743931.json
+restart  trial 2  paid_twice=[] unpaid=[] to_mule=0 transfers=3  ends=['crashed after 2 payments', 'done']  -> market-restart-BENCHRE744302.json

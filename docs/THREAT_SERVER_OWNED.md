@@ -60,8 +60,16 @@ fee_beneficiary_changed`; test `test_the_fee_payee_moved_to_another_bank_under_t
 - Tests: `test_payee_repointed_in_place_on_airwallex_holds_the_run` and
   `test_a_repoint_that_wins_the_race_with_the_release_check_still_fails_the_proof`.
 
-**Residual.** The race window is milliseconds wide, and Proof catches it afterwards rather than preventing it. The
-next step is to cancel the transfer while it's SCHEDULED (cancel works from SCHEDULED and PROCESSING; verified live).
+- **The race, recalled.** A repoint can land in the milliseconds between `drifted()` and the create. Right after
+  release, `_recall_redirected` ([orchestrator.py:187](../ringfence/orchestrator.py#L187)) re-reads each transfer's
+  snapshot. If the snapshot doesn't match the pin, it cancels the transfer (retrying, because live Airwallex refuses
+  updates for a few seconds after create) and logs the ALERT `PAID_TO_UNAPPROVED_ACCOUNT`. Live, 3/3 race trials
+  ended CANCELLED (`bench/ringfence_bench.py race`; see [BENCH.md](BENCH.md)).
+
+**Residual.** The recall works only until the transfer is SENT. In production, a transfer can be SENT before the cancel
+lands. Then the payee is unpaid and the money is gone, so a human must chase the bank. The structural fix binds the
+content in the create itself: send the pinned bank details inline in `transfers/create`, not a `beneficiary_id`, so
+there is nothing to repoint. That changes the frozen `executor._body` and isn't done.
 
 ## H2: a lost database pays payroll twice
 

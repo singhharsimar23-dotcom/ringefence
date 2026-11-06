@@ -248,6 +248,13 @@ class FakeAirwallex:
         if method == "POST":
             if path == "transfers/create":
                 return self._create_transfer(a, body)
+            if (m := re.fullmatch(r"transfers/([^/]+)/cancel", path)) and m[1] in a.transfers:
+                t = a.transfers[m[1]]
+                if t["status"] not in ("SCHEDULED", "PROCESSING"):  # live: cancellable until it is SENT
+                    return _err(400, "update_unsupported", "The transfer in the current status cannot be updated.")
+                t["status"] = "CANCELLED"
+                self._refund(a, t)
+                return _json(200, dict(t))
             if path in ("beneficiaries/create", "beneficiaries/validate"):
                 return self._beneficiary(a, body, create=path.endswith("create"))
             if (m := re.fullmatch(r"beneficiaries/([^/]+)/update", path)) and m[1] in a.beneficiaries:

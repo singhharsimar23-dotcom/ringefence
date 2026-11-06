@@ -1,0 +1,28 @@
+{
+ "fault": "lost",
+ "trial": 0,
+ "tag": "BENCHRFLO748940",
+ "run_id": "20261231-BENCHRFLO748940",
+ "events": [
+  "to_ready -> READY",
+  "advance -> RELEASED"
+ ],
+ "states": [
+  {
+   "who": "first process",
+   "run": "RELEASED",
+   "hold": null,
+   "lines": {
+    "ada": "FAILED_TO_SUBMIT",
+    "lukas": "FAILED_TO_SUBMIT"
+   }
+  }
+ ],
+ "transfers": [],
+ "paid_twice": [],
+ "unpaid": [
+  "ada",
+  "lukas"
+ ],
+ "to_mule": []
+}

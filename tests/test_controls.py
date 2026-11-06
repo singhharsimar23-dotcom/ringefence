@@ -103,6 +103,9 @@ def test_a_repoint_that_wins_the_race_with_the_release_check_still_fails_the_pro
     monkeypatch.setattr(ben, "drifted", lambda *a: [])  # the edit lands between the release check and the create
     repoint(orch.awx, "kestrel", store.get_lines(L, rid, "kestrel")[0]["beneficiary_id"])
     assert orch.advance(rid, "kestrel") == "RELEASED"
+    a = L.entries(kind="ALERT")[-1]["payload"]  # the transfer's own snapshot shows the repoint: recalled before it is SENT
+    assert a["what"] == "PAID_TO_UNAPPROVED_ACCOUNT" and a["cancelled"]
+    assert orch.awx.for_tenant("kestrel").get(f"/transfers/{a['transfer_id']}")["status"] == "CANCELLED"
     rep = verify.report(orch.awx, L)
     chk = next(c for c in rep["tenants"]["kestrel"]["checks"] if "human approved" in c["name"])
     assert not chk["ok"] and not rep["tenants"]["kestrel"]["ok"] and rep["tenants"]["northwind"]["ok"]

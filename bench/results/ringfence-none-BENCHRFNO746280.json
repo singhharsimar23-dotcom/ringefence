@@ -1,0 +1,48 @@
+{
+ "fault": "none",
+ "trial": 0,
+ "tag": "BENCHRFNO746280",
+ "run_id": "20261231-BENCHRFNO746280",
+ "events": [
+  "to_ready -> READY",
+  "advance -> RELEASED"
+ ],
+ "states": [
+  {
+   "who": "first process",
+   "run": "RELEASED",
+   "hold": null,
+   "lines": {
+    "ada": "SCHEDULED",
+    "lukas": "SCHEDULED"
+   }
+  }
+ ],
+ "transfers": [
+  {
+   "id": "91de6d5c-c8cc-4ad7-b66e-25bff4d9ecc2",
+   "request_id": "rf-7h4wea3bb2wsxch5qpri4yok4tmu3z2rctfrw7ebdyjiwuh",
+   "beneficiary_id": "978aa41d-163b-4c75-a6f9-cad93e3c38a8",
+   "amount": "400.0",
+   "currency": "EUR",
+   "status": "PROCESSING",
+   "account_last4": ""
+  },
+  {
+   "id": "f34693c6-96a5-42f1-85a5-32a553f65719",
+   "request_id": "rf-bwjm3qa5cxwqfqgutlmot2bx65rnuofyomots7ivbkyl7iz",
+   "beneficiary_id": "70487244-d7dc-42d8-92c5-3a60309f39fa",
+   "amount": "450.0",
+   "currency": "GBP",
+   "status": "PROCESSING",
+   "account_last4": "5601"
+  }
+ ],
+ "paid_twice": [],
+ "unpaid": [],
+ "to_mule": [],
+ "closed": [
+  "91de6d5c [SIMULATED] CANCELLED",
+  "f34693c6 CANCELLED"
+ ]
+}
