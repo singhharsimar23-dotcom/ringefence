@@ -19,6 +19,8 @@ def naive_total(awx: Awx, target: str) -> tuple[Decimal, bool]:
     for t in EMPLOYERS:
         c = awx.for_tenant(t)
         for ccy, amt in c.balances().items():
+            if not amt:  # adds nothing, and Airwallex rejects a 1-unit quote in many of these (amount_below_limit)
+                continue
             if ccy not in rates:
                 try:
                     rates[ccy] = get_quote(c, ccy, target, sell_amount=Decimal(1)).buy_amount

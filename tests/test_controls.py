@@ -120,3 +120,13 @@ def test_shadow_total_pools_every_tenant_for_display_only(awx):
     setup(awx)
     total, complete = shadow.naive_total(awx, "AUD")
     assert total > D(1000000) and complete
+
+
+def test_shadow_total_never_quotes_an_empty_currency(awx, fake, monkeypatch):
+    setup(awx)
+    fake.accounts[acct("northwind")].balances["JPY"] = D("0.00")  # live accounts list ~40 currencies, most at zero
+    asked = []
+    real = shadow.get_quote
+    monkeypatch.setattr(shadow, "get_quote", lambda c, sell, buy, **k: asked.append(sell) or real(c, sell, buy, **k))
+    total, complete = shadow.naive_total(awx, "AUD")
+    assert "JPY" not in asked and complete and total > D(1000000)
