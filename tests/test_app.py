@@ -7,6 +7,7 @@ from invariants import assert_invariants
 
 from ringfence import copy
 from ringfence.app import Engine, create_app
+from ringfence.awx import AwxError
 from ringfence.setup_demo import setup
 
 
@@ -60,6 +61,21 @@ def test_start_puts_each_employer_in_its_own_state_and_harbour_gets_a_funding_ca
     h = lane(c, "harbour")
     assert h["state"] == "AWAITING_FUNDS" and h["funding"]["currency"] == "AUD" and h["text"]["action"] == "copy_funding"
     assert lane(c, "northwind")["approve_label"].startswith("Approve ")
+
+
+def test_one_employers_airwallex_failure_does_not_stall_the_others(c, E):
+    start(c, E)
+    c.post("/api/scenario/harbour_topup")
+    real = E._autopilot_one
+
+    def broken(rid, t, now):
+        if t == "northwind":  # first in the loop, failing on every tick (the live sandbox did this with 500s)
+            raise AwxError(500, "internal_error", "simulation failed")
+        return real(rid, t, now)
+    E._autopilot_one = broken
+    with pytest.raises(AwxError):  # still raised after the loop, so the worker's _guard shows and logs it
+        cycle(E)
+    assert lane(c, "harbour")["state"] == "AWAITING_APPROVAL"
 
 
 def test_only_the_named_approver_can_approve(c, E):

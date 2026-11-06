@@ -186,23 +186,32 @@ class Engine:
         self._auto_resume_kill()
         if self.sim.restore_if_due():
             self.proof_cache = None
+        failed = None
         for t in EMPLOYERS:
-            run = store.get_run(self.L, rid, t)
-            if run is None:
-                continue
-            ids = {d.id for d in inbox.all_docs(t)}
-            if run["state"] in OPEN and ids != self._docs_seen.get(t, ids - {"-"}) and ids - inbox.seen_ids(self.L, t):
-                self._docs_seen[t] = ids
-                self.tick(t)  # a new email arrived
-            st = run["state"]
-            if st == "AWAITING_FUNDS" or (st == "READY" and now - self._ready_since.setdefault(t, now) >= self.release_delay):
-                self.o.advance(rid, t)
-            if st != "READY":
-                self._ready_since.pop(t, None)
-            if self.autosettle and store.get_lines(self.L, rid, t, states=INFLIGHT):
-                settle_step(self.awx, self.L, rid, t)
+            try:
+                self._autopilot_one(rid, t, now)
+            except Exception as e:  # noqa: BLE001  one employer's trouble (a sandbox 500, a timeout) must not stall the others
+                failed = failed or e
         self.o.poll()
         self._refresh(naive=now - self.cache["naive_at"] >= self.cache_every)
+        if failed:
+            raise failed  # still shown and logged by _guard, after every employer had its turn
+
+    def _autopilot_one(self, rid: str, t: str, now: float) -> None:
+        run = store.get_run(self.L, rid, t)
+        if run is None:
+            return
+        ids = {d.id for d in inbox.all_docs(t)}
+        if run["state"] in OPEN and ids != self._docs_seen.get(t, ids - {"-"}) and ids - inbox.seen_ids(self.L, t):
+            self._docs_seen[t] = ids
+            self.tick(t)  # a new email arrived
+        st = run["state"]
+        if st == "AWAITING_FUNDS" or (st == "READY" and now - self._ready_since.setdefault(t, now) >= self.release_delay):
+            self.o.advance(rid, t)
+        if st != "READY":
+            self._ready_since.pop(t, None)
+        if self.autosettle and store.get_lines(self.L, rid, t, states=INFLIGHT):
+            settle_step(self.awx, self.L, rid, t)
 
     def kill_resumes_at(self, kill: dict | None = None) -> str | None:
         """On the public demo a kill switch left on turns itself off after KILL_AUTO_S, so one visitor cannot stall the rest."""
