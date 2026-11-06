@@ -49,8 +49,13 @@ def charge(awx: Awx, L: Ledger, run_id: str, tenant: str) -> str:
         return "NONE"
     c = awx.for_tenant(tenant)
     rid = f"fee-{run_id}-{tenant}-r{run['round']}"
-    fbid = ben.load_registry().get("tenants", {}).get(tenant, {}).get("fee_beneficiary")
+    reg = ben.load_registry().get("tenants", {}).get(tenant, {})
+    fbid = reg.get("fee_beneficiary")
     bank = c.get(f"/beneficiaries/{fbid}")["beneficiary"]["bank_details"] if fbid else {}
+    if fbid and ben.fingerprint(bank) != reg.get("pins", {}).get(fbid):  # same account number at another bank passes check_fee
+        L.append("GATE_DENY", {"what": "fee", "code": "fee_beneficiary_changed",
+                               "detail": "the fee payee's bank details changed outside Ringfence"}, run_id, tenant)
+        return "DENIED"
     ok = check_fee(FeeFacts(tenant, c.tenant_key, L.kill_switch_on(), fbid or "", fbid, ben.bank_key(bank),
                             frozenset({seed.load()["fee_beneficiary"]["bank"]["account_number"]}), due, due))
     if isinstance(ok, Deny):

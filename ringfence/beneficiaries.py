@@ -51,14 +51,23 @@ def bank_key(bank_details: dict) -> str:
     return str(bank_details.get("iban") or bank_details.get("account_number") or "")
 
 
-PIN_KEYS = ("bank_country_code", "iban", "account_routing_value1", "account_number")
+PIN_KEYS = ("bank_country_code", "account_currency", "iban", "swift_code", "account_routing_type1", "account_routing_value1",
+            "account_routing_type2", "account_routing_value2", "account_number")  # every field that can pick the bank
 
 
 def fingerprint(bank_details: dict) -> str:
     """The destination itself, not the id that points at it: Airwallex lets anyone with beneficiary:write repoint an id
     in place (POST /beneficiaries/{id}/update keeps the id; verified live 6 Nov), so approving an id approves nothing."""
-    s = "|".join(str(bank_details.get(k) or "").replace(" ", "").upper() for k in PIN_KEYS)
+    s = json.dumps([str(bank_details.get(k) or "").replace(" ", "").upper() for k in PIN_KEYS])
     return hashlib.sha256(s.encode()).hexdigest()[:16]
+
+
+def stored(payload: dict) -> dict:
+    """The bank details as Airwallex keeps them for this create payload, so a pin matches the live record exactly."""
+    bd = dict(payload["beneficiary"]["bank_details"])
+    if bd.get("iban") and payload.get("transfer_methods") == ["LOCAL"]:
+        bd.pop("swift_code", None)  # Airwallex drops it for a LOCAL IBAN payee, on the beneficiary and the transfer (DE, live 6 Nov)
+    return bd
 
 
 def paged(c: TenantClient, path: str) -> list[dict]:
@@ -96,8 +105,8 @@ def ensure_beneficiaries(c: TenantClient, tenant: str) -> dict[str, Any]:
     want = {s["id"]: contractor_payload(s) for s in seed.contractor_seeds(tenant)}
     out = {"beneficiaries": {cid: get_or_create(p) for cid, p in want.items()}, "fee_beneficiary": get_or_create(fee_payload())}
     # pinned from what we MEANT to create, not from what is there now: an id already repointed is caught at release
-    out["pins"] = {out["beneficiaries"][cid]: fingerprint(p["beneficiary"]["bank_details"]) for cid, p in want.items()}
-    out["pins"][out["fee_beneficiary"]] = fingerprint(fee_payload()["beneficiary"]["bank_details"])
+    out["pins"] = {out["beneficiaries"][cid]: fingerprint(stored(p)) for cid, p in want.items()}
+    out["pins"][out["fee_beneficiary"]] = fingerprint(stored(fee_payload()))
     return out
 
 
@@ -225,7 +234,7 @@ def confirm_callback(awx, L, tenant: str, qid: int, approver_id: str, role: str,
     new_id = awx.for_tenant(tenant).post("/beneficiaries/create", payload)["id"]
     reg = load_registry()
     reg["tenants"][tenant]["beneficiaries"][cid] = new_id
-    reg["tenants"][tenant].setdefault("pins", {})[new_id] = fingerprint(payload["beneficiary"]["bank_details"])
+    reg["tenants"][tenant].setdefault("pins", {})[new_id] = fingerprint(stored(payload))
     save_registry(reg)
     with L.tx() as tx:
         tx.execute("UPDATE quarantine SET status='CONFIRMED', data=? WHERE id=?",

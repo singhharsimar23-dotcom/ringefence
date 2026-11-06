@@ -13,6 +13,7 @@ import re
 import threading
 import time
 import uuid
+from copy import deepcopy
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -29,6 +30,15 @@ GB_OK_SORT_CODES = {"040004", "200000", "041907"}
 _USD = {"USD": Decimal(1), "GBP": Decimal("0.79"), "EUR": Decimal("0.92"), "AUD": Decimal("1.52"),
         "CNY": Decimal("7.2"), "HKD": Decimal("7.8")}
 FAILURE_TYPES = {"BENEFICIARY_BANK_RETURNED": ("INCORRECT_ROUTING", "90802: Beneficiary bank returned")}
+
+
+def _as_stored(b: dict) -> dict:
+    """Live Airwallex drops swift_code for a LOCAL IBAN payee (verified 6 Nov)."""
+    ben = deepcopy(b.get("beneficiary") or {})
+    bd = ben.get("bank_details") or {}
+    if bd.get("iban") and b.get("transfer_methods") == ["LOCAL"]:
+        bd.pop("swift_code", None)
+    return ben
 
 
 @dataclass
@@ -241,7 +251,7 @@ class FakeAirwallex:
             if path in ("beneficiaries/create", "beneficiaries/validate"):
                 return self._beneficiary(a, body, create=path.endswith("create"))
             if (m := re.fullmatch(r"beneficiaries/([^/]+)/update", path)) and m[1] in a.beneficiaries:
-                a.beneficiaries[m[1]].update(beneficiary=body["beneficiary"])  # in place: the id stays (as live)
+                a.beneficiaries[m[1]].update(beneficiary=_as_stored(body))  # in place: the id stays (as live)
                 return _json(200, a.beneficiaries[m[1]])
             if path == "beneficiaries/verify_account":
                 bd = body.get("bank_details") or {}
@@ -382,7 +392,7 @@ class FakeAirwallex:
         if not create:
             return _json(200, {"valid": True})
         bid = self._nid("ben")
-        rec = {"id": bid, "nickname": b.get("nickname"), **{k: v for k, v in b.items() if k != "nickname"}}
+        rec = {"id": bid, "nickname": b.get("nickname"), **{k: v for k, v in b.items() if k != "nickname"}, "beneficiary": _as_stored(b)}
         a.beneficiaries[bid] = rec
         return _json(201, rec)
 

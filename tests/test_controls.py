@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal as D
 
 import pytest
-from helpers import acct
+from helpers import acct, sim
 
 from ringfence import beneficiaries as ben
 from ringfence import shadow, store, verify
@@ -120,6 +120,36 @@ def test_a_lost_database_does_not_pay_payroll_twice(orch, awx, fake, tmp_path):
     assert o2.advance(rid2, "kestrel") == "HELD"
     assert len(fake.accounts[acct("kestrel")].transfers) == paid
     assert o2.L.entries(kind="ALERT")[-1]["payload"]["what"] == "ALREADY_PAID_ON_AIRWALLEX"
+
+
+def test_the_pin_covers_every_routing_field_and_matches_what_airwallex_stores(orch, fake):
+    bd = {"bank_country_code": "GB", "account_routing_type1": "sort_code", "account_routing_value1": "041907",
+          "account_number": "07371376", "account_currency": "GBP"}
+    for k, v in (("account_routing_value1", "200000"), ("account_routing_type1", "aba"), ("swift_code", "BARCGB22"),
+                 ("account_currency", "EUR"), ("account_routing_value2", "x")):
+        assert ben.fingerprint({**bd, k: v}) != ben.fingerprint(bd), k
+    reg = ben.load_registry()["tenants"]["northwind"]  # Lukas: a LOCAL IBAN payee, whose swift_code Airwallex drops
+    c = orch.awx.for_tenant("northwind")
+    assert all(ben.fingerprint(c.get(f"/beneficiaries/{b}")["beneficiary"]["bank_details"]) == p for b, p in reg["pins"].items())
+
+
+def test_the_fee_payee_moved_to_another_bank_under_the_same_account_number_is_not_paid(orch, fake, L):
+    fbid = ben.load_registry()["tenants"]["kestrel"]["fee_beneficiary"]
+    c = orch.awx.for_tenant("kestrel")
+    b = deepcopy(c.get(f"/beneficiaries/{fbid}")["beneficiary"])
+    b["bank_details"]["account_routing_value1"] = "200000"  # the platform's account number, someone else's bank
+    c.post(f"/beneficiaries/{fbid}/update", {"transfer_methods": ["LOCAL"], "beneficiary": b})
+    rid = orch.create_run("kestrel", PAY)
+    orch.submit(rid, "kestrel")
+    assert orch.advance(rid, "kestrel") == "RELEASED"  # payroll is not held: only the fee payee moved
+    for t in list(fake.accounts[acct("kestrel")].transfers.values()):
+        sim(orch.awx, "kestrel", t["id"], "SENT")
+        sim(orch.awx, "kestrel", t["id"], "PAID")
+    orch.poll()
+    orch.poll()
+    assert not L.entries(kind="FEE_CHARGED")
+    assert L.entries(kind="GATE_DENY")[-1]["payload"]["code"] == "fee_beneficiary_changed"
+    assert all(t.get("beneficiary_id") != fbid for t in fake.accounts[acct("kestrel")].transfers.values())
 
 
 def test_rate_request_is_recorded_flagged_and_never_applied(orch, L):
