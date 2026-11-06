@@ -71,13 +71,17 @@ def check_cert(doc: dict, pub_path: Path | None = None) -> bool:
 
 # -- report ------------------------------------------------------------------------------------
 def _transfers(c, since: str) -> list[dict]:
-    out, page = [], 0
+    """Live /transfers ignores page_num (6 Nov): page_num 0, 1, 2 all return the first page. `page` is a cursor;
+    the next one comes back as page_after."""
+    out, seen, page = [], set(), "0"
     while True:
-        items = c.get("/transfers", {"from_created_at": since, "page_num": page, "page_size": 100}).get("items", [])
-        out += items
-        if len(items) < 100:
+        r = c.get("/transfers", {"from_created_at": since, "page": page, "page_size": 100})
+        new = [t for t in r.get("items", []) if t["id"] not in seen]
+        seen.update(t["id"] for t in new)
+        out += new
+        page = r.get("page_after")
+        if not page or not new:  # a cursor that repeats itself must not loop forever
             return out
-        page += 1
 
 
 def _chk(name: str, ok: bool, detail: str = "") -> dict:

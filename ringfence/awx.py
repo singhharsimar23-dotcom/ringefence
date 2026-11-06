@@ -54,7 +54,10 @@ def _raise_for(r: httpx.Response) -> Any:
         data = None
     if r.status_code >= 400:
         d = data if isinstance(data, dict) else {}
-        raise AwxError(r.status_code, d.get("code"), str(d.get("message") or r.text[:200]), d.get("details"))
+        code, det = d.get("code"), d.get("details")
+        if code == "request_id_duplicate":  # Charges / CA transfers spell it this way and key the original as source_id
+            code, det = "duplicate_request_id", {**(det or {}), "id": (det or {}).get("source_id", (det or {}).get("id"))}
+        raise AwxError(r.status_code, code, str(d.get("message") or r.text[:200]), det)
     return data
 
 
@@ -134,7 +137,10 @@ class TenantClient:
                     raise AwxTimeout(f"GET {path} failed after retries") from None
             else:
                 if r.status_code not in (429, 500, 502, 503, 504) or i == GET_RETRIES:
-                    return _raise_for(r)
+                    d = _raise_for(r)
+                    if d in (None, {}):  # live: another tenant's or a deleted beneficiary id is 200 with an empty body
+                        raise AwxError(404, "not_found", f"empty 200 for GET {path}")
+                    return d
             self._awx._sleep(0.5 * 2 ** i)
         raise AssertionError("unreachable")
 

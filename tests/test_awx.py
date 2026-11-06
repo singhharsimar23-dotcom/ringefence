@@ -99,3 +99,15 @@ def test_build_backend_fake():
     a, f = build_backend("fake")
     assert isinstance(a, Awx) and f is not None
     assert a.for_tenant("harbour").get("/account")["id"] == "acct_FAKE_harbour"
+
+
+def test_the_ca_transfer_spelling_of_a_duplicate_request_id_is_adopted_like_the_transfers_one():
+    import httpx
+    from ringfence.awx import AwxError, _raise_for
+    r = httpx.Response(400, json={"code": "request_id_duplicate", "message": "used", "details": {"source_id": "tr_1", "source_type": "transfer_id"}})
+    try:
+        _raise_for(r)
+    except AwxError as e:
+        assert (e.code, e.details["id"]) == ("duplicate_request_id", "tr_1")
+    else:
+        raise AssertionError("no error raised")

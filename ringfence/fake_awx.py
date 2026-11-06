@@ -236,7 +236,7 @@ class FakeAirwallex:
                                    "total_count": len(a.beneficiaries)})
             if m := re.fullmatch(r"beneficiaries/([^/]+)", path):
                 b = a.beneficiaries.get(m[1])
-                return _json(200, b) if b else _err(404, "not_found", "beneficiary not found")
+                return _json(200, b) if b else httpx.Response(200, content=b"")  # live 6 Nov: a foreign or deleted id is an empty 200
             if path == "global_accounts":
                 return _json(200, {"items": list(a.gas.values()), "has_more": False})
             if path == "deposits":
@@ -304,9 +304,11 @@ class FakeAirwallex:
             lo = datetime.fromisoformat(qs["from_created_at"].replace("Z", "+00:00").replace("+0000", "+00:00"))
             items = [t for t in items if datetime.fromisoformat(t["created_at"]) >= lo]
         size = int(qs.get("page_size", 100))
-        page = int(qs.get("page", qs.get("page_num", 0)))
-        chunk = items[page * size:(page + 1) * size]
-        return _json(200, {"items": chunk})
+        start = int(str(qs.get("page", "0")).removeprefix("cur-") or 0)  # like live: page_num is ignored, page is a cursor
+        body = {"items": items[start:start + size]}
+        if start + size < len(items):
+            body["page_after"] = f"cur-{start + size}"
+        return _json(200, body)
 
     def _create_transfer(self, a: Account, b: dict) -> httpx.Response:
         rid = b.get("request_id")

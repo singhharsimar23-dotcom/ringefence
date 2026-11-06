@@ -223,3 +223,21 @@ def test_shadow_total_never_quotes_an_empty_currency(awx, fake, monkeypatch):
     monkeypatch.setattr(shadow, "get_quote", lambda c, sell, buy, **k: asked.append(sell) or real(c, sell, buy, **k))
     total, complete = shadow.naive_total(awx, "AUD")
     assert "JPY" not in asked and complete and total > D(1000000)
+
+
+def test_a_payee_airwallex_answers_with_an_empty_200_holds_the_run_by_name(orch, fake, L):
+    # live 6 Nov: GET /beneficiaries/{id} for a deleted (or another employer's) id is 200 with an empty body
+    rid = orch.create_run("kestrel", PAY)
+    assert orch.submit(rid, "kestrel") == "READY"
+    del fake.accounts[acct("kestrel")].beneficiaries[store.get_lines(L, rid, "kestrel")[0]["beneficiary_id"]]
+    assert orch.advance(rid, "kestrel") == "HELD"
+    assert fake.accounts[acct("kestrel")].transfers == {}
+
+
+def test_proof_sees_every_transfer_when_airwallex_ignores_page_num(awx, fake):
+    a = fake.accounts[acct("kestrel")]
+    for i in range(250):
+        a.transfers[f"t{i}"] = {"id": f"t{i}", "request_id": f"r{i}", "created_at": "2026-11-06T00:00:00+00:00"}
+    fake._view = lambda acc, t: dict(t)
+    got = verify._transfers(awx.for_tenant("kestrel"), "2026-11-01T00:00:00+0000")
+    assert len(got) == 250 == len({t["id"] for t in got})
