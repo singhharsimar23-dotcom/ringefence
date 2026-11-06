@@ -67,7 +67,7 @@ const SHOTS: Shot[] = [
   raw(at("Then I tried really hard") - 0.1, at("fell for all"), "app_proof"),
   raw(at("fell for all") - 0.1, at("I fired 20"), "code_gauntlet"),
   S(at("I fired 20") - 0.1, at("tampered"), () => <Break from={8.38} />),
-  S(at("tampered") - 0.1, at("I think you get"), () => <Break from={18} />),
+  S(at("tampered") - 0.1, at("I think you get"), () => <Break from={25.7} rate={0.6} />),
   face(at("I think you get"), at("The demo's live")),
   S(at("The demo's live") - 0.1, at("So back to my question"), () => <TryIt />),
   face(at("So back to my question"), CLOSE),
