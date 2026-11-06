@@ -12,7 +12,8 @@ import {Bams, Chapter, FaceBubble, Raw, RawCuts} from "./real";
 
 export const OPEN = 0;
 export const END_CARD = 5.5;
-const FILM = TOTAL + END_CARD; // in voice time
+const OUTRO = 6.2; // black screen goodbyes, fills the film to just under 5:00
+const FILM = TOTAL + END_CARD + OUTRO; // in voice time
 export const LENGTH = OPEN + FILM; // under 5:00
 
 type Shot = {from: number; to: number; el: (t0: number) => React.ReactNode; subs?: boolean; face?: boolean};
@@ -71,7 +72,8 @@ const SHOTS: Shot[] = [
   face(at("I think you get"), at("The demo's live")),
   S(at("The demo's live") - 0.1, at("So back to my question"), () => <TryIt />),
   face(at("So back to my question"), CLOSE),
-  S(CLOSE, FILM, () => <EndCard />, false),
+  S(CLOSE, TOTAL + END_CARD, () => <EndCard />, false),
+  S(TOTAL + END_CARD, FILM, () => <Outro />, false),
 ];
 
 // one punch line per beat, only where the number is the point
@@ -126,6 +128,23 @@ const EndCard: React.FC = () => {
         </div>
       </AbsoluteFill>
     </Stage>
+  );
+};
+
+// one word at a time on black, each in its own script: in from a blur, out into one
+const BYES: [string, number, number][] = [["bye", 0.5, 2.0], ["adiós", 2.2, 3.7], ["नमस्ते", 3.9, 5.7]];
+const Outro: React.FC = () => {
+  const t = useT();
+  return (
+    <AbsoluteFill style={{background: "#000", alignItems: "center", justifyContent: "center"}}>
+      {BYES.map(([w, a, b]) => {
+        const i = ramp(t, a, a + 0.55), o = ramp(t, b - 0.4, b);
+        return t >= a && t < b ? (
+          <div key={w} style={{position: "absolute", fontFamily: `${SANS}, "Nirmala UI"`, fontSize: 132, fontWeight: 600, letterSpacing: "-0.03em", color: "#f5f5f7",
+            opacity: i * (1 - o), filter: `blur(${(1 - i) * 18 + o * 14}px)`, transform: `scale(${0.94 + 0.06 * i + 0.03 * o})`}}>{w}</div>
+        ) : null;
+      })}
+    </AbsoluteFill>
   );
 };
 
