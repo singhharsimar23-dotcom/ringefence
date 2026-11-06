@@ -1,0 +1,8 @@
+node_modules/
+public/cap/
+public/*.mp4
+public/*.mp3
+out/
+public/news/
+public/chain/
+public/awx/
