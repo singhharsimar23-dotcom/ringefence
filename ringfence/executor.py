@@ -208,6 +208,8 @@ class Executor:
                 "transfer_amount": Decimal(ln["amount"]), "transfer_currency": ln["currency"],
                 "source_currency": ln["currency"], "transfer_method": ln["method"], "reason": REASON,
                 "reference": reference(ln["run_id"], ln["tenant"])}
+        seq, head = self.L.head()  # the ledger head travels with the transfer, so rewriting the ledger later no longer matches Airwallex's copy
+        body["metadata"] = {"rf_seq": str(seq), "rf_hash": head}
         payee = ben.load_registry().get("tenants", {}).get(ln["tenant"], {}).get("payees", {}).get(ln["beneficiary_id"])
         if payee:  # the approved bank details travel with the request, so an id repointed after release cannot redirect it
             body.pop("beneficiary_id")
@@ -251,6 +253,10 @@ class Executor:
             t = c.get(f"/transfers/{tid}") if tid else c.transfer_by_request(ln["request_id"])
         except (AwxError, AwxTimeout):
             t = None
+        self._adopt_found(ln, t)
+
+    def _adopt_found(self, ln: dict, t: dict | None) -> None:
+        """A transfer was found by request_id (duplicate, 409, timeout, restart). Adopt it only if it is exactly this line."""
         pin = ben.load_registry().get("tenants", {}).get(ln["tenant"], {}).get("pins", {}).get(ln["beneficiary_id"])
         same_payee = t is not None and (t["beneficiary_id"] == ln["beneficiary_id"] if t.get("beneficiary_id")
                                         else pin is not None and ben.dest_fp(t.get("beneficiary") or {}) == pin)
@@ -280,7 +286,7 @@ class Executor:
             except (AwxError, AwxTimeout):
                 t = None
             if t is not None:
-                self._apply(ln, t, "RECONCILED")
+                self._adopt_found(ln, t)
                 return store.get_line(self.L, run_id, tenant, cid)["state"]
             if i < len(BACKOFF) - 1:
                 self._sleep(delay)
@@ -338,7 +344,7 @@ class Executor:
             rid = make_request_id(run_id, tenant, cid, attempt)
             store.set_line(tx, run_id, tenant, cid, "PLANNED", attempt=attempt, round=rnd, request_id=rid,
                            prev_transfer_id=ln["transfer_id"], transfer_id=None, awx_status=None)
-            store.set_run(tx, run_id, tenant, state="AWAITING_APPROVAL", round=rnd)
+            store.set_run(tx, run_id, tenant, state=run["state"] if run["state"] == "HELD" else "AWAITING_APPROVAL", round=rnd)  # a hold is not washed by a return
             tx.append("REOPENED", {"contractor_id": cid, "attempt": attempt, "round": rnd, "request_id": rid,
                                    "prev_transfer_id": ln["transfer_id"], "failure_type": t.get("failure_type"),
                                    "failure_reason": t.get("failure_reason")}, run_id, tenant)
@@ -396,7 +402,7 @@ class Executor:
             except (AwxError, AwxTimeout):
                 continue
             if t is not None:
-                self._apply(ln, t, "RECONCILED")
+                self._adopt_found(ln, t)
                 continue
             with self.L.tx() as tx:
                 store.set_line(tx, ln["run_id"], ln["tenant"], ln["contractor_id"], "READY")

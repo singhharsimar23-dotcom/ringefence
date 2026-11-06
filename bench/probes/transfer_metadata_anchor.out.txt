@@ -1,0 +1,6 @@
+create 517a75db-f6c1-4077-962b-9c749a8b6874 SCHEDULED metadata on create response: {'rf_hash': 'abababababababababababababababababababababababababababababababab', 'rf_seq': '123'}
+GET   metadata: {'rf_hash': 'abababababababababababababababababababababababababababababababab', 'rf_seq': '123'} | round-trips exactly: True
+LIST  metadata: {'rf_hash': 'abababababababababababababababababababababababababababababababab', 'rf_seq': '123'}
+cancel 400 update_unsupported
+final status CANCELLED
+deleted payee b3f0a748-5024-44e5-9e8c-9b1b6c1cbe6e

@@ -112,6 +112,10 @@ def _tenant_report(tenant: str, L: Ledger, reg: dict, seen: dict[str, list[dict]
                  (Decimal(str(t["transfer_amount"])) != Decimal(e["payload"]["amount"])
                   or t["transfer_currency"] != e["payload"]["currency"])]
     missing = [rid for rid in intents if len(by_req.get(rid, [])) != 1]
+    # shortcut: transfers made before the stamp existed (and fee transfers) carry none and are skipped, not failed
+    anchored = [t["id"] for t in ts if (m := t.get("metadata") or {}).get("rf_seq")
+                and (r := L.query("SELECT hash FROM ledger WHERE seq=?", (int(m["rf_seq"]),))) is not None
+                and (not r or r[0]["hash"] != m.get("rf_hash"))]
     elsewhere = [rid for rid in intents for other, tl in seen.items()
                  if other != tenant and any(t.get("request_id") == rid for t in tl)]
     paid_per_payee: dict[str, int] = {}
@@ -126,6 +130,7 @@ def _tenant_report(tenant: str, L: Ledger, reg: dict, seen: dict[str, list[dict]
         _chk("Every payee is one of this employer's own beneficiaries", not foreign_ben, ",".join(foreign_ben)),
         _chk("Every payment went to the bank account a human approved", not redirected, ",".join(redirected)),
         _chk("Amounts and currencies equal the approved lines", not wrong_amt, ",".join(wrong_amt)),
+        _chk("The ledger still matches the head hash stamped on each transfer at Airwallex", not anchored, ",".join(anchored)),
         _chk("Each intent has exactly one transfer here", not missing, ",".join(missing)),
         _chk("No intent produced a transfer in another employer's account", not elsewhere, ",".join(elsewhere)),
         _chk("No contractor was paid twice", not doubles, ",".join(doubles)),

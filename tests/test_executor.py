@@ -294,3 +294,28 @@ def test_a_transfer_in_approval_is_reserved_against_the_next_run(awx, fake, L, e
     run2 = store.get_run(L, "run-2", "kestrel")
     facts, _ = ex._facts(awx.for_tenant("kestrel"), run2, store.get_lines(L, "run-2", "kestrel"))
     assert facts.undebited_inflight == {ln["currency"]: D(ln["amount"])}
+
+
+def test_a_transfer_found_by_request_id_that_differs_from_the_line_is_held_not_adopted(awx, fake, L, ex):
+    from ringfence import beneficiaries as ben
+    new_run(awx, L, "kestrel", {"noah": D(10)})
+    ln = lines(L, "kestrel")["noah"]
+    awx.for_tenant("kestrel").post("/transfers/create", {  # someone with the API key got there first, with another amount
+        "request_id": ln["request_id"], "beneficiary_id": ln["beneficiary_id"], "transfer_amount": D("1.00"),
+        "transfer_currency": ln["currency"], "source_currency": ln["currency"], "transfer_method": ln["method"], "reason": "x"})
+    fake.inject("error_before_commit", status=409, n=1)
+    ex.release(RUN, "kestrel")
+    after = lines(L, "kestrel")["noah"]
+    assert after["state"] == "HOLD" and after["hold_reason"] == "DUPLICATE_MISMATCH" and n_transfers(fake, "kestrel") == 1
+
+
+def test_a_late_return_does_not_wash_a_hold_into_awaiting_approval(awx, fake, L):
+    ex = fee_executor(awx, L)
+    new_run(awx, L, "kestrel")
+    ex.release(RUN, "kestrel")
+    settle(awx, ex, L, "kestrel")
+    with L.tx() as tx:
+        store.set_run(tx, RUN, "kestrel", state="HELD", hold_reason="DRIFT")
+    fake.late_failure(acct("kestrel"), lines(L, "kestrel")["noah"]["transfer_id"])
+    ex.poll_inflight()
+    assert store.get_run(L, RUN, "kestrel")["state"] == "HELD" and lines(L, "kestrel")["noah"]["state"] == "PLANNED"

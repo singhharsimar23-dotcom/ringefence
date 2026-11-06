@@ -340,7 +340,7 @@ class FakeAirwallex:
         t = {"id": tid, "request_id": rid, "status": status, "beneficiary_id": b.get("beneficiary_id"),
              "transfer_amount": amt, "transfer_currency": ccy, "source_currency": src,
              "transfer_method": b["transfer_method"], "reason": b.get("reason"), "reference": b.get("reference"),
-             "created_at": datetime.now(UTC).isoformat(), "fee_amount": fee, "debited": False,
+             "metadata": b.get("metadata"), "created_at": datetime.now(UTC).isoformat(), "fee_amount": fee, "debited": False,
              "beneficiary": {"bank_details": dict(ben.get("beneficiary", {}).get("bank_details", {}))}}  # snapshot, as live
         a.transfers[tid] = t
         a.req_index[rid] = tid

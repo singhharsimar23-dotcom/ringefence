@@ -59,3 +59,15 @@ def test_tampering_a_ledger_row_is_caught_at_that_seq(world, L, tmp_path):
     v = L.verify(tmp_path)
     assert not v.ok and v.bad_seq == seq
     assert cert.exists()
+
+
+def test_a_rewritten_ledger_no_longer_matches_the_head_stamped_on_the_transfers(world, awx, L):
+    stamped = [t for t in world.awx.for_tenant("kestrel").get("/transfers", {"page": "0", "page_size": 100})["items"] if t.get("metadata")]
+    assert stamped and verify.report(awx, L)["ok"]
+    seq = int(stamped[0]["metadata"]["rf_seq"])
+    con = sqlite3.connect(L.path)
+    con.execute("DROP TRIGGER ledger_no_update")  # whoever holds the disk rewrites a row and recomputes the chain
+    con.execute("UPDATE ledger SET hash='0'*64 WHERE seq=?".replace("'0'*64", "'" + "0" * 64 + "'"), (seq,))
+    con.commit()
+    rep = verify.report(awx, L)
+    assert not rep["ok"] and any("head hash" in c["name"] and not c["ok"] for c in rep["tenants"]["kestrel"]["checks"])

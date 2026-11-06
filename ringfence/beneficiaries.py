@@ -244,7 +244,8 @@ def confirm_callback(awx, L, tenant: str, qid: int, approver_id: str, role: str,
         raise PermissionError("the person who proposed the change cannot confirm it")
     if len(callback_ref.strip()) < 4 or not rec["valid"]:
         raise ValueError("a phone-callback reference (4+ characters) is required, and the details must have validated")
-    if rec.get("name_match") == "NOT_MATCHED":  # a phone call can be faked; the bank's own record of the holder cannot
+    strict = os.environ.get("RF_STRICT_NAME_MATCH") == "1"  # production: anything but FULL_MATCH blocks; the sandbox calls real accounts INVALID
+    if rec.get("name_match") == "NOT_MATCHED" or (strict and rec.get("name_match") != "FULL_MATCH"):  # a phone call can be faked; the bank's own record of the holder cannot
         raise ValueError("the bank says this account is not in the contractor's name, so it cannot be confirmed")
     seed_c = next(c for c in seed.contractor_seeds(tenant) if c["id"] == cid)
     payload = contractor_payload({**seed_c, "bank": rec["bank"]})

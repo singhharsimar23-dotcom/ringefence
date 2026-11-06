@@ -285,3 +285,15 @@ def test_a_wallet_or_bare_snapshot_never_matches_a_bank_pin():
     assert ben.dest_fp({"bank_details": {"account_number": "1"}}) == pin
     assert ben.dest_fp({"digital_wallet": {"account_number": "1"}}) != pin
     assert ben.dest_fp({}) == "unknown" != pin
+
+
+@pytest.mark.parametrize("verdict", ["INVALID", "UNAVAILABLE", "PARTIAL_MATCH"])
+def test_strict_name_match_blocks_every_verdict_but_full_match(orch, L, monkeypatch, verdict):
+    rid = orch.create_run("northwind", PAY)
+    monkeypatch.setattr(ben, "name_match", lambda *a: verdict)
+    q = orch.propose_bank_change(rid, "northwind", "ada", NEW_BANK, "email-0", "maya")
+    monkeypatch.setenv("RF_STRICT_NAME_MATCH", "1")
+    with pytest.raises(ValueError, match="not in the contractor's name"):
+        orch.confirm_bank_change("northwind", q["id"], "priya", role(L, "northwind"), "call-4411")
+    monkeypatch.delenv("RF_STRICT_NAME_MATCH")  # default (sandbox demo): only NOT_MATCHED blocks
+    orch.confirm_bank_change("northwind", q["id"], "priya", role(L, "northwind"), "call-4411")
