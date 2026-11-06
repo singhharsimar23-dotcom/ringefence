@@ -241,3 +241,10 @@ def test_proof_sees_every_transfer_when_airwallex_ignores_page_num(awx, fake):
     fake._view = lambda acc, t: dict(t)
     got = verify._transfers(awx.for_tenant("kestrel"), "2026-11-01T00:00:00+0000")
     assert len(got) == 250 == len({t["id"] for t in got})
+
+def test_proof_fails_rather_than_certify_a_stalled_transfer_cursor():
+    class Stalled:  # page 0 has one transfer; every later page repeats the cursor and adds nothing
+        def get(self, path, params):
+            return {"items": [{"id": "t0"}] if params["page"] == "0" else [], "page_after": "same"}
+    with pytest.raises(RuntimeError, match="stalled"):
+        verify._transfers(Stalled(), "2026-11-01T00:00:00Z")

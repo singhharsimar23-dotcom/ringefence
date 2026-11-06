@@ -80,8 +80,10 @@ def _transfers(c, since: str) -> list[dict]:
         seen.update(t["id"] for t in new)
         out += new
         page = r.get("page_after")
-        if not page or not new:  # a cursor that repeats itself must not loop forever
+        if not page:
             return out
+        if not new:  # a stalled cursor means a truncated listing: Proof must fail, not certify a partial list
+            raise RuntimeError("Airwallex /transfers cursor stalled: transfer list incomplete")
 
 
 def _chk(name: str, ok: bool, detail: str = "") -> dict:
