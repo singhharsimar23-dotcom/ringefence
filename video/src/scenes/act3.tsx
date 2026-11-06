@@ -28,8 +28,6 @@ const Paper: React.FC<{src: string; iw: number; w: number; t0: number; enter: nu
   };
 
 export const Evidence: React.FC<{t0: number}> = ({t0}) => {
-  const t = useT();
-  const tl = at("Once they were in") - t0;
   return (
     <AbsoluteFill style={{background: C.bg}}>
       <Paper src="news/guardian_h.png" iw={2300} w={1180} t0={t0} enter={t0} x={120} y={110} rot={-1.2} label="THE GUARDIAN · 3 NOV 2026"
@@ -37,21 +35,7 @@ export const Evidence: React.FC<{t0: number}> = ({t0}) => {
       <Paper src="news/bbc_h.png" iw={1600} w={980} t0={t0} enter={at("fake job") - 0.35} x={820} y={300} rot={1.0} label="BBC NEWS · 3 NOV 2026"
         hl={[{x: 600, y: 48, w: 685, h: 80, at: at("fake job") + 0.1}]} dim={at("ended with")} />
       <Paper src="news/coindesk_h.png" iw={1440} w={1000} t0={t0} enter={at("ended with") - 0.3} x={300} y={420} rot={-0.6} label="COINDESK · 3 NOV 2026"
-        hl={[{x: 458, y: 393, w: 478, h: 50, at: at("inside the system")}]} dim={at("Once they were in")} />
-      {/* the window CoinDesk reports: funds leaving 20:05 UTC 29 Oct, contained 00:10 UTC 30 Oct */}
-      <AbsoluteFill style={{justifyContent: "center", alignItems: "center", opacity: ramp(t, tl, tl + 0.5), background: "rgba(0,0,0,.93)"}}>
-        <div style={{width: 1300}}>
-          <div style={{display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 26, color: C.mute}}>
-            <span>20:05 UTC · 29 Oct</span><span>00:10 UTC · 30 Oct</span>
-          </div>
-          <div style={{height: 10, background: C.line, borderRadius: 5, margin: "22px 0 30px", overflow: "hidden"}}>
-            <div style={{height: "100%", width: `${ramp(t, tl + 0.4, tl + 3.6, 0, 100, (x) => x)}%`, background: C.red}} />
-          </div>
-          <div style={{fontFamily: SANS, fontSize: 64, fontWeight: 760, letterSpacing: "-0.03em", color: C.ink}}>
-            ≈ 4 hours <span style={{color: C.mute, fontWeight: 600}}>before it was contained.</span>
-          </div>
-        </div>
-      </AbsoluteFill>
+        hl={[{x: 458, y: 393, w: 478, h: 50, at: at("inside the system")}]} />
     </AbsoluteFill>
   );
 };
