@@ -62,6 +62,17 @@ def fingerprint(bank_details: dict) -> str:
     return hashlib.sha256(s.encode()).hexdigest()[:16]
 
 
+def dest_fp(rec: dict) -> str:
+    """Fingerprint of where a beneficiary or transfer snapshot sends money. Bank payees carry bank_details; Airwallex Pay
+    (DIGITAL_WALLET) snapshots carry only digital_wallet (live 6 Nov). Neither field is "unknown", which matches no pin."""
+    if rec.get("bank_details"):
+        return fingerprint(rec["bank_details"])
+    if rec.get("digital_wallet"):
+        s = json.dumps(sorted((k, str(v).replace(" ", "").upper()) for k, v in rec["digital_wallet"].items()))
+        return "dw-" + hashlib.sha256(s.encode()).hexdigest()[:16]
+    return "unknown"
+
+
 def stored(payload: dict) -> dict:
     """The bank details as Airwallex keeps them for this create payload, so a pin matches the live record exactly."""
     bd = dict(payload["beneficiary"]["bank_details"])
@@ -117,12 +128,12 @@ def drifted(c: TenantClient, tenant: str, lines: list[dict]) -> list[dict]:
     for ln in lines:
         bid = ln["beneficiary_id"]
         try:
-            bd = c.get(f"/beneficiaries/{bid}")["beneficiary"]["bank_details"]
+            rec = c.get(f"/beneficiaries/{bid}").get("beneficiary") or {}
         except AwxError:
             continue
-        if fingerprint(bd) != pins.get(bid):
+        if dest_fp(rec) != pins.get(bid):  # a payee with no bank_details (a wallet, or a bare record) is drift, never a pass
             out.append({"contractor_id": ln["contractor_id"], "beneficiary_id": bid, "approved": pins.get(bid),
-                        "live": fingerprint(bd), "live_last4": bank_key(bd)[-4:]})
+                        "live": dest_fp(rec), "live_last4": bank_key(rec.get("bank_details") or rec.get("digital_wallet") or {})[-4:]})
     return out
 
 

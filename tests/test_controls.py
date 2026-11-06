@@ -248,3 +248,21 @@ def test_proof_fails_rather_than_certify_a_stalled_transfer_cursor():
             return {"items": [{"id": "t0"}] if params["page"] == "0" else [], "page_after": "same"}
     with pytest.raises(RuntimeError, match="stalled"):
         verify._transfers(Stalled(), "2026-11-01T00:00:00Z")
+
+def test_a_payee_that_became_a_wallet_holds_the_run_instead_of_skipping_the_check(orch, fake, L):
+    # Airwallex Pay (DIGITAL_WALLET) records carry digital_wallet and no bank_details; that used to skip or crash the check
+    rid = orch.create_run("kestrel", PAY)
+    assert orch.submit(rid, "kestrel") == "READY"
+    bid = store.get_lines(L, rid, "kestrel")[0]["beneficiary_id"]
+    rec = fake.accounts[acct("kestrel")].beneficiaries[bid]["beneficiary"]
+    rec.pop("bank_details")
+    rec["digital_wallet"] = {"account_name": "Sandbox Business", "account_number": "12345678"}
+    assert orch.advance(rid, "kestrel") == "HELD"
+    assert fake.accounts[acct("kestrel")].transfers == {}
+
+
+def test_a_wallet_or_bare_snapshot_never_matches_a_bank_pin():
+    pin = ben.fingerprint({"account_number": "1"})
+    assert ben.dest_fp({"bank_details": {"account_number": "1"}}) == pin
+    assert ben.dest_fp({"digital_wallet": {"account_number": "1"}}) != pin
+    assert ben.dest_fp({}) == "unknown" != pin

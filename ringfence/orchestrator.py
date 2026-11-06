@@ -195,9 +195,8 @@ class Orchestrator:
                 t = c.get(f"/transfers/{ln['transfer_id']}")
             except (AwxError, AwxTimeout):
                 continue  # Proof re-checks every snapshot
-            bd = (t.get("beneficiary") or {}).get("bank_details")
-            if not bd or t.get("status") in ("CANCELLED", "FAILED") or ben.fingerprint(bd) == pins.get(ln["beneficiary_id"]):
-                continue
+            if t.get("status") in ("CANCELLED", "FAILED") or ben.dest_fp(t.get("beneficiary") or {}) == pins.get(ln["beneficiary_id"]):
+                continue  # a snapshot with neither bank_details nor digital_wallet is "unknown", so it is cancelled, not skipped
             cancelled = False
             for i in range(5):  # live: a transfer refuses updates for a few seconds right after create
                 try:
