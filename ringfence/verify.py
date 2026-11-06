@@ -96,6 +96,9 @@ def _tenant_report(tenant: str, L: Ledger, reg: dict, seen: dict[str, list[dict]
 
     unknown = [t["id"] for t in ts if t.get("request_id") not in intents]
     foreign_ben = [t["id"] for t in ts if t.get("beneficiary_id") not in own_bens]
+    pins = own.get("pins", {})  # the transfer's own snapshot of where it went, against what a human approved
+    redirected = [t["id"] for t in ts if t.get("beneficiary_id") in own_bens and (t.get("beneficiary") or {}).get("bank_details")
+                  and ben.fingerprint(t["beneficiary"]["bank_details"]) != pins.get(t["beneficiary_id"])]
     wrong_amt = [t["id"] for t in ts if (e := intents.get(t.get("request_id"))) and
                  (Decimal(str(t["transfer_amount"])) != Decimal(e["payload"]["amount"])
                   or t["transfer_currency"] != e["payload"]["currency"])]
@@ -112,6 +115,7 @@ def _tenant_report(tenant: str, L: Ledger, reg: dict, seen: dict[str, list[dict]
     checks = [
         _chk("Every transfer in this account has a ledger intent for this employer", not unknown, ",".join(unknown)),
         _chk("Every payee is one of this employer's own beneficiaries", not foreign_ben, ",".join(foreign_ben)),
+        _chk("Every payment went to the bank account a human approved", not redirected, ",".join(redirected)),
         _chk("Amounts and currencies equal the approved lines", not wrong_amt, ",".join(wrong_amt)),
         _chk("Each intent has exactly one transfer here", not missing, ",".join(missing)),
         _chk("No intent produced a transfer in another employer's account", not elsewhere, ",".join(elsewhere)),

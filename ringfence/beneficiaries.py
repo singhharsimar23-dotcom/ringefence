@@ -5,6 +5,7 @@ this tenant's registry, never taken from the model or from an email.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from typing import Any
@@ -50,6 +51,16 @@ def bank_key(bank_details: dict) -> str:
     return str(bank_details.get("iban") or bank_details.get("account_number") or "")
 
 
+PIN_KEYS = ("bank_country_code", "iban", "account_routing_value1", "account_number")
+
+
+def fingerprint(bank_details: dict) -> str:
+    """The destination itself, not the id that points at it: Airwallex lets anyone with beneficiary:write repoint an id
+    in place (POST /beneficiaries/{id}/update keeps the id; verified live 6 Nov), so approving an id approves nothing."""
+    s = "|".join(str(bank_details.get(k) or "").replace(" ", "").upper() for k in PIN_KEYS)
+    return hashlib.sha256(s.encode()).hexdigest()[:16]
+
+
 def paged(c: TenantClient, path: str) -> list[dict]:
     out, page = [], 0
     while True:
@@ -82,8 +93,28 @@ def ensure_beneficiaries(c: TenantClient, tenant: str) -> dict[str, Any]:
                 raise RuntimeError(f"{tenant}/{nick}: {e}") from None
         return have[nick]
 
-    return {"beneficiaries": {s["id"]: get_or_create(contractor_payload(s)) for s in seed.contractor_seeds(tenant)},
-            "fee_beneficiary": get_or_create(fee_payload())}
+    want = {s["id"]: contractor_payload(s) for s in seed.contractor_seeds(tenant)}
+    out = {"beneficiaries": {cid: get_or_create(p) for cid, p in want.items()}, "fee_beneficiary": get_or_create(fee_payload())}
+    # pinned from what we MEANT to create, not from what is there now: an id already repointed is caught at release
+    out["pins"] = {out["beneficiaries"][cid]: fingerprint(p["beneficiary"]["bank_details"]) for cid, p in want.items()}
+    out["pins"][out["fee_beneficiary"]] = fingerprint(fee_payload()["beneficiary"]["bank_details"])
+    return out
+
+
+def drifted(c: TenantClient, tenant: str, lines: list[dict]) -> list[dict]:
+    """Lines whose beneficiary, read live with this tenant's token, no longer holds the account a human approved.
+    No pin counts as drifted (fail closed). An unreadable beneficiary is left to the gate, which denies it."""
+    pins, out = load_registry().get("tenants", {}).get(tenant, {}).get("pins", {}), []
+    for ln in lines:
+        bid = ln["beneficiary_id"]
+        try:
+            bd = c.get(f"/beneficiaries/{bid}")["beneficiary"]["bank_details"]
+        except AwxError:
+            continue
+        if fingerprint(bd) != pins.get(bid):
+            out.append({"contractor_id": ln["contractor_id"], "beneficiary_id": bid, "approved": pins.get(bid),
+                        "live": fingerprint(bd), "live_last4": bank_key(bd)[-4:]})
+    return out
 
 
 # -- var/registry.json -------------------------------------------------------------------------
@@ -126,6 +157,23 @@ def _check_bank(bank: Any) -> dict:
     return bank
 
 
+VERIFY_KEYS = ("account_name", "account_number", "account_routing_type1", "account_routing_value1", "bank_country_code",
+               "iban", "swift_code")
+
+
+def name_match(c: TenantClient, payload: dict) -> str:
+    """Airwallex confirmation of payee: is the account at the bank in the contractor's name? FULL_MATCH, PARTIAL_MATCH
+    or NOT_MATCHED; otherwise the verify code (INVALID, CANNOT_VERIFY) or UNAVAILABLE. Only NOT_MATCHED blocks.
+    shortcut: INVALID does not block because the sandbox calls every non-test account INVALID; block it in production."""
+    b = payload["beneficiary"]
+    try:
+        r = c.post("/beneficiaries/verify_account", {"entity_type": b["entity_type"], "transfer_method": payload["transfer_methods"][0],
+                                                     "bank_details": {k: b["bank_details"][k] for k in VERIFY_KEYS if k in b["bank_details"]}})
+    except AwxError:
+        return "UNAVAILABLE"
+    return str((r.get("details") or {}).get("account_name_match_result") or r.get("code") or "UNAVAILABLE")
+
+
 def propose_bank_change(awx, L, tenant: str, contractor_id: str, bank: dict, doc_id: str, requested_by: str) -> dict:
     """Validate with this tenant's token, then QUARANTINE. Existing details stay in force; nothing is created."""
     bank = _check_bank(bank)
@@ -143,12 +191,13 @@ def propose_bank_change(awx, L, tenant: str, contractor_id: str, bank: dict, doc
         valid, why = True, ""
     except AwxError as e:
         valid, why = False, e.message
-    rec = {"doc_id": doc_id, "requested_by": requested_by, "bank": bank, "valid": valid, "validation": why}
+    rec = {"doc_id": doc_id, "requested_by": requested_by, "bank": bank, "valid": valid, "validation": why,
+           "name_match": name_match(awx.for_tenant(tenant), payload)}
     with L.tx() as tx:
         qid = tx.execute("INSERT INTO quarantine(tenant, contractor_id, status, data) VALUES(?,?,?,?)",
                          (tenant, contractor_id, "ACTIVE", json.dumps(rec))).lastrowid
         tx.append("BENEFICIARY_QUARANTINED", {"quarantine_id": qid, "contractor_id": contractor_id, "doc_id": doc_id,
-                                              "requested_by": requested_by, "valid": valid,
+                                              "requested_by": requested_by, "valid": valid, "name_match": rec["name_match"],
                                               "last4": bank.get("account_number", bank.get("iban", ""))[-4:]},
                   None, tenant)
     return {"id": qid, **rec}
@@ -168,12 +217,15 @@ def confirm_callback(awx, L, tenant: str, qid: int, approver_id: str, role: str,
         raise PermissionError("the person who proposed the change cannot confirm it")
     if len(callback_ref.strip()) < 4 or not rec["valid"]:
         raise ValueError("a phone-callback reference (4+ characters) is required, and the details must have validated")
+    if rec.get("name_match") == "NOT_MATCHED":  # a phone call can be faked; the bank's own record of the holder cannot
+        raise ValueError("the bank says this account is not in the contractor's name, so it cannot be confirmed")
     seed_c = next(c for c in seed.contractor_seeds(tenant) if c["id"] == cid)
     payload = contractor_payload({**seed_c, "bank": rec["bank"]})
     payload["nickname"] = f"{NICK_PREFIX}{cid}:q{qid}"
     new_id = awx.for_tenant(tenant).post("/beneficiaries/create", payload)["id"]
     reg = load_registry()
     reg["tenants"][tenant]["beneficiaries"][cid] = new_id
+    reg["tenants"][tenant].setdefault("pins", {})[new_id] = fingerprint(payload["beneficiary"]["bank_details"])
     save_registry(reg)
     with L.tx() as tx:
         tx.execute("UPDATE quarantine SET status='CONFIRMED', data=? WHERE id=?",

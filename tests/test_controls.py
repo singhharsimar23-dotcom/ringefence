@@ -1,10 +1,13 @@
+from copy import deepcopy
 from datetime import date
 from decimal import Decimal as D
 
 import pytest
 from helpers import acct
 
-from ringfence import shadow, store
+from ringfence import beneficiaries as ben
+from ringfence import shadow, store, verify
+from ringfence.ledger import Ledger
 from ringfence.orchestrator import Orchestrator, Refused
 from ringfence.setup_demo import setup
 
@@ -60,6 +63,63 @@ def test_callback_needs_a_different_person_and_a_reference_then_voids_the_old_ap
     assert orch.advance(rid, "northwind") == "RELEASED"
     t = [x for x in fake.accounts[acct("northwind")].transfers.values() if x["beneficiary_id"] == new_id]
     assert len(t) == 1
+
+
+def test_account_in_someone_elses_name_cannot_be_confirmed_even_after_a_callback(orch, fake, L):
+    rid = orch.create_run("northwind", PAY)
+    old = store.get_line(L, rid, "northwind", "ada")["beneficiary_id"]
+    assert orch.propose_bank_change(rid, "northwind", "ada", NEW_BANK, "email-0", "maya")["name_match"] == "FULL_MATCH"
+    fake.holders["99999901"] = "Mallory Mule"  # the bank's record: this account belongs to someone else
+    q = orch.propose_bank_change(rid, "northwind", "ada", NEW_BANK, "email-1", "maya")
+    assert q["name_match"] == "NOT_MATCHED"
+    with pytest.raises(ValueError, match="not in the contractor's name"):
+        orch.confirm_bank_change("northwind", q["id"], "priya", role(L, "northwind"), "call-4411")
+    assert store.get_line(L, rid, "northwind", "ada")["beneficiary_id"] == old  # the old details stay in force
+
+
+def repoint(awx, tenant, bid):
+    """What an employer's phished web login (or anyone with beneficiary:write) can do: same id, a mule's account."""
+    c = awx.for_tenant(tenant)
+    b = deepcopy(c.get(f"/beneficiaries/{bid}")["beneficiary"])
+    bd = b["bank_details"]
+    bd.update(iban="DE89370400440532013000") if "iban" in bd else bd.update(account_number="99999901")
+    c.post(f"/beneficiaries/{bid}/update", {"transfer_methods": ["LOCAL"], "beneficiary": b})
+
+
+def test_payee_repointed_in_place_on_airwallex_holds_the_run(orch, fake, L):
+    rid = orch.create_run("kestrel", PAY)
+    assert orch.submit(rid, "kestrel") == "READY"
+    ln = store.get_lines(L, rid, "kestrel")[0]
+    repoint(orch.awx, "kestrel", ln["beneficiary_id"])  # the id still matches the registry: the gate alone would pay it
+    assert orch.advance(rid, "kestrel") == "HELD"
+    assert fake.accounts[acct("kestrel")].transfers == {}
+    assert any(e["payload"]["lines"][0]["contractor_id"] == ln["contractor_id"] for e in L.entries(kind="ALERT"))
+    assert orch.resume(rid, "kestrel") == "READY" and orch.advance(rid, "kestrel") == "HELD"  # resuming does not wash it
+
+
+def test_a_repoint_that_wins_the_race_with_the_release_check_still_fails_the_proof(orch, L, monkeypatch):
+    rid = orch.create_run("kestrel", PAY)
+    orch.submit(rid, "kestrel")
+    monkeypatch.setattr(ben, "drifted", lambda *a: [])  # the edit lands between the release check and the create
+    repoint(orch.awx, "kestrel", store.get_lines(L, rid, "kestrel")[0]["beneficiary_id"])
+    assert orch.advance(rid, "kestrel") == "RELEASED"
+    rep = verify.report(orch.awx, L)
+    chk = next(c for c in rep["tenants"]["kestrel"]["checks"] if "human approved" in c["name"])
+    assert not chk["ok"] and not rep["tenants"]["kestrel"]["ok"] and rep["tenants"]["northwind"]["ok"]
+
+
+def test_a_lost_database_does_not_pay_payroll_twice(orch, awx, fake, tmp_path):
+    rid = orch.create_run("kestrel", PAY)
+    orch.submit(rid, "kestrel")
+    assert orch.advance(rid, "kestrel") == "RELEASED"
+    paid = len(fake.accounts[acct("kestrel")].transfers)
+    o2 = Orchestrator(awx, Ledger(tmp_path / "fresh-disk.db"))  # the VM died; a new one starts with an empty ledger
+    rid2 = o2.create_run("kestrel", PAY)
+    assert rid2 == rid  # same obligation, same id, same request_ids
+    o2.submit(rid2, "kestrel")
+    assert o2.advance(rid2, "kestrel") == "HELD"
+    assert len(fake.accounts[acct("kestrel")].transfers) == paid
+    assert o2.L.entries(kind="ALERT")[-1]["payload"]["what"] == "ALREADY_PAID_ON_AIRWALLEX"
 
 
 def test_rate_request_is_recorded_flagged_and_never_applied(orch, L):

@@ -66,6 +66,7 @@ class FakeAirwallex:
         self.tokens: dict[str, str | None] = {}
         self.quotes: dict[str, dict] = {}
         self.webhook_secret = "whsec_fake"
+        self.holders: dict[str, str] = {}  # account number / IBAN -> the holder's name at the bank (verify_account)
         self.log: list[tuple[str, str, str | None]] = []  # (method, path, account) for assertions
         # behaviour knobs (see PROBES.md)
         self.insufficient_funds_mode = "error"  # error | overdue
@@ -239,6 +240,14 @@ class FakeAirwallex:
                 return self._create_transfer(a, body)
             if path in ("beneficiaries/create", "beneficiaries/validate"):
                 return self._beneficiary(a, body, create=path.endswith("create"))
+            if (m := re.fullmatch(r"beneficiaries/([^/]+)/update", path)) and m[1] in a.beneficiaries:
+                a.beneficiaries[m[1]].update(beneficiary=body["beneficiary"])  # in place: the id stays (as live)
+                return _json(200, a.beneficiaries[m[1]])
+            if path == "beneficiaries/verify_account":
+                bd = body.get("bank_details") or {}
+                held = self.holders.get(bd.get("iban") or bd.get("account_number") or "")
+                res = "FULL_MATCH" if held in (None, bd.get("account_name")) else "NOT_MATCHED"
+                return _json(200, {"code": "VERIFIED", "details": {"account_name_match_result": res}})
             if path == "global_accounts/create":
                 return self._create_ga(a, body)
             if path == "simulation/deposit/create":
@@ -309,7 +318,8 @@ class FakeAirwallex:
         t = {"id": tid, "request_id": rid, "status": status, "beneficiary_id": b["beneficiary_id"],
              "transfer_amount": amt, "transfer_currency": ccy, "source_currency": src,
              "transfer_method": b["transfer_method"], "reason": b.get("reason"), "reference": b.get("reference"),
-             "created_at": datetime.now(UTC).isoformat(), "fee_amount": fee, "debited": False}
+             "created_at": datetime.now(UTC).isoformat(), "fee_amount": fee, "debited": False,
+             "beneficiary": {"bank_details": dict(ben.get("beneficiary", {}).get("bank_details", {}))}}  # snapshot, as live
         a.transfers[tid] = t
         a.req_index[rid] = tid
         if status != "OVERDUE" and self.balance_debit_at == "create":

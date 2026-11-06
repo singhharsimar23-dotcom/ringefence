@@ -100,8 +100,31 @@ class Metal:
             raise MetalError(f.get("error") or f.get("reason") or f"Metal CLI exit {rc}")
         return {**f, "rc": rc}
 
+    def mints(self) -> bool:
+        """Harbour's owner key is on this server, so this server can bind any mandate it likes: any payee, any cap.
+        Device-signed mode (no owner.json here) is the fix: see _presigned and scripts/harbour_device.py."""
+        return (self.dir / "owner.json").exists()
+
+    def _presigned(self, rd: Path, usdz) -> dict:
+        """Take one credential Harbour signed AND bound on its own device. Only the owner's bind makes a mandate payable
+        (an issuer-signed credential is refused 'not bound', verified live 6 Nov), and the owner key is not here, so whoever
+        owns this server can pull at most what Harbour signed, to the payee Harbour named, once."""
+        if (rd / "m.json").exists():  # a retry of this same top-up reuses its credential, which Metal lets pay once
+            return {"bound": self.call(["mandate", "status", "--credential", "m.json"], rd).get("mandate"), "transaction": None}
+        for cred in sorted((self.dir / "signed").glob("*/m.json")):
+            st = self.call(["mandate", "status", "--credential", "m.json"], cred.parent)
+            if (st.get("bound"), st.get("revoked"), st.get("payments")) == ("yes", "no", "0") \
+                    and Decimal(st.get("per-payment-cap", "0").split()[0]) >= usdz \
+                    and int(st.get("expiry", "0").split()[0]) > time.time() + 300:
+                rd.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(cred.parent), str(rd))  # used: never offered again
+                return {"bound": st.get("mandate"), "transaction": None}
+        raise MetalError("no top-up mandate signed on Harbour's device covers this shortfall")
+
     def _mandate(self, rd: Path, usdz, ref: str, lifetime_s: int) -> dict:
         """Create and bind Harbour's one-pull mandate (cap = budget = usdz, payee = the settlement wallet) in run dir `rd`."""
+        if not self.mints():
+            return self._presigned(rd, usdz)
         c, owner = self.cfg(), str(self.dir / "owner.json")
         self.call(["mandate", "credential", "create", "--principal", c["principal"], "--payee", c["settlement"], "--cap", str(usdz),
                    "--budget", str(usdz), "--max-occurrences", "1", "--expires-in", str(lifetime_s), "--key", owner,
@@ -157,7 +180,7 @@ class Metal:
 
     def _refused(self, L, run_id: str, tenant: str, pay: dict, amount, to: str, ev: dict) -> dict:
         """Push a pull Metal must refuse, with the refusal recorded on chain. Returns the METAL_REFUSED payload."""
-        if time.time() >= pay.get("expires_at", 0) - 60:  # the one-hour mandate ran out: sign it again so the refusal is for the right reason
+        if self.mints() and time.time() >= pay.get("expires_at", 0) - 60:  # the one-hour mandate ran out: sign it again so the refusal is for the right reason
             self._mandate(self.dir / "runs" / pay["run_dir"], pay["usdz"], pay["run_dir"], 3600)
         r = self.call(["mandate", "pull", "--credential", "m.json", "--to", to, "--amount", str(amount),
                        "--record-refusal", "--key", self.treasury_key()], self.dir / "runs" / pay["run_dir"], ok=(1,))

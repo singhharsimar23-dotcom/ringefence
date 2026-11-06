@@ -126,7 +126,9 @@ def test_world_request_ids_differ(L, monkeypatch):
         ids.append((rid, make_request_id(rid, "northwind", "ada", 1)))
     assert ids[0][0] != ids[1][0] and ids[0][1] != ids[1][1]
     monkeypatch.delenv("RF_WORLD")
-    assert Orchestrator.run_id(stub, date(2026, 11, 14)).count("-") == 1  # the demo's run id is unchanged
+    assert Orchestrator.run_id(stub, date(2026, 11, 14)) == "20261114"  # production: the obligation alone
+    monkeypatch.setenv("RF_DEMO_TAKES", "1")
+    assert Orchestrator.run_id(stub, date(2026, 11, 14)).count("-") == 1  # the demo's take-salted run id is unchanged
 
 
 # -- manager: lifecycle, queue, caps, reaper (no processes) -----------------------------------------------------------

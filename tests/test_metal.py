@@ -1,4 +1,5 @@
 import json
+import time
 
 import pytest
 from invariants import assert_invariants
@@ -27,6 +28,7 @@ def world(awx, L, tmp_path):
     rid = lambda: o.run_id(loop.pay_date())
     sim = Simulator(o, rid, lambda t: loop.run_tick(o, t, mode="scripted"))
     (tmp_path / "state.json").write_text(json.dumps({"principal": "0xPRINCIPAL", "settlement": SETTLE}))
+    (tmp_path / "owner.json").write_text("{}")  # legacy mode: Harbour's owner key on this server (device-signed tests remove it)
     calls = []
 
     def runner(args, cwd):
@@ -60,6 +62,34 @@ def test_topup_pulls_on_metal_then_the_matcher_closes_the_request(world, L, monk
     assert all("s3cret" not in " ".join(a) for a in calls)
     o.advance(rid(), "harbour")
     assert L.entries(kind="FUNDING_MATCHED", tenant="harbour")[-1]["payload"]["reference"] == req["reference"]
+
+
+def test_device_signed_mode_never_binds_here_and_a_retry_cannot_pull_twice(world, L, tmp_path):
+    o, sim, rid, calls = world
+    (tmp_path / "owner.json").unlink()  # the fix: Harbour's owner key lives on Harbour's device, not on this server
+    for name, cap in (("a-small", "1"), ("b-big", "500")):
+        (tmp_path / "signed" / name).mkdir(parents=True)
+        (tmp_path / "signed" / name / "m.json").write_text("{}")
+        (tmp_path / "signed" / name / "cap").write_text(cap)
+    base = sim.metal.runner
+
+    def runner(args, cwd):
+        if "status" in args:
+            return 0, (f"mandate 0x{'e' * 64}\nper-payment-cap {(cwd / 'cap').read_text()} *USDZ\n"
+                       f"expiry {int(time.time()) + 3600} (later)\nbound yes\nrevoked no\npayments 0\n")
+        return base(args, cwd)
+    sim.metal.runner = runner
+    sim._tick("harbour")
+    assert sim.run("metal_topup")["ok"]
+    harbour = [a for a in calls if "--principal" in a and a[a.index("--principal") + 1] == "0xPRINCIPAL"]
+    assert harbour == [] and not any("owner" in x for a in calls for x in a)  # nothing signed for Harbour here (the recycle is the platform's own key)
+    pay = L.entries(kind="METAL_PULL")[0]["payload"]
+    rd = tmp_path / "runs" / pay["run_dir"]
+    assert (rd / "cap").read_text() == "500" and not (tmp_path / "signed" / "b-big").exists()  # the one that covers it, used up
+    sim.metal._mandate(rd, metal.Decimal(pay["usdz"]), pay["run_dir"], 3600)  # a crash-retry of the same top-up
+    assert (tmp_path / "signed" / "a-small").exists()  # reused its own credential, did not take another
+    with pytest.raises(metal.MetalError):  # nothing Harbour signed covers 2 USDZ: no pull, the caller falls back
+        sim.metal._presigned(tmp_path / "runs" / "next", metal.Decimal("2"))
 
 
 def test_over_pull_is_refused_and_recorded(world, L):

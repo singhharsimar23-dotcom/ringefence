@@ -38,8 +38,11 @@ class Orchestrator:
 
     # -- create ------------------------------------------------------------------------------------
     def run_id(self, pay_date: date) -> str:
+        """The obligation, not our memory: a lost or fresh database derives the same request_ids, so Airwallex refuses the
+        second payment. Only a demo that re-runs one pay date after each reset salts it with the ledger epoch."""
         w = os.environ.get("RF_WORLD", "")[:6]  # worlds share one Airwallex account: keep their request_ids apart
-        return f"{pay_date:%Y%m%d}-{self.L.epoch()}" + (f"-{w}" if w else "")
+        take = f"-{self.L.epoch()}" if os.environ.get("RF_DEMO_TAKES") == "1" else ""
+        return f"{pay_date:%Y%m%d}{take}" + (f"-{w}" if w else "")
 
     def ensure_mandates(self) -> None:
         with self.L.tx() as tx:
@@ -161,6 +164,21 @@ class Orchestrator:
                 return self._after_pricing(run_id, tenant)
         elif run["state"] == "READY":
             with self._money:
+                lines, c = store.get_lines(self.L, run_id, tenant, states=("READY",)), self.awx.for_tenant(tenant)
+                # a READY line has no transfer yet (INTENT is written before the create): one on Airwallex means an earlier
+                # copy of us paid it and this ledger forgot (fresh disk, old backup past Airwallex's 7-day request_id memory)
+                paid = [ln["contractor_id"] for ln in lines if (t := c.transfer_by_request(ln["request_id"]))
+                        and t.get("status") not in ("FAILED", "CANCELLED")]
+                if paid:
+                    self.L.append("ALERT", {"what": "ALREADY_PAID_ON_AIRWALLEX", "contractors": paid}, run_id, tenant)
+                    self.hold(run_id, tenant, "already_paid_on_airwallex",
+                              "Airwallex already holds a payment for this obligation that this ledger does not know about")
+                    return "HELD"
+                if bad := ben.drifted(c, tenant, lines):
+                    self.L.append("ALERT", {"what": "BENEFICIARY_CHANGED_OUTSIDE_RINGFENCE", "lines": bad}, run_id, tenant)
+                    self.hold(run_id, tenant, "beneficiary_changed_outside_ringfence",
+                              "a payee's bank account changed on Airwallex, not through Ringfence: re-approve it as a bank change")
+                    return "HELD"
                 return self.ex.release(run_id, tenant)
         return store.get_run(self.L, run_id, tenant)["state"]
 
