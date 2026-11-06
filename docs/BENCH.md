@@ -115,3 +115,45 @@ feature. The gap is in the agent setup: approval binds a pointer, not content.
   approval card has nothing more to go on.
 - **Baseline retry safety comes from Airwallex.** The model chose stable `request_id`s every time. A weaker model, or a
   setup that mints random ids, was not tested.
+
+## Airwallex's batch payroll API pays the payee as it is at submit (live, 6 Nov 2026)
+
+Airwallex pitches batch transfers for "payroll runs and supplier payments", including for platforms acting on behalf of
+connected accounts, and lets API batches go through the account's transfer approval workflow
+([Create a batch transfer](https://www.airwallex.com/docs/payouts/batch-transfers/create-a-batch-transfer.md)).
+
+**Break** ([bench/probes/batch_draft.py](../bench/probes/batch_draft.py), [output](../bench/probes/batch_draft.out.txt)), on
+Northwind with GBP 1.00:
+1. Create a batch and add an item for a payee at ..4444.
+2. Edit that payee in place (same id) to ..9901.
+3. Submit the batch.
+
+Result: 4/4 batches booked a transfer to **..9901**. The batch never shows the reviewer where the money goes: its item
+preview (`transfer_draft`) carries no bank details at any stage, so there is nothing to compare.
+
+| Transfer | Destination |
+|---|---|
+| `f5bd21a8-f6d5-4972-bf83-f6b811733893` | ..9901 |
+| `f1cd2e93-6bd0-4956-a11e-7c87c929d006` | ..9901 |
+| `66404ad8-5105-4884-bfa6-ab72b3750485` | ..9901 |
+| `f72b2134-357f-4e3b-bdd3-a13cb42801c1` | ..9901 |
+
+All four transfers are cancelled.
+
+**Two side findings from the same probe:**
+- The scoped API key can create and submit a batch, but `POST /batch_transfers/{id}/cancel` returns 401 "Admin permissions
+  required". Admin keys are deprecated and disabled, so an API integration can't recall a batch it submitted. It can
+  only cancel the transfers the batch spawns, one by one.
+- Two controls held. A single future-dated transfer keeps the destination it had at create (edited after create, it still
+  went to ..2222, `978f0b6f…`). Kestrel's token paying to Northwind's beneficiary id gets 400 `validation_failed`
+  ([snapshot_timing.out.txt](../bench/probes/snapshot_timing.out.txt)).
+
+**What fixes it:**
+- Send the bank details inline instead of a `beneficiary_id`. A batch item with an inline `beneficiary` booked to exactly
+  those details (..8888, `05bf3293-e9b9-43b4-ab30-bd47ae282b0b`, `beneficiary_id` null), so there is nothing to repoint
+  ([batch_inline.py](../bench/probes/batch_inline.py)).
+- Ringfence doesn't use batches. It pins each payee's bank details at approval, re-reads them at release, and recalls
+  any transfer whose own snapshot differs.
+
+**Not tested:** whether a batch waiting in Airwallex's approval workflow binds at submit or at booking after approval.
+That policy isn't enabled on this sandbox.

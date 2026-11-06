@@ -1,0 +1,25 @@
+
+== A future-dated transfer
+created 978f0b6f-b6ed-4154-993e-63b217fcbb62 SCHEDULED transfer_date 2026-11-11 dest ..2222 sort 040004
+payee update ok
+re-GET after edit: SCHEDULED dest ..2222 sort 040004 | live payee now ..9901 sort 200000
+
+== B batch transfer, edit between add_items and submit
+batch create {'id': '2b53e5a8-107a-4895-8b0d-a510c443f594', 'status': 'DRAFTING', '_error': None, 'code': None, 'msg': None}
+add_items {"funding": {"status": "SCHEDULED"}, "id": "2b53e5a8-107a-4895-8b0d-a510c443f594", "name": "PRB-snap-78144", "request_id": "PRB-snap-78144-batch", "short_reference_id": "B261106-060PSYL", "status": "DRAFTING", "total_item_count": 1, "transfer_date": "2026-11-06", "updated_at": "2026-11-06T15:15:47+0000", "valid_item_count": 1}
+payee update ok
+submit {"funding": {"status": "FUNDED"}, "id": "2b53e5a8-107a-4895-8b0d-a510c443f594", "name": "PRB-snap-78144", "quote_summary": {"expires_at": "2026-11-06T15:16:48+0000", "last_quoted_at": "2026-11-06T15:15:48+0000", "quotes": [{"amount_beneficiary_receives": 1, "amount_payer_pays": 1, "fee_amount": 0, "fee_currency": "GBP", "source_currency": "GBP", "transfer_currency": "GBP"}], "validity": "MIN_1"}, 
+  poll 0: batch BOOKED  transfers for payee: [('f5bd21a8-f6d5-4972-bf83-f6b811733893', 'SCHEDULED', '..9901 sort 200000')]
+  batch detail {"funding": {"status": "FUNDED"}, "id": "2b53e5a8-107a-4895-8b0d-a510c443f594", "name": "PRB-snap-78144", "quote_summary": {"expires_at": "2026-11-06T15:16:48+0000", "last_quoted_at": "2026-11-06T15:15:48+0000", "quotes": [{"amount_beneficiary_receives": 1, "amount_payer_pays": 1, "fee_amount": 0, "fee_currency": "GBP", "source_currency": "GBP", "transfer_currency": "GBP"}], "validity": "MIN_1"}, "request_id": "PRB-snap-78144-batch", "short_reference_id": "B261106-060PSYL", "status": "BOOKED", "total_item_count": 1, "transfer_date": "2026-11-06", "updated_at": "2026-11-06T15:15:49+0000", "valid_item_count": 1}
+
+== C Kestrel token, Northwind beneficiary_id
+GET with Kestrel token: null
+create with Kestrel token: {"id": null, "status": null, "_error": 400, "code": "validation_failed", "msg": "HTTP 400 validation_failed: The request failed our schema validation. Refer to the errors object for erroneous fields, codes and parameters."}
+
+== cleanup
+transfer 978f0b6f-b6ed-4154-993e-63b217fcbb62 CANCELLED
+batch 2b53e5a8-107a-4895-8b0d-a510c443f594 {"_error": 401, "code": "unauthorized", "msg": "HTTP 401 unauthorized: Admin permissions required", "details": null}
+transfer f5bd21a8-f6d5-4972-bf83-f6b811733893 CANCELLED
+beneficiary deleted 5cbb9d54-f127-4ae0-9887-ef4da8d4813b
+beneficiary deleted bb17d5ab-72a7-4cde-8a2e-85c2e874a693
+beneficiary deleted c69061b0-19f9-479a-9566-acf2348546f2

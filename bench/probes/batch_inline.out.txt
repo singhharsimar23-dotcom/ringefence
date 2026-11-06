@@ -1,0 +1,7 @@
+add_items inline: {'funding': {'status': 'SCHEDULED'}, 'id': '8188dc08-df3f-4d27-8687-bcb9261c267c', 'name': 'PRB-snap-78250-inline', 'request_id': 'PRB-snap-78250-inl', 'short_reference_id': 'B261106-2LDL2CK', 'status': 'DRAFTING', 'total_item_count': 1, 'transfer_date': '2026-11-06', 'updated_at': '2026-11-06T15:17
+submit: BOOKING
+transfer [('05bf3293-e9b9-43b4-ab30-bd47ae282b0b', 'SCHEDULED', '..8888 sort 040004', None)]
+
+== cleanup
+transfer 05bf3293-e9b9-43b4-ab30-bd47ae282b0b CANCELLED
+beneficiary deleted e6d8b6a6-5ff8-418a-be47-6e7a054db095

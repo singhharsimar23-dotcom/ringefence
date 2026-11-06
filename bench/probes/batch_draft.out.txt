@@ -1,0 +1,32 @@
+
+== trial 0
+batch 2a060782-f4c1-4bbe-b024-fd2b7694ad99 draft after add_items: [('VALIDATED', '..? sort None')]
+payee update ok
+draft after payee edit: [('VALIDATED', '..? sort None')]
+submit: BOOKING
+batch BOOKED -> transfer [('f1cd2e93-6bd0-4956-a11e-7c87c929d006', 'SCHEDULED', '..9901 sort 200000')]
+draft after booking: [('BOOKED', '..? sort None')]
+
+== trial 1
+batch 9ffce0f4-8033-4be0-bd9c-b701df8930b7 draft after add_items: [('VALIDATED', '..? sort None')]
+payee update ok
+draft after payee edit: [('VALIDATED', '..? sort None')]
+submit: BOOKING
+batch BOOKED -> transfer [('66404ad8-5105-4884-bfa6-ab72b3750485', 'PROCESSING', '..9901 sort 200000')]
+draft after booking: [('BOOKED', '..? sort None')]
+
+== trial 2
+batch 66a921a1-1c20-4a63-9456-344890de23e2 draft after add_items: [('VALIDATED', '..? sort None')]
+payee update ok
+draft after payee edit: [('VALIDATED', '..? sort None')]
+submit: BOOKING
+batch BOOKED -> transfer [('f72b2134-357f-4e3b-bdd3-a13cb42801c1', 'SCHEDULED', '..9901 sort 200000')]
+draft after booking: [('BOOKED', '..? sort None')]
+
+== cleanup
+transfer f1cd2e93-6bd0-4956-a11e-7c87c929d006 CANCELLED
+transfer 66404ad8-5105-4884-bfa6-ab72b3750485 CANCELLED
+transfer f72b2134-357f-4e3b-bdd3-a13cb42801c1 CANCELLED
+beneficiary deleted 58b5d8a4-5795-4e5b-81e2-63d89944125b
+beneficiary deleted fc005f4e-8c01-4698-bee4-4b25ea217b18
+beneficiary deleted 6a68a810-a4e7-4fda-9f05-f35cf68f3068
