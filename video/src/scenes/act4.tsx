@@ -197,23 +197,32 @@ export const Mcp: React.FC<{t0: number}> = ({t0}) => {
   );
 };
 
-// ---- Harsimar's own Airwallex dashboard screenshots, stacked; only used once they exist in public/awx/ ----
-export const AWX = ["awx/1_accounts.png", "awx/2_kestrel_transfers.png", "awx/3_transfer.png", "awx/4_harbour_aud.png", "awx/5_api_key.png"];
+// ---- Harsimar's own Airwallex dashboard screenshots (browser chrome cropped), hard cuts on his words; only used once they exist in public/awx/ ----
+export const AWX = ["awx/1_accounts.png", "awx/2_kestrel_transfers.png", "awx/3_transfer.png"];
+// each: cut-in phrase, outline box in screenshot px (1917x862), focus + zoom chosen so the frame is filled (zoom >= 1080/862)
+const SNAP: {phrase: string; mark: string; box: [number, number, number, number]; focus: [number, number]; zoom: number}[] = [
+  {phrase: "This is real Airwallex", mark: "four separate", box: [370, 412, 1480, 350], focus: [1652, 431], zoom: 1.253},
+  {phrase: "the same transfer", mark: "the same transfer", box: [960, 682, 880, 70], focus: [1917, 431], zoom: 1.253},
+  {phrase: "ID as my", mark: "ID as my", box: [1600, 648, 210, 44], focus: [1880, 668], zoom: 1.9},
+];
 export const AwxStack: React.FC<{t0: number; files: string[]}> = ({t0, files}) => {
   const t = useT();
-  const step = (at("I even tried") - t0) / Math.max(1, files.length);
+  const shots = SNAP.map((s, i) => ({...s, file: AWX[i], from: at(s.phrase) - t0})).filter((s) => files.includes(s.file));
+  const i = Math.max(0, shots.filter((s) => t >= s.from).length - 1);
+  const s = shots[i];
+  const lt = t - s.from;
+  const z = s.zoom * (1 + 0.025 * ramp(lt, 0, 2.5, 0, 1, (x) => x)); // a slow push, never a swoop
+  const m = at(s.mark) - t0 - s.from;
+  const k = 1920 / 1917;
+  const [bx, by, bw, bh] = s.box;
   return (
-    <AbsoluteFill style={{background: C.bg}}>
-      {files.map((f, i) => {
-        const p = ramp(t, i * step, i * step + 0.6);
-        return (
-          <div key={f} style={{position: "absolute", left: 200 + i * 60, top: 90 + i * 40, width: 1400, opacity: p, borderRadius: 10, overflow: "hidden",
-            boxShadow: "0 30px 90px rgba(0,0,0,.7)", border: `1px solid ${C.line}`, transform: `translateY(${(1 - p) * 60}px) scale(${1 - 0.02 * (files.length - 1 - i) * ramp(t, (i + 1) * step, (i + 1) * step + 0.6)})`}}>
-            <Img src={staticFile(f)} style={{width: 1400, display: "block"}} />
-          </div>
-        );
-      })}
-      <Receipt kind="live" text={`transfer ${XFER ? short(XFER.id, 8, 4) : ""}`} at={0.4} />
+    <AbsoluteFill style={{background: "#000", overflow: "hidden"}}>
+      <div style={{position: "absolute", left: 0, top: 109, width: 1920, height: 862, transformOrigin: `${s.focus[0] * k}px ${s.focus[1] * k}px`, transform: `scale(${z})`}}>
+        <Img src={staticFile(s.file)} style={{width: 1920, display: "block"}} />
+        <div style={{position: "absolute", left: bx * k - 8, top: by * k - 6, width: bw * k + 16, height: bh * k + 12, borderRadius: 8,
+          border: `3px solid ${C.accent}`, opacity: ramp(lt, m, m + 0.2)}} />
+      </div>
+      <Receipt kind="live" text={i < 2 ? "sandbox.airwallex.com · 6 Nov 2026" : `${XFER?.short_reference_id ?? ""} · same ID in the Ringfence ledger`} at={i ? 0 : 0.3} />
     </AbsoluteFill>
   );
 };

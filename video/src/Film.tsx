@@ -50,7 +50,7 @@ const SHOTS: Shot[] = [
   S(at("Then I tried a fake") - 0.1, at("Even if someone"), (t0) => <Poison t0={t0} />),
   S(at("Even if someone") - 0.1, at("The money lands"), (t0) => <Blast t0={t0} />),
   S(at("The money lands") - 0.1, at("Not one cent"), () => <HarbourSigns />),
-  S(at("Not one cent") - 0.1, at("This is real Airwallex"), () => <Statement text="0 cents crossed between employers." size={100} />, false),
+  S(at("Not one cent") - 0.1, AWX_HAVE.length ? at("This is real Airwallex") : at("I even tried"), () => <Statement text="0 cents crossed between employers." size={100} />, false),
   ...(AWX_HAVE.length ? [S(at("This is real Airwallex") - 0.1, at("I even tried"), (t0) => <AwxStack t0={t0} files={AWX_HAVE} />)] : []),
   S(at("I even tried") - 0.1, at("So here's a quick one"), (t0) => <Isolation t0={t0} />),
   S(at("So here's a quick one") - 0.1, at("It all is done"), (t0) => <Decisions t0={t0} />),
