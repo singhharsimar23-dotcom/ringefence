@@ -59,13 +59,15 @@ export const Evidence: React.FC<{t0: number}> = ({t0}) => {
 const SETTLEMENT = "0x4b4dFF14d5cb002036A8ac2201F038A3f2654b00"; // the Ringfence settlement wallet (fixed across runs)
 
 // ---- the mandate: each term lands on the phrase that says it, with the real values from the live run ----
-const Term: React.FC<{at: number; k: string; v: string; note: string}> = ({at: a, k, v, note}) => {
-  const p = ramp(useT(), a, a + 0.5);
+const Term: React.FC<{at: number; k: string; v: string; note: string; form?: number}> = ({at: a, k, v, note, form = a}) => {
+  const t = useT();
+  const p = ramp(t, a, a + 0.5);
+  const f = 0.3 * ramp(t, form, form + 0.5) + 0.7 * p; // the empty form shows first, each value fills it in
   return (
     <>
-      <div style={{fontFamily: MONO, fontSize: 24, color: C.mute, opacity: p, letterSpacing: "0.08em"}}>{k}</div>
+      <div style={{fontFamily: MONO, fontSize: 24, color: C.mute, opacity: f, letterSpacing: "0.08em"}}>{k}</div>
       <div style={{fontFamily: MONO, fontSize: 50, fontWeight: 600, color: C.ink, opacity: p, transform: `translateX(${(1 - p) * 16}px)`}}>{v}</div>
-      <div style={{fontFamily: MONO, fontSize: 22, color: C.mute, opacity: ramp(useT(), a + 0.3, a + 0.8)}}>{note}</div>
+      <div style={{fontFamily: MONO, fontSize: 22, color: C.mute, opacity: ramp(t, a + 0.3, a + 0.8)}}>{note}</div>
     </>
   );
 };
@@ -74,14 +76,14 @@ export const Mandate: React.FC<{t0: number}> = ({t0}) => {
   const r = (ph: string) => at(ph, 112) - t0;
   return (
     <AbsoluteFill style={{background: C.bg, justifyContent: "center", paddingLeft: 170}}>
-      <In at={r("signs a rule")}>
+      <In at={r("on metal")}>
         <div style={{fontFamily: MONO, fontSize: 20, letterSpacing: "0.14em", color: C.mute}}>MANDATE {short(PULL.mandate, 10, 6)} · SIGNED BY HARBOUR ON METAL</div>
       </In>
       <div style={{display: "grid", gridTemplateColumns: "190px 520px auto", columnGap: 40, rowGap: 34, alignItems: "baseline", marginTop: 56}}>
-        <Term at={r("exactly one")} k="COUNT" v="1 pull" note="a second pull is refused" />
-        <Term at={r("missing")} k="CAP" v={`${PULL.usdz} USDZ`} note={`= AUD ${PULL.aud}, exactly what Harbour is short`} />
-        <Term at={r("only into our")} k="PAYEE" v={short(POISON?.real ?? SETTLEMENT, 8, 6)} note="the Ringfence settlement wallet, nobody else" />
-        <Term at={r("next hour")} k="EXPIRES" v="3600 s" note="then the mandate is dead" />
+        <Term at={r("exactly one")} k="COUNT" form={r("signs a rule")} v="1 pull" note="a second pull is refused" />
+        <Term at={r("missing")} k="CAP" form={r("signs a rule")} v={`${PULL.usdz} USDZ`} note={`= AUD ${PULL.aud}, exactly what Harbour is short`} />
+        <Term at={r("only into our")} k="PAYEE" form={r("signs a rule")} v={short(POISON?.real ?? SETTLEMENT, 8, 6)} note="the Ringfence settlement wallet, nobody else" />
+        <Term at={r("next hour")} k="EXPIRES" form={r("signs a rule")} v="3600 s" note="then the mandate is dead" />
       </div>
       <Tag at={r("next hour") + 1.3} style={{marginTop: 64, width: 1300}}>VRP-style mandate · count, cap, payee, expiry · enforced by the chain, not by my server</Tag>
       <Receipt kind="chain" text={`bind tx ${short(PULL.bind_tx)}`} at={r("signs a rule") + 0.4} />
