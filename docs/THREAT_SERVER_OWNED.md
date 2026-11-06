@@ -39,11 +39,15 @@ system, and nothing else changes
 Both transfers are CANCELLED. An earlier probe (`5de33337-9d10-450c-bfd7-4556e64879a5`) showed the same id with a
 new account number.
 
-**Why our own code missed it.** The fee path already bound content: `fees.py` checks the live bank details against the
-platform's global accounts. The payroll path bound only the id.
+**Why our own code missed it.** The payroll path bound only the id. The fee path bound only half the content: it
+checked the live *account number* against the platform's own, so the same number at another bank (a different sort code)
+passed. A security review of the first fix caught that. The fee payee is now pinned the same way (`GATE_DENY
+fee_beneficiary_changed`; test `test_the_fee_payee_moved_to_another_bank_under_the_same_account_number_is_not_paid`).
 
 **Fix.**
-- `ben.fingerprint()` hashes the destination itself (country, IBAN, routing, account), in
+- `ben.fingerprint()` hashes the destination itself: every field that can pick the bank (country, currency, IBAN, SWIFT,
+  both routing types and values, account). It's taken as Airwallex *stores* it, since Airwallex drops a LOCAL IBAN payee's
+  SWIFT code. The code is in
   [beneficiaries.py:57](../ringfence/beneficiaries.py#L57).
 - The pin is taken from what we *meant* to create, not from what is live.
 - At release, `ben.drifted()` ([beneficiaries.py:104](../ringfence/beneficiaries.py#L104)) re-reads every line's
@@ -52,7 +56,7 @@ platform's global accounts. The payroll path bound only the id.
 - Proof re-checks each transfer's own `beneficiary.bank_details` snapshot against the pin: "Every payment went to the
   bank account a human approved" ([verify.py:99](../ringfence/verify.py#L99)). This catches a repoint that lands between
   our check and our create.
-- No false positives live across GB, DE (IBAN), AU and US beneficiaries plus all three fee beneficiaries.
+- No false positives live: 11/11 pins match Airwallex across GB, DE (IBAN), AU and US beneficiaries plus all three fee beneficiaries.
 - Tests: `test_payee_repointed_in_place_on_airwallex_holds_the_run` and
   `test_a_repoint_that_wins_the_race_with_the_release_check_still_fails_the_proof`.
 
