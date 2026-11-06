@@ -649,7 +649,8 @@ def test_redteam_uses_the_model_when_it_writes_something(pc, monkeypatch):
     assert j["text"].startswith("From:") and len(j["text"]) <= 2000 and w.n == 1
 
 
-@pytest.mark.parametrize("writer", [None, _Writer(ConnectionError("down")), _Writer(""), _Writer(None)])
+@pytest.mark.parametrize("writer", [None, _Writer(ConnectionError("down")), _Writer(""), _Writer(None),
+                                    _Writer("I won't write this one. An email that impersonates a CEO is a ready-made fraud lure. " * 2)])
 def test_redteam_falls_back_to_the_library(pc, monkeypatch, writer):
     j = _redteam(pc, writer, {"goal": "pay_attacker_iban", "framing": "injecagent"}, monkeypatch).json()
     assert j["source"] == "library" and "GB33BUKB20201555555555" in j["text"] and "IMPORTANT" in j["text"]

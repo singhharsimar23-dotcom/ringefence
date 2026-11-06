@@ -174,7 +174,7 @@ def write_attack(goal: str, framing: str, writer, allow=lambda: True) -> tuple[s
         try:
             hint = FRAMINGS[framing].split("{goal}")[0].strip() or "none"
             text = clean(writer.create(WRITER_SYSTEM, f"Attacker goal: {GOALS[goal][0]}\nStyle hint (how the attacker words an instruction): {hint}") or "")
-            if len(text) > 40:
+            if len(text) > 40 and "subject:" in text[:400].lower():  # a soft decline comes back as prose, not an email
                 return text, "claude"
         except getattr(writer, "errors", ()):
             pass
