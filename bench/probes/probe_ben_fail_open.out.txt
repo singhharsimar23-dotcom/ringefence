@@ -1,0 +1,56 @@
+== 1) read-only filter + existence checks
+A all ?x=1 -> HTTP 200 n=15 total=15
+A ?company_name=ZZZZNOPE -> HTTP 200 n=15 total=15
+A ?name=ZZZZNOPE -> HTTP 200 n=0 total=0
+A ?nick_name=ZZZZNOPE -> HTTP 200 n=0 total=0
+A ?nickname=ZZZZNOPE -> HTTP 200 n=15 total=15
+A ?bank_account_number=99999999 -> HTTP 200 n=0 total=0
+A ?entity_type=COMPANY -> HTTP 200 n=2 total=2
+B token, A's ada: GET 5f91c314.. -> HTTP 200 body=EMPTY
+B token, random uuid: GET 00000000.. -> HTTP 200 body=EMPTY
+A token, A's ada (control): GET 5f91c314.. -> HTTP 200 body=nick=rf:ada last4=5601
+== 2) create COMPANY 'Probe Co' under A
+create -> HTTP 201 id=e76808d8-abb7-46ff-9c5e-7fd161a798c5 
+A token, Probe Co: GET e76808d8.. -> HTTP 200 body=nick=PRB-beneficiary-reads-fail-open-probeco-1793978353 last4=8353
+  stored company_name: None
+A ?company_name=Probe%20Co -> HTTP 200 n=16 total=16
+  Probe Co in results: True | first item nick: PRB-beneficiary-reads-fail-open-probeco-1793978353 | all= 16
+A ?company_name=Probe -> HTTP 200 n=16 total=16
+A ?name=Probe%20Co -> HTTP 200 n=1 total=1
+A ?bank_account_number=93978353 -> HTTP 200 n=1 total=1
+== 3) KEY: B creates a transfer to A's Probe Co id
+B -> A/ProbeCo create -> HTTP 400 code=validation_failed msg=The request failed our schema validation. Refer to the errors object for erroneous fields, codes and parameters.
+== 5) skill-following dedupe for new supplier 'Acme Design Ltd' (read-only)
+A ?company_name=Acme%20Design%20Ltd -> HTTP 200 n=16 total=16
+  skill says 'match exists -> update': would update nick=PRB-beneficiary-reads-fail-open-probeco-1793978353 entity=COMPANY company=None last4=8353
+A ?name=Acme%20Design%20Ltd -> HTTP 200 n=0 total=0
+  name filter (control) match count: 0
+== 4) delete Probe Co, then re-check
+delete -> HTTP 200 True
+A token, deleted Probe Co: GET e76808d8.. -> HTTP 200 body=EMPTY
+A -> deleted ProbeCo create -> HTTP 400 code=validation_failed msg=The request failed our schema validation. Refer to the errors object for erroneous fields, codes and parameters.
+== 7) cleanup check
+A ?x=1 -> HTTP 200 n=15 total=15
+  Probe Co still listed: False
+create -> HTTP 201 id=2d057b23-4fa6-498e-989b-0f8a1ba83cd9
+  GET top keys: ['beneficiary', 'id', 'nickname', 'payer_entity_type', 'transfer_methods'] | beneficiary keys: ['bank_details', 'entity_type', 'type']
+  create-response beneficiary keys: ['bank_details', 'entity_type', 'type'] company_name in create resp: None
+B -> A/ProbeCo2: HTTP 400 code=validation_failed errors={"errors": [{"code": "045", "source": "beneficiary_id"}]} status=None
+B -> random uuid: HTTP 400 code=validation_failed errors={"errors": [{"code": "045", "source": "beneficiary_id"}]} status=None
+A -> A/ProbeCo2 (control, same body): HTTP 201 code=None errors=null status=SCHEDULED
+  control cancel try 0: HTTP 400 -> PROCESSING
+  control cancel try 1: HTTP 200 -> CANCELLED
+delete -> 200
+A -> deleted ProbeCo2: HTTP 400 code=validation_failed errors={"errors": [{"code": "045", "source": "beneficiary_id"}]} status=None
+still listed: False
+A 30cc77fb-4a4f-4bf2-ae94-eb1bf7f210ff prb-409-1793978413 CANCELLED 1
+A 04e82a15-acb3-43a3-8095-90f13af90186 prb-ctl-1793978398 CANCELLED 1
+A 82efa77d-9c82-4622-9ddc-2b7fc065ff86 prb-ctrl-1793978389 CANCELLED 1
+A 358ddce5-40d5-4e4f-9766-8ca2d325dcf6 prb-bi-1793978319-01 CANCELLED 1
+B prb- transfers: []
+== 6) offline Ringfence arm (--offline)
+[today orchestrator.advance] advance -> None exc=TypeError: 'NoneType' object is not subscriptable run.state=READY hold=None hold/alert/deny=[] submitted=0
+  next advance() -> RELEASING; release() again -> RELEASING
+[today executor.release] advance -> None exc=TypeError: 'NoneType' object is not subscriptable run.state=RELEASING hold=None hold/alert/deny=[] submitted=0
+[patched orchestrator.advance] advance -> HELD exc=None run.state=HELD hold=BENEFICIARY_NOT_IN_TENANT hold/alert/deny=[('GATE_DENY', 'BENEFICIARY_NOT_IN_TENANT'), ('HOLD', 'BENEFICIARY_NOT_IN_TENANT')] submitted=0
+  patched result: HELD BENEFICIARY_NOT_IN_TENANT [('GATE_DENY', 'BENEFICIARY_NOT_IN_TENANT'), ('HOLD', 'BENEFICIARY_NOT_IN_TENANT')]

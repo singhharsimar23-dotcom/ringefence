@@ -1,0 +1,18 @@
+Kestrel GET /account: 200
+Kestrel GET /account/wallet_info: 200 keys= ['account_name', 'account_number']
+  Kestrel wallet acct last4= 4976 name= 'Sandbox Business'
+Northwind create BANK_ACCOUNT payee: 201 
+  before: id= a76df30e-296b-4418-b85d-8e9c5955c60c type= BANK_ACCOUNT bank last4= 5678
+Northwind update -> DIGITAL_WALLET: 400 {'code': 'beneficiary_switch_unsupported', 'details': {}, 'message': 'beneficiary switch unsupported', 'source': 'beneficiary_switch_unsupported'}
+In-place flip refuted or partial; creating a fresh DIGITAL_WALLET payee.
+Northwind create DIGITAL_WALLET payee: 201 
+GBP before: Northwind= 9989286.03 Kestrel= 10162087.03
+transfer create: 201 status= SCHEDULED
+time to PAID = 2.11 s
+transfer beneficiary snapshot keys= ['digital_wallet', 'type'] has bank_details? False
+cancel attempt: 400 {'code': 'update_unsupported', 'details': {}, 'message': 'The transfer in the current status cannot be updated.', 'source': 'transfer'}
+status after cancel attempt: PAID
+GBP after: Northwind= 9989285.03 Kestrel= 10162088.03
+RESULT flipped_in_place= False final_status= PAID
+deleted beneficiary a76df30e-296b-4418-b85d-8e9c5955c60c 200
+deleted beneficiary 03fb79d5-55c3-4e09-982b-c49ce8d1cbe0 200

@@ -1,0 +1,90 @@
+TAG PRB-bxbind-78319 batch rid prb-bx-1793978319 item rid prb-bi-1793978319-01
+identity: A GET /account id acct_Y5VX3QXWNSyiun0cbai15A | B acct_FG3wEt9HNg29C0zhpelKHg
+[A-X] create {"id": "e9fa7e41-6dc1-4ffc-911d-6048428023b4", "status": "DRAFTING", "funding": {"status": "SCHEDULED"}, "_error": null, "code": null, "msg": null}
+[A-X] add_items {"funding": {"status": "SCHEDULED"}, "id": "e9fa7e41-6dc1-4ffc-911d-6048428023b4", "name": "PRB-bxbind-78319-A-X", "request_id": "prb-bx-1793978319", "short_reference_id": "B261106-QSVJ030", "status": "DRAFTING", "total_item_count": 1, "transfer_date": "2026-11-06", "updated_at": "2026-11-06T15:18:4
+[A-X] items (draft) {"keys": ["items"], "items": [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATED", "transfer_id": null, "errors": null}]}
+[A-X] submit {"status": "BOOKING", "_error": null, "code": null, "msg": null} GBP pre 9989288.03 right after 9989287.03
+  [A-X] poll 0 +4s batch BOOKED GBP 9989287.03 items [{"request_id": "prb-bi-1793978319-01", "status": "BOOKED", "transfer_id": "358ddce5-40d5-4e4f-9766-8ca2d325dcf6", "errors": null}]
+  [A-X] final batch {"funding": {"status": "FUNDED"}, "id": "e9fa7e41-6dc1-4ffc-911d-6048428023b4", "name": "PRB-bxbind-78319-A-X", "quote_summary": {"expires_at": "2026-11-06T15:19:42+0000", "last_quoted_at": "2026-11-06T15:18:42+0000", "quotes": [{"amount_beneficiary_receives": 1, "amount_payer_pays": 1, "fee_amount": 0, "fee_currency": "GBP", "source_currency": "GBP", "transfer_currency": "GBP"}], "validity": "MIN_1"}, "request_id": "prb-bx-1793978319", "short_reference_id": "B261106-QSVJ030", "status": "BOOKED", "total_item_count": 1, "transfer_date": "2026-11-06", "updated_at": "2026-11-06T15:18:43+0000", "valid_item_count": 1}
+A-X transfer 358ddce5-40d5-4e4f-9766-8ca2d325dcf6 ..7788 sort 040004
+
+== 4 status check under B's binding
+B GET /batch_transfers/{A_X}/items -> {"items": []}
+B GET /batch_transfers/{A_X}       -> {"_error": 404, "code": "not_found", "msg": "HTTP 404 not_found: Batch not found", "details": null}
+B GET /batch_transfers?request_id  -> {"items": []}
+B GET /transfers?request_id=item   -> []
+B GET /transfers/{A_tr}            -> {"_error": 404, "code": "not_found", "msg": "HTTP 404 not_found: Transfer not found", "details": null}
+A GET /batch_transfers/{random}/items -> {"items": []}
+A GET /batch_transfers/{random}       -> {"_error": 404, "code": "not_found", "msg": "HTTP 404 not_found: Batch not found", "details": null}
+
+== 5 resubmit under B, same item request_id
+[B-X] create {"id": "28b0802a-e051-4234-b80c-5378a43dea6f", "status": "DRAFTING", "funding": {"status": "SCHEDULED"}, "_error": null, "code": null, "msg": null}
+[B-X] add_items {"funding": {"status": "SCHEDULED"}, "id": "28b0802a-e051-4234-b80c-5378a43dea6f", "name": "PRB-bxbind-78319-B-X", "request_id": "prb-bx-1793978319", "short_reference_id": "B261106-0J1R9KX", "status": "DRAFTING", "total_item_count": 1, "transfer_date": "2026-11-06", "updated_at": "2026-11-06T15:18:4
+[B-X] items (draft) {"keys": ["items"], "items": [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATED", "transfer_id": null, "errors": null}]}
+[B-X] submit {"status": "BOOKING", "_error": null, "code": null, "msg": null} GBP pre 10162085.03 right after 10162084.03
+  [B-X] poll 0 +4s batch BOOKED GBP 10162084.03 items [{"request_id": "prb-bi-1793978319-01", "status": "BOOKED", "transfer_id": "bc1460be-88d5-429f-be45-c17d3a8aee9d", "errors": null}]
+  [B-X] final batch {"funding": {"status": "FUNDED"}, "id": "28b0802a-e051-4234-b80c-5378a43dea6f", "name": "PRB-bxbind-78319-B-X", "quote_summary": {"expires_at": "2026-11-06T15:19:50+0000", "last_quoted_at": "2026-11-06T15:18:50+0000", "quotes": [{"amount_beneficiary_receives": 1, "amount_payer_pays": 1, "fee_amount": 0, "fee_currency": "GBP", "source_currency": "GBP", "transfer_currency": "GBP"}], "validity": "MIN_1"}, "request_id": "prb-bx-1793978319", "short_reference_id": "B261106-0J1R9KX", "status": "BOOKED", "total_item_count": 1, "transfer_date": "2026-11-06", "updated_at": "2026-11-06T15:18:51+0000", "valid_item_count": 1}
+
+== 6 resubmit under A, same item request_id, new batch id
+[A-Y] create {"id": "f0cbff0d-1dc5-46c2-bbbd-73d598dd148a", "status": "DRAFTING", "funding": {"status": "SCHEDULED"}, "_error": null, "code": null, "msg": null}
+[A-Y] add_items {"funding": {"status": "SCHEDULED"}, "id": "f0cbff0d-1dc5-46c2-bbbd-73d598dd148a", "name": "PRB-bxbind-78319-A-Y", "request_id": "prb-bx-1793978319-y", "short_reference_id": "B261106-SN1QVB7", "status": "DRAFTING", "total_item_count": 1, "transfer_date": "2026-11-06", "updated_at": "2026-11-06T15:18
+[A-Y] items (draft) {"keys": ["items"], "items": [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]}
+[A-Y] submit {"status": null, "_error": 400, "code": "action_unsupported", "msg": "HTTP 400 action_unsupported: The action is not supported."} GBP pre 9989287.03 right after 9989287.03
+  [A-Y] poll 0 +4s batch DRAFTING GBP 9989287.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 1 +9s batch DRAFTING GBP 9989287.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 2 +13s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 3 +18s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 4 +22s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 5 +27s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 6 +31s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 7 +35s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 8 +40s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 9 +44s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 10 +49s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 11 +53s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 12 +58s batch DRAFTING GBP 9989285.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 13 +62s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+  [A-Y] poll 14 +67s batch DRAFTING GBP 9989286.03 items [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]
+A-Y item errors full: {"keys": ["items"], "items": [{"request_id": "prb-bi-1793978319-01", "status": "VALIDATION_FAILED", "transfer_id": null, "errors": [{"code": "request_id_used", "source": "request_id"}]}]}
+
+== 7 A re-create batch with X's request_id
+{"_error": 400, "code": "batch_request_id_duplicate", "msg": "HTTP 400 batch_request_id_duplicate: The request ID has been used to a batch before which was created successfully. Please use a different request ID if you wish to create a separate batch transfer.", "details": {}}
+
+== 8 A GET /batch_transfers?request_id= {"items": [{"funding": {"status": "FUNDED"}, "id": "e9fa7e41-6dc1-4ffc-911d-6048428023b4", "name": "PRB-bxbind-78319-A-X", "quote_summary": {"expires_at": "2026-11-06T15:19:42+0000", "last_quoted_at": "2026-11-06T15:18:42+0000", "quotes": [{"amount_beneficiary_receives": 1, "amount_payer_pays": 1, "fee_amount": 0, "fee_currency": "GBP", "source_currency": "GBP", "transfer_currency": "GBP"}], "validity": "MIN_1"}, "request_id": "prb-bx-1793978319", "short_reference_id": "B261106-QSVJ030", "status": "BOOKED", "total_item_count": 1, "transfer_date": "2026-11-06", "updated_at": "2026-11-06T15:18:4
+A GET /transfers?request_id=item -> [["358ddce5-40d5-4e4f-9766-8ca2d325dcf6", "PROCESSING"]]
+
+== cleanup
+batch e9fa7e41-6dc1-4ffc-911d-6048428023b4 {"_error": 401, "code": "unauthorized", "msg": "HTTP 401 unauthorized: Admin permissions required", "details": null}
+transfer 358ddce5-40d5-4e4f-9766-8ca2d325dcf6 CANCELLED
+batch 28b0802a-e051-4234-b80c-5378a43dea6f {"_error": 401, "code": "unauthorized", "msg": "HTTP 401 unauthorized: Admin permissions required", "details": null}
+transfer bc1460be-88d5-429f-be45-c17d3a8aee9d CANCELLED
+batch f0cbff0d-1dc5-46c2-bbbd-73d598dd148a {"_error": 401, "code": "unauthorized", "msg": "HTTP 401 unauthorized: Admin permissions required", "details": null}
+beneficiary deleted cf5e4552-cdff-4bc4-a06b-b5ec2243cb43
+beneficiary deleted b425d0c1-9e2a-4606-8985-627f40c49eec
+final batch e9fa7e41-6dc1-4ffc-911d-6048428023b4 BOOKED
+final batch 28b0802a-e051-4234-b80c-5378a43dea6f BOOKED
+final batch f0cbff0d-1dc5-46c2-bbbd-73d598dd148a DRAFTING
+
+== post-run cleanup of DRAFTING batch A-Y
+HTTP 200
+{
+ "funding": {
+  "status": "SCHEDULED"
+ },
+ "id": "f0cbff0d-1dc5-46c2-bbbd-73d598dd148a",
+ "name": "PRB-bxbind-78319-A-Y",
+ "request_id": "prb-bx-1793978319-y",
+ "short_reference_id": "B261106-SN1QVB7",
+ "status": "DRAFTING",
+ "total_item_count": 1,
+ "transfer_date": "2026-11-06",
+ "updated_at": "2026-11-06T15:20:23+0000",
+ "valid_item_count": 0
+}
+HTTP 404
+{
+ "code": "not_found",
+  "status": "FUNDED"
+  "status": "FUNDED"
+final transfer 358ddce5-40d5-4e4f-9766-8ca2d325dcf6 200 CANCELLED
+final transfer bc1460be-88d5-429f-be45-c17d3a8aee9d 200 CANCELLED

@@ -1,0 +1,5 @@
+run1 (clean): RELEASED transfers: 2
+filterless page for a never-used request_id: items=2 naive_says_paid=True ringfence_lookup=None
+20261114-prb002 fault=error_before_commit: RELEASED new_transfers=2 lines=['SCHEDULED', 'SCHEDULED'] each_line_adopted_its_own_transfer=True
+20261114-prb003 fault=timeout_after_commit: RELEASED new_transfers=2 lines=['SCHEDULED', 'SCHEDULED'] each_line_adopted_its_own_transfer=True
+RESULT ringfence_lookup_none=True total_transfers=6 duplicates=0 ledger_ok=True

@@ -1,0 +1,30 @@
+== 1 Ringfence on one bank return (two signed events)
+PASS RF ['failed', 'cancelled']: exactly 1 REOPENED  [webhook results [(200, 'applied'), (200, 'unknown transfer')]]
+PASS RF ['failed', 'cancelled']: exactly 1 re-pay after approve+release  [new transfers 1]
+   REOPENED failure_type/reason as recorded: None None
+PASS RF ['cancelled', 'failed']: exactly 1 REOPENED  [webhook results [(200, 'applied'), (200, 'unknown transfer')]]
+PASS RF ['cancelled', 'failed']: exactly 1 re-pay after approve+release  [new transfers 1]
+   REOPENED failure_type/reason as recorded: None None
+
+== 2 Airwallex-recommended handler on the same two events
+PASS REF uuid4 re-pay on failed+cancelled: 2 replacement transfers for 1 return  [2 new, 2 live]
+PASS REF + created_at ordering: still 2 (both events are newer)  [2 new]
+PASS REF re-pay on failed only: 1 (correct count)  [1 new]
+PASS REF re-pay on failed only, cancelled first: 1  [1 new]
+PASS REF deterministic re-pay id (keyed on original transfer): 1 (dup id joins them)  [1 new]
+
+== 3 Stale payout.transfer.paid delivered after the return
+PASS REF payload-trusting handler ends PAID while money is back in the wallet  [PAID]
+PASS REF + created_at ordering rejects the stale paid  [CANCELLED]
+PASS RF stale paid: line is not marked PAID (stays reopened)  [state before approve PLANNED, webhook results [(200, 'applied'), (200, 'unknown transfer'), (200, 'unknown transfer')]]
+
+== 4 Residual: second late return in a run that is already AWAITING_APPROVAL
+   run after both PAID: DONE
+   after A returns: AWAITING_APPROVAL
+FAIL RF poll_inflight detects B's late return while run is AWAITING_APPROVAL  [zoe=PAID, wallet USD +500.00 back, Airwallex says CANCELLED]
+   (webhook path would catch it: poll_one looks at every PAID line): True PLANNED
+
+== 4b same residual with the one-line fix (poll PAID lines of any run that is not DRAFT)
+PASS RF with widened PAID filter detects B  [PLANNED]
+
+summary: 13 pass / 14

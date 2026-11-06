@@ -1,0 +1,245 @@
+# charges-request-id-duplicate-new-id  raw output  (run 2026-11-06)
+
+## 1) Docs, verbatim (scripts/awx_docs.py; Airwallex Docs MCP)
+### Error codes for Charges and Connected Account Transfers (refs api/scale/charges/create, api/scale/connected_account_transfers/create)
+Error codes and detailed descriptions for [Create a charge](https://www.airwallex.com/docs/api/scale/charges/create.md) and [Create a new connected account transfer](https://www.airwallex.com/docs/api/scale/connected_account_transfers/create.md).
+| `method_not_allowed`  | Request method `POST` not supported.  | Refer to the [API Reference](https://www.airwallex.com/docs/api/scale/charges.md) and use the correct method.  |
+| `request_id_duplicate` | The `request_id` provided in the request has already been used.  | Retry the request with a new `request_id`.  |
+| `not_found`  | Charge or CA transfer could not be found.  | Please retry with a valid Charge or CA Transfer ID. You can check if the charge or CA transfer exists using [Get list of charges](https://www.airwallex.com/docs/api/scale/charges/list.md) or [Get list of connected account transfers](https://www.airwallex.com/docs/api/scale/connected_account_transfers/list.md). |
+Please note that the Charges and Connected Account Transfers API can return the `details` object within the error response when applicable. For example, if you attempt to retry [Create a Charge](https://www.airwallex.com/docs/api/scale/charges/create.md) operation after the previous operation has been successfully processed, it may result in the following error.
+  "code": "request_id_duplicate",
+  "source_id": "ch_dIosIRtqMP-GaQBCv0wQcQ",
+  "message": "request_id '123457-abc-dfdczzzc-27' has been used in the past.  please use a different request_id for this request",
+  "source": "request_id"
+The `source_id` field will contain the unique identifier of the Charge/CA Transfer object, which was returned in the previous successful operation.
+
+### Transfer error codes (docs/payouts/errors/transfer-error-codes.md#400-errors)
+| `duplicate_request_id` or `request_id_duplicate` (legacy) | The request ID has been used to a transfer before which was created successfully (`id` included in `params`). Please use a different request ID if you wish to create a separate transfer.  | `id`: ID of the transfer with the same request ID  |
+
+### Create a Transfer API reference: possible errors + example
+Error responses for the Create a Transfer API include 400 Bad request errors such as `request_id_duplicate`, `balance_insufficient`, `quote_expired`, and limit-related errors; 401 Unauthorized for invalid or expired credentials; 409 Conflict with `request_pend
+Possible errors: `request_id_duplicate`, `declaration_required`, `amount_beneficiary_receives_below_limit`, `amount_below_transfer_method_limit`, `source_amount_below_account_limit`, `transfer_amount_below_account_limit`, `amount_beneficiary_receives_above_cum
+     "code": "request_id_duplicate",
+
+### Wallet transfers error codes (api/2025-02-14/payouts/wallet_transfers/create)
+| `request_id_duplicate`  | The request ID has been used on a transfer to an Airwallex account which was created successfully. Please use a different request ID if you wish to create a separate transfer.  | `wallet_transfer_id`: ID of the transfer to an Airwallex account with the same request ID |
+
+### Batch transfers
+| `batch_request_id_duplicate` | The request ID has been used to a batch before which was created successfully. Please use a different request ID if you wish to create a separate batch transfer.  | -  |
+
+### Idempotency guidance (Payments best practices + request_id field docs)
+If you try to create a PaymentIntent and the network times out, retrying without a request_id might create a duplicate order. However, if you retry with the unique request_id from the original create request, Airwallex will return the original successful response instead of creating a duplicate.
+request_id: A unique request identifier specified by the client. It's used by Airwallex for idempotency check. In case of timeout, the client can retry with the same request_id.
+
+## 2-5) Live part 1 (bench/probes/charges-request-id-duplicate-new-id.py)
+== platform READ-ONLY: is Charges / CA transfers enabled at all?
+--- GET /charges?page_num=0&page_size=10 as platform
+HTTP 200 code=None details_keys=None
+{
+ "has_more": false,
+ "items": []
+}
+--- GET /connected_account_transfers?page_num=0&page_size=10 as platform
+HTTP 200 code=None details_keys=None
+{
+ "has_more": false,
+ "items": []
+}
+
+== Northwind (write-allowed) attempts, 1 GBP, Kestrel as counterparty
+--- POST /charges/create (A token, source=B) #1
+HTTP 400 code=validation_failed details_keys=None
+{
+ "code": "validation_failed",
+ "message": "Permission denied.",
+ "source": ""
+}
+--- POST /connected_account_transfers/create (A token, destination=B) #1
+HTTP 201 code=None details_keys=None
+{
+ "amount": 1,
+ "created_at": "2026-11-06T15:19:09+0000",
+ "currency": "GBP",
+ "destination": "acct_FG3wEt9HNg29C0zhpelKHg",
+ "fee": 0,
+ "id": "tr_iJL2nwzWO46QVtihKjf6OQ",
+ "reason": "professional_business_services",
+ "reference": "PRB-charges-request-id-duplicate-new-id",
+ "request_id": "prb-cat-1793978346",
+ "short_reference_id": "D261106-G9LGZWG",
+ "status": "NEW",
+ "updated_at": "2026-11-06T15:19:09+0000"
+}
+--- POST /connected_account_transfers/create (A token, destination=B) #2 identical
+HTTP 400 code=request_id_duplicate details_keys=['source_id', 'source_type']
+{
+ "code": "request_id_duplicate",
+ "details": {
+  "source_id": "tr_iJL2nwzWO46QVtihKjf6OQ",
+  "source_type": "transfer_id"
+ },
+ "message": "request_id 'prb-cat-1793978346' has been used in the past.  please use a different request_id for this request",
+ "source": "request_id"
+}
+
+== live control: transfers duplicate code + details key (Northwind)
+original 0846530a-a249-4940-b895-dadd254ddb94: HTTP 200 request_id=BENCHREE754952-20261231-ada status=CANCELLED amount=1
+--- re-POST request_id=BENCHREE754952-20261231-ada amount=1
+HTTP 400 code=validation_failed details_keys=['errors']
+{
+ "code": "validation_failed",
+ "details": {
+  "errors": [
+   {
+    "code": "045",
+    "source": "beneficiary_id"
+   }
+  ]
+ },
+ "message": "The request failed our schema validation. Refer to the errors object for erroneous fields, codes and parameters."
+}
+details.id == original: False
+original e32f97fd-af14-413d-8114-218e5f6a7cb2: HTTP 200 request_id=rf-u4d2jdo4gmmnsdr3hhegv7inqkod7ptyb66xoawzwetaids status=CANCELLED amount=450.0
+--- re-POST request_id=rf-u4d2jdo4gmmnsdr3hhegv7inqkod7ptyb66xoawzwetaids amount=1
+HTTP 400 code=validation_failed details_keys=['errors']
+{
+ "code": "validation_failed",
+ "details": {
+  "errors": [
+   {
+    "code": "045",
+    "source": "beneficiary_id"
+   }
+  ]
+ },
+ "message": "The request failed our schema validation. Refer to the errors object for erroneous fields, codes and parameters."
+}
+details.id == original: False
+
+== cleanup
+created (no cancel API known): /connected_account_transfers/create tr_iJL2nwzWO46QVtihKjf6OQ
+created: [('/connected_account_transfers/create', 'tr_iJL2nwzWO46QVtihKjf6OQ')]
+
+## Live part 2: reversal + self-owned transfers control (…_part2.py)
+== reverse CA transfer tr_iJL2nwzWO46QVtihKjf6OQ (Kestrel -> Northwind, 1 GBP)
+--- reverse CAT
+HTTP 201 code=None details_keys=None
+{
+ "amount": 1,
+ "created_at": "2026-11-06T15:19:59+0000",
+ "currency": "GBP",
+ "destination": "acct_Y5VX3QXWNSyiun0cbai15A",
+ "fee": 0,
+ "id": "tr_xz4paWGePKWy7EOocfwB8g",
+ "reason": "professional_business_services",
+ "reference": "PRB-charges-request-id-duplicate-new-id reverse tr_iJL2nwzWO46QVtihKjf6OQ",
+ "request_id": "prb-cat-rev-1793978398",
+ "short_reference_id": "D261106-O7IIOV8",
+ "status": "NEW",
+ "updated_at": "2026-11-06T15:19:59+0000"
+}
+
+== transfers control (self-owned)
+beneficiary 616a8486-0f74-45a1-ae32-f66272935cee rf:fee
+--- create #1
+HTTP 201 code=None details_keys=None
+{
+ "amount_beneficiary_receives": 1,
+ "amount_payer_pays": 1,
+ "beneficiary": {
+  "bank_details": {
+   "account_currency": "GBP",
+   "account_name": "Ringfence Platform",
+   "account_number": "07371376",
+   "account_routing_type1": "sort_code",
+   "account_routing_value1": "041907",
+   "bank_country_code": "GB",
+   "bank_name": "Airwallex (UK) Ltd",
+   "local_clearing_system": "FASTER_PAYMENTS"
+  },
+  "entity_type": "COMPANY",
+  "type": "BANK_ACCOUNT"
+ },
+ "beneficiary_id": "616a8486-0f74-45a1-ae32-f66272935cee",
+ "created_at": "2026-11-06T15:20:00+0000",
+ "fee_amount": 0,
+ "fee_currency": "GBP",
+ "fee_paid_by": "PAYER",
+ "funding": {
+  "status": "FUNDED"
+ },
+ "id": "04e82a15-acb3-43a3-8095-90f13af90186",
+ "payer": {
+  "additional_info": {
+   "business_incorporation_date": "2020-11-27",
+   "business_registration_number": "X12345678",
+   "business_registration_type": "COMPANY"
+  },
+  "address": {
+   "city": "Edmundochester",
+   "country_code": "GB",
+   "postcode": "26529-4430",
+   "state": "Alaska",
+   "street_address": "4575 Mahalia Knolls"
+  },
+  "company_name": "Sandbox Business",
+  "entity_type": "COMPANY"
+ },
+ "reason": "professional_business_services",
+ "reference": "PRB-chg-d
+--- create #2 identical
+HTTP 400 code=duplicate_request_id details_keys=['id', 'request_id']
+{
+ "code": "duplicate_request_id",
+ "details": {
+  "id": "04e82a15-acb3-43a3-8095-90f13af90186",
+  "request_id": "prb-ctl-1793978398"
+ },
+ "message": "The request ID prb-ctl-1793978398 has been used for a transfer with the transfer ID 04e82a15-acb3-43a3-8095-90f13af90186 before. Please use a different request ID if you wish to create a separate transfer.",
+ "source": "request_id"
+}
+details.id == first id: True
+
+== cleanup
+cancel 04e82a15-acb3-43a3-8095-90f13af90186 200 CANCELLED
+CA transfer tr_iJL2nwzWO46QVtihKjf6OQ SETTLED
+CA transfer tr_xz4paWGePKWy7EOocfwB8g SETTLED
+
+## Live part 3: docs-following handler on a real CA transfer (…_part3.py)
+attempt 1 (response 'lost'): 201 tr_EVfI4fFUMiKaByQv2_pW4w NEW
+  retry same id -> 400 request_id_duplicate details {'source_id': 'tr_EVfI4fFUMiKaByQv2_pW4w', 'source_type': 'transfer_id'}
+  new id         -> 201 tr_i7K2mR5GNpqv0iirL3-rGg NEW
+
+== what Northwind actually sent for this one payable
+  tr_EVfI4fFUMiKaByQv2_pW4w prb-cat-dh-1793978594 SETTLED 1 GBP -> acct_FG3wEt9HNg29C0zhpelKHg
+  tr_i7K2mR5GNpqv0iirL3-rGg prb-31a683e1828c4b62910d218ddecc SETTLED 1 GBP -> acct_FG3wEt9HNg29C0zhpelKHg
+total moved for one intended 1 GBP: 2
+
+== adopt arm (Ringfence-style, GET only): source_id -> original
+  dup: 400 request_id_duplicate source_id tr_EVfI4fFUMiKaByQv2_pW4w == attempt 1: True
+  GET original: SETTLED
+
+== cleanup: one reversal Kestrel -> Northwind for 2
+  reverse: 201 tr_fWTEfm3vPqaL6Wp2KQnaTQ NEW
+  reverse now: SETTLED
+created: ['tr_EVfI4fFUMiKaByQv2_pW4w', 'tr_i7K2mR5GNpqv0iirL3-rGg']
+
+## 6-7) Offline Ringfence arm (bench/probes/probe_request_id_duplicate_codes.py)
+== A) today: fees.charge after a crash, the API answers with request_id_duplicate/source_id
+results: ['DENIED', 'DENIED', 'DENIED'] | fee transfers at Airwallex: [('tr-000021-24f5d323', '3.00')]
+run.fee_charged: 0 | fee_transfer_id: None
+platform [SIMULATED] credits: []
+ALERT rows: [{'code': 'request_id_duplicate', 'detail': "request_id 'fee-20261114-tst001-kestrel-r1' has been used in the past.  please use a different request_id for this request", 'what': 'fee'}, {'code': 'request_id_duplicate', 'detail': "request_id 'fee-20261114-tst001-kestrel-r1' has been used in the past.  please use a different request_id for this request", 'what': 'fee'}, {'code': 'request_id_duplicate', 'detail': "request_id 'fee-20261114-tst001-kestrel-r1' has been used in the past.  please use a different request_id for this request", 'what': 'fee'}] | FEE_CHARGED rows: 0
+
+== B) with the 3-line normaliser in awx._raise_for
+results: ['CHARGED', 'NONE', 'NONE'] | fee transfers: [('tr-000021-9024f762', '3.00')]
+run.fee_charged: 3.00 | fee_transfer_id: tr-000021-9024f762
+
+== C) payroll line re-submitted after its create landed (same request_id), legacy code
+fix=False: line noah state UNKNOWN -> FAILED_TO_SUBMIT error=request_id_duplicate transfers 2 -> 2 (original tr-000019-b06be8f4 is PAID)
+fix=True: line noah state UNKNOWN -> PAID error=None transfers 2 -> 2 (original tr-000019-757765e6 is PAID)
+
+== D) docs-following reference handler (Airwallex Resolution: 'Retry the request with a new request_id')
+fee debits: [('prb-docs-handler-0001', '1.50'), ('320862a4369e496bbfbe781eb577054c', '1.50')] | GBP balance 10000000.00 -> 9999997.00
+
+ALL ASSERTS PASSED

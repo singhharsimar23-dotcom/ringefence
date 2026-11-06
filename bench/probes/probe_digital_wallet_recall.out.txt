@@ -1,0 +1,14 @@
+A. recall on a no-bank_details (DIGITAL_WALLET) snapshot:
+   PAID_TO_UNAPPROVED_ACCOUNT alerts added by recall: 0
+   transfer statuses after recall: {'PAID'} (none CANCELLED -> not recalled)
+B. Proof on the same run: tenant ok = True | 'human approved' check ok = True
+   => FAIL OPEN confirmed: a wallet-rail redirect is invisible to both recall and Proof.
+
+C. drifted() on a live DIGITAL_WALLET beneficiary raised: KeyError
+   => no named HOLD; the release path raises an unhandled KeyError (fails closed only by crashing).
+
+D. platform GA 07371376 in all_ga_keys(reg)? False | reg tenants: ['northwind', 'kestrel', 'harbour']
+   gate decision for a platform-GA payee: Allow code= ALLOW
+   => the platform's own account is NOT in the payroll gate's other-tenant set; check 7 does not fire.
+
+ALL OFFLINE ASSERTIONS PASSED: Ringfence fails open on the Airwallex Pay (DIGITAL_WALLET) rail.

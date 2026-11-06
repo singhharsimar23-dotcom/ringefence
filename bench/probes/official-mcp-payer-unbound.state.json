@@ -1,0 +1,13 @@
+{
+ "ben_a": "b593208b-960a-4485-a6d9-85a01f2d265e",
+ "ben_b": "f7996377-e67b-48f6-bdf0-e8e8d54db1e6",
+ "moves": [
+  "fx 83eab6fc-5dd4-4419-b478-1d5e77c73f4f USD 3.92 -> SGD 5.00"
+ ],
+ "stale_b": "93b9442a-aa0d-4b83-8a27-bf0074560eaf",
+ "fx_request_id": "prb-mcpfx-1793978732",
+ "fx_conversion_id": "83eab6fc-5dd4-4419-b478-1d5e77c73f4f",
+ "fx_status": "SETTLED",
+ "fx_rate_usd_sgd": "1.275363",
+ "fx_sell_usd": "3.92"
+}

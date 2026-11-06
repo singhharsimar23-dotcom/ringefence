@@ -1,0 +1,20 @@
+
+== 2 live: the reconcile GET as sent (attempt 1) vs as retried by the SDK (no params)
+northwind GET /transfers?request_id=prb-never-used-000001: items=0
+northwind GET /transfers (retried, filterless): items=201 matching_request_id=0
+RESULT live_filterless_nonempty=True naive_length_check_says_paid=True per_item_match_says_paid=False
+platform GET /transfers (no x-on-behalf-of): items=3
+
+== 3 live: two identical creates within ms (SDK retry racing a slow first attempt), then a re-POST
+start skew ms=16.0
+  409 {"code": "request_pending", "message": "The request with request_id prb-409-1793978413 is currently being processed. Please resend the request with the same `request_id` later. Note: You may receive a `request_id_duplicate` error if the request was successfully processed, in which case `details.id` 
+  201 id=30cc77fb-4a4f-4bf2-ae94-eb1bf7f210ff status=SCHEDULED
+re-POST: 400 {"code": "duplicate_request_id", "message": "The request ID prb-409-1793978413 has been used for a transfer with the transfer ID 30cc77fb-4a4f-4bf2-ae94-eb1bf7f210ff before. Please use a different request ID if you wish to create a separate transfer.", "details": {"id": "30cc77fb-4a4f-4bf2-ae94-eb1b
+booked at Airwallex for prb-409-1793978413: 1 -> ['30cc77fb-4a4f-4bf2-ae94-eb1bf7f210ff']
+  SDK throws ApiError; MCP tool text: 'Failed to create transfer (409): The request with request_id prb-409-1793978413 is currently being processed. Please resend the request with the same `request_id` later. Note: You may receive a `request_id_duplicate` error if the request was successfully processed, in which case `details.id` in the error response contains the ID of the object created.'; details.id in body=False; original_id_in_tool_text=False
+  SDK throws ValidationError; MCP tool text: 'Failed to create transfer (400): The request ID prb-409-1793978413 has been used for a transfer with the transfer ID 30cc77fb-4a4f-4bf2-ae94-eb1bf7f210ff before. Please use a different request ID if you wish to create a separate transfer.'; details.id in body=True; original_id_in_tool_text=True
+
+== cleanup
+  cancel 30cc77fb-4a4f-4bf2-ae94-eb1bf7f210ff: 400 update_unsupported
+transfer 30cc77fb-4a4f-4bf2-ae94-eb1bf7f210ff CANCELLED
+beneficiary deleted 448e0cb4-745d-4969-800b-d7c58f83afca

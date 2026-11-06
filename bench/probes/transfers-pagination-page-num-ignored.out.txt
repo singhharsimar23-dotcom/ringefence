@@ -1,0 +1,46 @@
+Exception in thread Thread-1 (<lambda>):
+Traceback (most recent call last):
+  File "C:\Users\hprad\AppData\Roaming\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "C:\Users\hprad\AppData\Roaming\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\probes\probe_transfers_paging.py", line 147, in <lambda>
+    th = threading.Thread(target=lambda: res.setdefault("out", verify._transfers(w, since)), daemon=True)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\ringfence\verify.py", line 76, in _transfers
+    items = c.get("/transfers", {"from_created_at": since, "page_num": page, "page_size": 100}).get("items", [])
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\probes\probe_transfers_paging.py", line 39, in get
+    raise RuntimeError(f"stopped after {self.n} GETs")
+RuntimeError: stopped after 125 GETs
+== 2) page_num under Northwind, page_size=100
+page_num=0: n=100 sha=0be7d0b5bf3717e8 has_more=None page_after=yes
+page_num=1: n=100 sha=0be7d0b5bf3717e8 has_more=None page_after=yes
+page_num=2: n=100 sha=0be7d0b5bf3717e8 has_more=None page_after=yes
+identical: True
+page_num=0&page_size=10: n=10 sha=83ed2559f70f82ac
+page_num=1&page_size=10: n=10 sha=83ed2559f70f82ac
+== 3) cursor page=0 then page_after
+per-page: [100, 99] total: 199 unique: 199 overlap with page_num page: 100 / 100 beyond page 1 overlap with page_num set: 0
+== 4) defaults
+no params: n= 199
+page_num=0&page_size=2000 (guide's own example size): n= 199
+page=0&page_size=2000: n= 199 created >30 days ago: 0
+== 5) request_id lookup
+request_id only: n= 1 | with page=0: n= 1
+== multi-account: Kestrel
+Kestrel page_num 0 vs 1 (size 10) identical: True n= 10
+== 8 live) guide reconcile over Northwind's whole history
+transfers=199 guide reconcile reports unpaid=99 (each one exists and is not FAILED/CANCELLED: 66)
+== 6) Ringfence Proof: verify._transfers live
+Northwind transfers since 2026-11-01T00:00:00Z via cursor: 199
+alive_after_30s=True GETs=125 distinct_pages=2 returned=None
+== 7) offline: Ringfence verify._transfers against a live-like fake, 150 transfers, cap 10 GETs
+cap_hit=True GETs=10 distinct_pages=1
+fix (page=0 then page_after): 150 unique: 150
+repo FakeAirwallex: verify._transfers = 150 | cursor fix = 100
+== 8) offline: guide-following reconcile, 150-payee payroll
+reported unpaid: 50 (all 150 were paid)
+with the cursor fix: 0
+beneficiaries page_num 0 200 10 e88c8a90ce8b2652 has_more= True False
+beneficiaries page_num 1 200 4 08a55ef41312fc31 has_more= False False

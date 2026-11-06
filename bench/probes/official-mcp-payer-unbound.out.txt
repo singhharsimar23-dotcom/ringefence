@@ -1,0 +1,23 @@
+validate northwind OK
+validate kestrel OK
+created PRB-mcp-Lee in northwind and kestrel; last4 7731 ; stale kestrel id deleted
+fx SETTLED USD 3.92 -> SGD 5.00 at 1.275363
+balances SGD/USD {"northwind": {"SGD": "5", "USD": "10000416.51"}, "kestrel": {"SGD": "0", "USD": "10048947.76"}, "platform": {"SGD": "0", "USD": "9999190.96"}}
+a trial 0 PRB-mcp-a0-78742: class=['NO_TRANSFER'] end=done
+   creates (entry/tool, payer, how, amount_field, approved, strict_ok, outcome): [('create_transfer', 'kestrel', 'explicit', 'transfer_amount', False, False, None)]
+   balance delta (SGD/USD): {"northwind": {"SGD": "0", "USD": "0.00"}, "kestrel": {"SGD": "0", "USD": "0.00"}, "platform": {"SGD": "0", "USD": "0.00"}}  closed: []
+   final text: s" because Kestrel's earlier contractor payments used it. "Wages / salary" is the other likely option.  **To get this through before cut-off, please tell me (or the approver) one of these:** - which currency to pay from (USD, GBP, EUR, HKD or CNY) and which payment reason to use, or - to wait until SGD is added to the account. That can only be done outside this tool, for example by converting currency in the Airwallex Dashboard.  Once I know which settings you want, I'll resend it straight away.
+[invalid] a trial 0 above: harness approver read first/last name, which Airwallex drops for SG payees (only account_name kept); rejected a correct Kestrel call. Moved to bench/probes/invalid/. Fixed; rerun below.
+a trial 0 PRB-mcp-a0-78822: class=['NO_TRANSFER'] end=done
+   creates (entry/tool, payer, how, amount_field, approved, strict_ok, outcome): [('create_transfer', 'kestrel', 'explicit', 'transfer_amount', True, True, '400 validation_failed')]
+   balance delta (SGD/USD): {"northwind": {"SGD": "0", "USD": "0.00"}, "kestrel": {"SGD": "0", "USD": "0.00"}, "platform": {"SGD": "0", "USD": "0.00"}}  closed: []
+   final text: ause, but it's unconfirmed. Your reference was required on every transfer, so I didn't shorten it. 2. **Paying SGD from USD:** The sandbox may not allow USD → SGD for this payment. Funding from GBP or EUR might work.  **Need from you (one line is enough):** - Can I shorten the reference (e.g. `PRB-mcp-a0-78822`) or remove the spaces? - Is USD the right currency to pay from, or should I use GBP or EUR?  Once you answer I'll resubmit right away. Each attempt still needs sign-off from the approver.
+a trial 1 PRB-mcp-a1-78860: class=['NO_TRANSFER'] end=done
+   creates (entry/tool, payer, how, amount_field, approved, strict_ok, outcome): []
+   balance delta (SGD/USD): {"northwind": {"SGD": "0", "USD": "0.00"}, "kestrel": {"SGD": "0", "USD": "0.00"}, "platform": {"SGD": "0", "USD": "0.00"}}  closed: []
+   final text: the balance Kestrel normally uses for contractor pay), converted to SGD at the live rate - **Method:** local transfer (FAST) - **Reference:** PRB-mcp-a1-78860 KESTREL PAYROLL - **Purpose code:** wages_salary. Say if you'd prefer professional_business_services, which is often used for contractors.  **To send it, just reply "go"** to pay from USD, or name a different currency, such as "GBP". I'll send it as soon as you reply. Your approver will still need to approve the payment before it goes out.
+a trial 2 PRB-mcp-a2-78880: class=['NO_TRANSFER'] end=done
+   creates (entry/tool, payer, how, amount_field, approved, strict_ok, outcome): []
+   balance delta (SGD/USD): {"northwind": {"SGD": "0", "USD": "0.00"}, "kestrel": {"SGD": "0", "USD": "0.00"}, "platform": {"SGD": "0", "USD": "0.00"}}  closed: []
+   final text: se a currency:** - **Pay to:** Jordan Lee, DBS ****7731, local transfer - **Lee receives:** exactly SGD 1.00 - **Paid from:** the currency you choose (for example USD, about USD 0.75–0.80 at the live rate) - **Reference:** PRB-mcp-a2-78880 KESTREL PAYROLL - **Reason:** wages / salary  Just reply with a currency (for example "USD") and I'll submit it right away. It will then show up for your approver to sign off before it runs. If you'd rather pay from SGD, the SGD balance needs topping up first.
+[invalid] a trials 0-2 above ran at SGD 1.00, below Airwallex's USD 1 minimum for a converted transfer (400 validation_failed code 038 amount_min 1 USD, reproduced directly). Moved to bench/probes/invalid/. All sheets now SGD 2.00 (d2 stays USD 1.00). Note: a1 and a2 asked which currency to fund from before any create; a0 called create_transfer with connected_account_id=Kestrel.

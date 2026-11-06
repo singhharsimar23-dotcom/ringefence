@@ -1,0 +1,43 @@
+validate gb ok
+
+== A: GBP->GBP 1.00
+created b2452320-45e8-4777-97dc-d78ce2c38c43 SCHEDULED source_amount 1 request_id prb-wha-1793978295
+sim -> SENT: SENT 
+sim -> PAID: PAID 
+sim -> FAILED: FAILED 
+  t+ 0.14s {'status': 'CANCELLED', 'failure_type': 'None', 'failure_reason': 'None', 'updated_at': '2026-11-06T15:18:19+0000', 'amount_beneficiary_receives': '1', 'source_amount': '1'}
+CANCELLED appeared after 0.14s
+paid snapshot status PAID
+balance GBP: before 10162085.03 after-create 10162084.03 after-terminal 10162085.03 (create delta -1.00, refund delta 1.00)
+transfer row: source_amount 1 transfer_amount 1 fee 0 GBP
+validate de ok
+
+== B: USD->EUR 2.00
+created a17a3535-a9d6-4698-990b-846ccb93dbd2 SCHEDULED source_amount 2.24 request_id prb-whb-1793978295
+sim -> SENT: 500 operation_failed
+sim -> PAID: 500 operation_failed
+sim -> FAILED: 500 operation_failed
+  t+ 0.14s {'status': 'PROCESSING', 'failure_type': 'None', 'failure_reason': 'None', 'updated_at': '2026-11-06T15:18:25+0000', 'amount_beneficiary_receives': '2', 'source_amount': '2.24'}
+  t+ 1.41s {'status': 'PROCESSING', 'failure_type': 'None', 'failure_reason': 'None', 'updated_at': '2026-11-06T15:18:26+0000', 'amount_beneficiary_receives': '2', 'source_amount': '2.24'}
+CANCELLED appeared after never (30 s)
+paid snapshot status PROCESSING
+balance USD: before 10048950 after-create 10048947.76 after-terminal 10048947.76 (create delta -2.24, refund delta 0.00)
+balance EUR: before 10000000 after-create 10000000 after-terminal 10000000 (create delta 0, refund delta 0)
+transfer row: source_amount 2.24 transfer_amount 2 fee 0 USD
+
+== cleanup
+transfer b2452320-45e8-4777-97dc-d78ce2c38c43 final CANCELLED
+transfer a17a3535-a9d6-4698-990b-846ccb93dbd2 final CANCELLED
+Traceback (most recent call last):
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\probes\webhook-failed-cancelled-double-repay.py", line 132, in <module>
+    cleanup()
+  File "C:\Users\hprad\OneDrive\Desktop\fintech\bench\probes\webhook-failed-cancelled-double-repay.py", line 120, in cleanup
+    say("beneficiary", bid, "delete", "ok" if "_error" not in (r or {}) else r)
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: argument of type 'bool' is not iterable
+
+== post-run check (cleanup continued)
+balances now USD 10048947.76 EUR 10000002
+B final {'status': 'CANCELLED', 'failure_type': None, 'failure_reason': None, 'source_amount': Decimal('2.24'), 'updated_at': '2026-11-06T15:18:57+0000'}
+beneficiary 0be93b69-b9bb-4647-8102-de1acde255ea PRB-webhook-failed-cancelled-double-repay-de delete -> True
+remaining PRB-webhook beneficiaries: []

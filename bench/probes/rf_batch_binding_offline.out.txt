@@ -1,0 +1,2 @@
+northwind client GET items -> sent as acct_FAKE_northwind | response {"items": [{"status": "BOOKED"}]}
+RESULT wrong_binding=False (each TenantClient logs in with its own x-login-as; no shared module client)
