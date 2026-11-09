@@ -24,7 +24,7 @@ from . import beneficiaries as ben
 from .awx import Awx, build_backend
 from .config import EMPLOYERS, ROOT, clock, var_dir
 from .ledger import Ledger
-from .money import canonical_json, q
+from .money import CURRENCIES, canonical_json, q
 
 PUB_PATH = ROOT / "ringfence" / "cert_pub.pem"
 CERT_DIR = ROOT / "artifacts" / "certs"
@@ -32,7 +32,13 @@ CERT_DIR = ROOT / "artifacts" / "certs"
 PROBES = tuple(zip(EMPLOYERS, EMPLOYERS[1:] + EMPLOYERS[:1])) if len(EMPLOYERS) > 1 else ()
 
 
+def _amt(v: Decimal, ccy: str) -> str:
+    """Display only: the account can hold transfers in currencies Ringfence never pays (made outside it), which must not crash the report."""
+    return str(q(v, ccy)) if ccy in CURRENCIES else str(v)
+
+
 # -- keys --------------------------------------------------------------------------------------
+
 def _private_key() -> Ed25519PrivateKey:
     p = var_dir() / "cert_key.pem"
     if p.exists():
@@ -154,10 +160,10 @@ def _tenant_report(tenant: str, L: Ledger, reg: dict, seen: dict[str, list[dict]
             totals[ccy] = totals.get(ccy, Decimal(0)) + amt
     return {"tenant": tenant, "ok": all(c["ok"] for c in checks), "checks": checks,
             "debits": [{"transfer_id": t["id"], "request_id": t.get("request_id"), "beneficiary_id": payee(t),
-                        "amount": str(q(Decimal(str(t["transfer_amount"])), t["transfer_currency"])),
+                        "amount": _amt(Decimal(str(t["transfer_amount"])), t["transfer_currency"]),
                         "currency": t["transfer_currency"], "status": t.get("status")} for t in ts],
             "payees": len({e["payload"].get("contractor_id") for e in entries if e["payload"].get("contractor_id")}),
-            "totals_by_currency": {k: str(q(v, k)) for k, v in sorted(totals.items())}, "fee_gbp": str(q(fee, "GBP"))}
+            "totals_by_currency": {k: _amt(v, k) for k, v in sorted(totals.items())}, "fee_gbp": str(q(fee, "GBP"))}
 
 
 def report(awx: Awx, L: Ledger, cert_dir: Path | None = None) -> dict:

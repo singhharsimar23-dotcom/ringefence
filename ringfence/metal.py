@@ -181,7 +181,9 @@ class Metal:
     def _refused(self, L, run_id: str, tenant: str, pay: dict, amount, to: str, ev: dict) -> dict:
         """Push a pull Metal must refuse, with the refusal recorded on chain. Returns the METAL_REFUSED payload."""
         if self.mints() and time.time() >= pay.get("expires_at", 0) - 60:  # the one-hour mandate ran out: sign it again so the refusal is for the right reason
-            self._mandate(self.dir / "runs" / pay["run_dir"], pay["usdz"], pay["run_dir"], 3600)
+            rd = self.dir / "runs" / pay["run_dir"]
+            (rd / "m.json").unlink(missing_ok=True)  # the CLI will not overwrite the expired credential
+            self._mandate(rd, pay["usdz"], pay["run_dir"], 3600)
         r = self.call(["mandate", "pull", "--credential", "m.json", "--to", to, "--amount", str(amount),
                        "--record-refusal", "--key", self.treasury_key()], self.dir / "runs" / pay["run_dir"], ok=(1,))
         if not r.get("outcome", "").startswith("refused"):

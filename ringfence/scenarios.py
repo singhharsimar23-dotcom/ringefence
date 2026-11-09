@@ -465,6 +465,10 @@ class Simulator:
         if race:
             recalled = [e for e in self.L.entries(run_id=run_id, kind="ALERT", tenant=tenant)
                         if e["payload"].get("what") == "PAID_TO_UNAPPROVED_ACCOUNT"]
+            if not recalled:  # nothing was sent (another hold came first), so there was no transfer to read back
+                return {"ok": False, "tenant": tenant,
+                        "summary": f"Nothing was sent: {name}'s run is {state.lower()} for another reason, so there was no transfer to swap. Press Start over, then try again.",
+                        "defence": "", "seqs": self._seqs(before, "GATE_DENY", "HOLD")}
             return {"ok": any(e["payload"].get("cancelled") for e in recalled), "tenant": tenant,
                     "summary": f"The approved payee was repointed in the moment before sending. {name}'s transfer carried the new account, so Ringfence read it back and cancelled it.",
                     "defence": "Every transfer carries the approved bank details and is read back the instant it is created. One pointing at any other account is cancelled while Airwallex still allows it.",
