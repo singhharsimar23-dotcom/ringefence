@@ -1,0 +1,17 @@
+[transfers] HTTP 200 items=10
+    destination-ish fields on a transfer item: ['amount_beneficiary_receives', 'beneficiary', 'beneficiary_id']
+    full key set: ['amount_beneficiary_receives', 'amount_payer_pays', 'beneficiary', 'beneficiary_id', 'created_at', 'fee_amount', 'fee_currency', 'fee_paid_by', 'funding', 'id', 'payer', 'reason', 'reference', 'remarks', 'request_id', 'short_reference_id', 'source_amount', 'source_currency', 'status', 'swift_charge_option', 'transfer_amount', 'transfer_currency', 'transfer_date', 'transfer_method', 'updated_at']
+[ben_p0] HTTP 400 items=0
+[ben_p1] HTTP 400 items=0
+    beneficiaries page0 vs page1 identical? False
+[validate_absurd_acct] HTTP 400 items=0
+[ben_all] HTTP 200 items=15
+[ben_bogus_status] HTTP 200 items=15
+    beneficiaries all=15 vs bogus-status-filter=15 (equal => filter ignored)
+
+OK: all probes returned. Review the printed lines above for findings.
+CANCELLED ben_keys= ['bank_details', 'entity_type', 'type']
+   bank_details keys= ['account_currency', 'account_name', 'account_number', 'account_routing_type1', 'account_routing_value1', 'bank_country_code', 'bank_name', 'local_clearing_system']
+   acct_last= 2222 routing= 040004 name= Fd Probe
+ben page_num 400 body: {"code": "invalid_argument", "message": "page_size should be greater than minimum page size", "source": ""}
+ben page= : 400 items 0

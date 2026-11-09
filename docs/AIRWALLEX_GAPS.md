@@ -327,3 +327,23 @@ ignored), 15 (empty batch items list).
 Airwallex's controls bind **pointers**: a beneficiary id, a request id, an account chosen per call. The money follows
 the **content** behind the pointer. Every gap above is a place where the pointer stayed the same and the content didn't.
 Ringfence binds the content.
+
+## 16–19. Published-package findings (9 Nov review pass, verified against the live npm packages)
+
+- **16. Node SDK process-global singleton (`@airwallex/node-sdk@2.1.0-beta.5`, also 2.0.0-beta.4).** The API
+  classes use a module-level singleton bound to the last-constructed `Airwallex` instance. Build one client per
+  employer and client A's call goes out with client B's token = wrong payer. Verified offline:
+  `bench/probes/sdk_singleton_check.js` / `.out.txt` — `A.payouts.transfers.createTransfer()` attached
+  `TOKEN_FROM_B`. We verified the attached token, not a completed cross-account payment. Two independent source
+  reviews agree on the mechanism.
+- **17. MCP `create_transfer` has no idempotency + drops error details** (`@airwallex/developer-mcp@0.3.0-beta.13`).
+  `request_id: uuid.v4()` per call; `errorHandler.js` builds from `status||statusCode||500` + message; the SDK
+  appends `details` only if it's an array, so a duplicate's `details.id` object is dropped; timeouts surface as
+  "(500)". Same package's `createBillingProduct` exposes an optional `request_id`; only the money tool omits it.
+- **18. MCP `create_payment_link` non-atomic, no idempotency, model-chosen recipient email**; **`get_fx_quote`**
+  `readOnlyHint: true` but POSTs `/fx/quotes/create`. Sandbox-only package.
+- **19. Ignored-filter family wider than `company_name`:** unknown `?status=` on `/beneficiaries` is ignored and
+  returns the full list (`bench/probes/readonly_more.out.txt`, 15 vs 15).
+- **Correction to Finding B's framing:** `/transfers` items DO carry a `beneficiary.bank_details` snapshot
+  (`readonly_more.out.txt`), so a snapshot-diff reconciler CAN detect a repoint. The gap is the lack of a
+  proactive event/audit field, not total invisibility. Do not claim the repoint is undetectable.

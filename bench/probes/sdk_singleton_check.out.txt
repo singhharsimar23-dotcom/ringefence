@@ -1,0 +1,9 @@
+Constructed A (acct_AAAA) then B (acct_BBBB).
+module singleton apiClient.getAirwallex().config.accountId = acct_BBBB
+module singleton would send token = TOKEN_FROM_B
+
+Called A.payouts.transfers.createTransfer(...)
+  request routed through module singleton? true
+  token the SDK would attach = TOKEN_FROM_B
+
+RESULT: CONFIRMED: a call on instance A goes out with B's token (B is the last-constructed instance). The SDK is a process-global singleton.

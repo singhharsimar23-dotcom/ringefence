@@ -45,8 +45,9 @@ This is the shape of the video. Start at "the attacker has nothing" and climb. E
    diligent approver, the payee's bank was edited while approval waited: **3/3 paid the other account**
    (Gap 1). (Findings B + C.)
 4. **Nothing on the platform flags it.** The bank account behind a payee can be swapped in place with no
-   event, no version, no audit field. A reconciler keyed on the id sees nothing move. The first signal is
-   the contractor saying "I wasn't paid" — outside the system, after the money is gone. (Finding B.)
+   event, no version, no audit field on the payee. A reconciler keyed only on the id sees nothing move.
+   (A reconciler that diffs the per-transfer bank snapshot *can* catch it — see Finding B's honest limit —
+   but nothing prompts them to.) The first signal is usually the contractor saying "I wasn't paid". (Finding B.)
 5. *(Reserve, not filmed.)* The anti-double-pay feature can be made to adopt a pre-booked transfer as the
    run's own, if the attacker is already inside the account. (Finding D.)
 6. **The "how did we miss it" moment.** Every one of these controls is individually reasonable. A software
@@ -94,12 +95,19 @@ already be inside.
 - **Live demo:** `bench/probes/agent_injection.py`. Receipt: paid the mule, transfer
   `537cd057-a0c6-4612-a4d7-13c4700a9e6c` to sort 200000 acct ..9901 (`agent_injection.out.txt`).
 
-### Finding B — The silent repoint (the reason no one notices for months)
-- **Plain:** You can change the bank account a payee points to, in place, and nothing records that it
-  changed. The id stays the same; the money now goes somewhere else.
+### Finding B — The silent repoint (no event, no history on the payee)
+- **Plain:** You can change the bank account a payee points to, in place, and nothing *actively* records
+  that it changed. The id stays the same; the money now goes somewhere else.
 - **How it happens:** `POST /beneficiaries/{id}/update` rewrites the bank details and keeps the id. There
   is **no `updated_at`, no version, no audit field** on the payee object, and **no "beneficiary changed"
-  webhook** exists. So a reconciler or an approver watching the id and the reference sees nothing move.
+  webhook** exists. So nothing proactively tells an integrator the destination moved.
+- **Honest limit (verified 9 Nov, `readonly_more.out.txt`):** a reconciler is **not** fully blind. Each
+  `/transfers` item carries a **snapshot** of `beneficiary.bank_details` (account number, routing, name) as
+  of that transfer. A reconciler that diffs this cycle's snapshot against last cycle's **can** detect a
+  changed destination. The residual gap is real but narrower than "invisible": (1) no proactive event or
+  audit field, so detection is opt-in and after the fact; (2) the in-flight **approval** window shows only
+  the id (Finding C); (3) the batch preview shows no destination (Gap 2). Do **not** claim the repoint is
+  undetectable.
 - **Prerequisite: write access to the payee** — i.e. either you got the agent to make the change (Finding
   A's door), or you hold a leaked scoped key / a compromised agent connection.
 - **Worst case:** The amplifier. A one-time redirect becomes a **standing** redirect: every later transfer
@@ -107,9 +115,10 @@ already be inside.
   complaining, which for payroll is usually one cycle. Do **not** say "months" — a contractor notices a
   missed paycheck. The real cost is that detection sits outside the system, after the money has moved.
 - **How a hacker really does it:** This is the Storm-2755 "payroll pirate" pattern (Microsoft, Apr 2026):
-  change the deposit account, and every id-based control still passes. Our finding is that on this rail the
-  change is **undetectable by design** — there is nothing for a reconciler to key on.
-- **Real severity: Medium / Sev-3 alone** (it's an audit/detectability gap), but a **High amplifier** on
+  change the deposit account, and every **id-based** control still passes. Our finding is that the platform
+  gives no *proactive* signal — a destination diff is possible but only if the integrator built a
+  snapshot-diff reconciler, which most won't.
+- **Real severity: Low–Medium / Sev-3** (an audit/detectability gap, detectable by a diligent reconciler), a stronger **amplifier** on
   Finding A — it's what turns one bad payment into a silent subscription.
 - **Live demo:** `bench/probes/silent_divert.py` CHAIN 1. Receipt: payee
   `b0668866-7a4e-41d9-a061-332f0336d4b9`, only the bank account changed (..2222→..9901); audit fields
@@ -165,7 +174,25 @@ usually notices." That is *why* Ringfence puts the destination check in **code**
 These are confirmed live (see `AIRWALLEX_GAPS.md` for ids). We keep them in reserve: they're mostly
 *platform-side* or *higher-prerequisite* or *not distinctly AI*, so they don't lead the story — but any of
 them can back up a judge's "is that the only thing?" They also prove the research is deep, not a one-trick
-demo.
+demo. **Full write-up with fixes and honest severities: `docs/DISCLOSURE_AIRWALLEX.md`** (send before publishing).
+
+**Newly verified this review pass (9 Nov), from reading + testing Airwallex's own published packages:**
+- **The Node SDK is a process-global singleton (the "wrong payer" bug, verified offline).** Build one
+  `Airwallex` client per employer — the pattern the README invites — and a call on client A goes out with
+  client B's token, because the API classes use a module-level singleton bound to the last-constructed
+  instance. So Employer A's payroll executes as Employer B. Receipt: `bench/probes/sdk_singleton_check.js`
+  (+ `.out.txt`): `A.payouts.transfers.createTransfer()` attached `TOKEN_FROM_B`. We verified the token the
+  SDK *attaches*, not a completed cross-account payment. **Ringfence is immune:** our Python client binds a
+  fresh scoped token per call and shares no mutable client. This is the one reserve finding genuinely on the
+  "never pays the wrong person" theme.
+- **MCP `create_transfer` mints a new `request_id` every call** (so each agent retry is a new payment) and
+  **drops `details`** from errors (object-shaped `details.id` for a duplicate is thrown away, timeouts read
+  as "(500)"). The same package's `createBillingProduct` already exposes an optional `request_id`; only the
+  money tool omits it.
+- **MCP `create_payment_link`** is non-atomic, has no idempotency, and emails a **model-chosen** address
+  (injection → Airwallex-sent email anywhere). **`get_fx_quote`** is `readOnlyHint: true` but POSTs.
+- **The ignored-filter family is broader than `company_name`:** an unknown `?status=` on `/beneficiaries`
+  is also silently ignored and returns everything (verified 9 Nov, `readonly_more.out.txt`).
 
 - **Batch payroll pays whoever the payee is at submit, invisibly, and an API key can't cancel it** (Gap 2).
   Airwallex pitches batches *for payroll*. The batch preview never shows a bank account; the only way to
