@@ -12,6 +12,7 @@ Pairs with `docs/SPEAK_V8.md`. The voice is the Loom (`var/loom_v8.mp4`). Every 
 |---|---|---|---|---|---|
 | 1 | 0:00 | "Hi, I'm Harsimar" | Full face. Landing hero fades in behind. | camera | Ringfence |
 | 1 | 0:12 | "millions… aren't theirs" | Three client tiles (Northwind, Kestrel, Harbour) under one operator. | landing `#how` | Not their money |
+| 2 | 0:22 | "Here's the plan. One… Two…" | Two cards slide in: 1 The agent everyone builds, what broke. 2 Mine, why each part is there. | edit | 1 Theirs · 2 Mine |
 | 2 | 0:25 | "the way Airwallex's own guide shows… a human approving" | The setup: model + Airwallex tools + an approval step highlighted. | `bench/market_agent.py`, terminal | Set up like a careful company |
 | 2 | 0:38 | "Put a human in the loop" | The approval step glows. A little "human ✓" stamp. | edit | The control everyone trusts |
 | 3 | 0:48 | "A payment waits… name, amount, currency, payee" | The approval card, each field ticking green. | app / BENCH approval | Looks correct |
@@ -23,23 +24,24 @@ Pairs with `docs/SPEAK_V8.md`. The voice is the Loom (`var/loom_v8.mp4`). Every 
 | 3 | 1:44 | "the approval checks a label" | Full face. Motion graphic: a label with an arrow; the arrow swings to a new account. | camera + edit | It checks a label |
 | 4 | 1:56 | "Batches… four out of four… can't cancel" | Batch preview, no bank column; 4 IDs; `401 Admin permissions required`. | BENCH batch section | 4 / 4 · can't cancel |
 | 4 | 2:08 | "their SDK keeps one connection… found it in their code" | SDK source: one module singleton; A's call carries B's token. | `sdk_singleton_check.out.txt` + `dist/client/apiClient.js` | Wrong client's login |
+| 4 | 2:16 | "two plain software bugs… a hundred of two hundred and fifteen… drops the filter" | Terminal: 100 of 215, 115 look UNPAID; then the filter returns 215, not 0. | `scripts/breakit.py pages sdk` (read-only, live) | Plain bugs · live |
 | 5 | 2:20 | "Ringfence. The agent suggests, my code decides" | Live app, the three clients; hit run. | app | Agent suggests · code decides |
 | 5 | 2:30 | "Kestrel pays… Northwind waits" | Kestrel SCHEDULED; Northwind diff view. | app | Paid / Waiting |
 | 5 | 2:42 | "approval signs the exact bank details… held, three out of three" | The same swap on Ringfence goes HELD; race variant CANCELLED. | app approval-swap card | Held 3 / 3 |
 | 5 | 2:52 | "quarantine… confirmed by phone" | Bank-change email → quarantine pill → callback. | app | Quarantined |
 | 5 | 3:00 | "own login… blocked all twelve" | 12 × 401 `credentials_invalid` grid. | `GAUNTLET.md` §4 | 12 / 12 blocked |
 | 5 | 3:08 | "fifty thousand… won't touch it… everyone gets paid" | `[SIMULATED]` 50k lands in Kestrel; Harbour stays held; then all paid. | app | [SIMULATED] · not Harbour's |
-| 6 | 3:20 | "the same shape… the money followed" | Full face. The findings collapse into one line: label → money. | camera + `#found` punch | It trusts a label |
 | 6 | 3:32 | "code decides… never pay twice" | Pillars, one line each: no money tool · pinned details · fixed ID · own login · ledger. | landing `#how` | Code decides |
 | 6 | 3:42 | "it turns red" | A transfer's metadata shows `rf_seq`/`rf_hash`; tamper → Proof row red. | app Proof tab | Rewritten → red |
 | 6 | 3:50 | "MCP server, no approve tool" | MCP tool list, no approve. | `mcp_server.py` / UI line | A human signs |
 | 7 | 3:56 | "thirty-six hostile documents" | Gauntlet grid: obedient 28/28 obeyed, 0 moved. | landing Gauntlet | 36 · 0 moved |
 | 7 | 4:06 | "Twelve… Twenty… Two hundred" | Quick cuts: isolation 12, storm 20→20, ledger 200/200. | `GAUNTLET.md` | — |
 | 7 | 4:14 | "Four hundred and fifty tests" | `pytest -q` final line. | terminal | the day's number |
-| 8 | 4:20 | "Metal mandate… second pull refused… wrong address refused" | Mandate card; refusal tx with decoded caption. | Metal CLI, VM device mode | Refused on chain |
-| 9 | 4:32 | "sandbox, not production" | Full face. | camera | — |
-| 9 | 4:40 | "Try to make it pay the wrong person" | Playground: paste / Attack-itself buttons. | app Try-it | Try it |
-| 9 | 4:48 | "That's Ringfence" | Full face, hold. Then black: Thank you · Adiós · नमस्ते. End card: repo + live URL. | edit | Ringfence |
+| 8 | 4:08 | "Metal mandate… second pull refused… wrong address refused" | Mandate card; refusal tx with decoded caption. | Metal CLI, VM device mode | Refused on chain |
+| 9 | 4:20 | "the point of all this… a normal agent… hardened" | Full face, then a two-column table builds, one row per beat: approval swap → pinned bank details · email → quarantine + callback · batch → one transfer per line · SDK → own login per client · retries and paging → fixed ID + lookup · tamper → red ledger. Last frame: "Same agent. Hardened." | camera + edit | Bug → fix |
+| 10 | 4:32 | "sandbox, not production" | Full face. | camera | — |
+| 10 | 4:40 | "Try to make it pay the wrong person" | Playground: paste / Attack-itself buttons. | app Try-it | Try it |
+| 10 | 4:48 | "That's Ringfence" | Full face, hold. Then black: Thank you · Adiós · नमस्ते. End card: repo + live URL. | edit | Ringfence |
 
 ## Capture checklist (shoot day, in order)
 1. `uv run pytest -q`: grab the final line.
@@ -52,6 +54,7 @@ Pairs with `docs/SPEAK_V8.md`. The voice is the Loom (`var/loom_v8.mp4`). Every 
 4. Terminal runs (credit note: Opus only where needed):
    - `RF_N=5 uv run python bench/probes/agent_bec_repeat.py` (Sonnet, cheap);
    - `scripts/breakit.py approval batch` for the their-side cards;
+   - `scripts/breakit.py pages sdk` for the two software bugs (read-only).
    - the live SDK read-only run if it exists.
 5. Metal on the VM: bind → pull → second pull refused → poison refused. Write the tx set into `facts.json`.
 6. Landing `/#found`, scrolled slowly, top to bottom.
