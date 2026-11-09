@@ -71,3 +71,9 @@ def test_a_rewritten_ledger_no_longer_matches_the_head_stamped_on_the_transfers(
     con.commit()
     rep = verify.report(awx, L)
     assert not rep["ok"] and any("head hash" in c["name"] and not c["ok"] for c in rep["tenants"]["kestrel"]["checks"])
+
+
+@pytest.mark.parametrize("junk", [{"rf_seq": "abc", "rf_hash": "x"}, {"rf_seq": "9" * 40, "rf_hash": "x"},
+                                  {"rf_seq": "1", "rf_hash": 5}, {"rf_seq": "-1", "rf_hash": "x"}])
+def test_junk_in_transfer_metadata_fails_the_check_instead_of_crashing_proof(world, awx, L, junk):
+    assert verify._stamp_ok(L, junk) is False

@@ -86,6 +86,15 @@ def _transfers(c, since: str) -> list[dict]:
             raise RuntimeError("Airwallex /transfers cursor stalled: transfer list incomplete")
 
 
+def _stamp_ok(L: Ledger, m: dict) -> bool:
+    """metadata is writable by anyone with the API key: junk in it must fail the check, not crash Proof."""
+    seq, h = m.get("rf_seq"), m.get("rf_hash")
+    if not (isinstance(seq, str) and seq.isascii() and seq.isdigit() and len(seq) <= 15 and isinstance(h, str)):
+        return False
+    r = L.query("SELECT hash FROM ledger WHERE seq=?", (int(seq),))
+    return bool(r) and r[0]["hash"] == h
+
+
 def _chk(name: str, ok: bool, detail: str = "") -> dict:
     return {"name": name, "ok": bool(ok), "detail": detail}
 
@@ -113,9 +122,7 @@ def _tenant_report(tenant: str, L: Ledger, reg: dict, seen: dict[str, list[dict]
                   or t["transfer_currency"] != e["payload"]["currency"])]
     missing = [rid for rid in intents if len(by_req.get(rid, [])) != 1]
     # shortcut: transfers made before the stamp existed (and fee transfers) carry none and are skipped, not failed
-    anchored = [t["id"] for t in ts if (m := t.get("metadata") or {}).get("rf_seq")
-                and (r := L.query("SELECT hash FROM ledger WHERE seq=?", (int(m["rf_seq"]),))) is not None
-                and (not r or r[0]["hash"] != m.get("rf_hash"))]
+    anchored = [t["id"] for t in ts if (m := t.get("metadata") or {}).get("rf_seq") and not _stamp_ok(L, m)]
     elsewhere = [rid for rid in intents for other, tl in seen.items()
                  if other != tenant and any(t.get("request_id") == rid for t in tl)]
     paid_per_payee: dict[str, int] = {}
