@@ -1,0 +1,32 @@
+
+== A future-dated transfer
+created 2e1e1412-8bb1-45ea-a1c7-40f62bece8b3 SCHEDULED transfer_date 2026-11-14 dest ..2222 sort 040004
+payee update ok
+re-GET after edit: SCHEDULED dest ..2222 sort 040004 | live payee now ..9901 sort 200000
+
+== B batch transfer, edit between add_items and submit
+batch create {'id': '0561c585-fa36-4e3b-b291-18b391b48c33', 'status': 'DRAFTING', '_error': None, 'code': None, 'msg': None}
+add_items {"funding": {"status": "SCHEDULED"}, "id": "0561c585-fa36-4e3b-b291-18b391b48c33", "name": "PRB-snap-4258", "request_id": "PRB-snap-4258-batch", "short_reference_id": "B261109-8O5JK83", "status": "DRAFTING", "total_item_count": 1, "transfer_date": "2026-11-09", "updated_at": "2026-11-09T06:04:22+0000", "valid_item_count": 1}
+payee update ok
+submit {"funding": {"status": "FUNDED"}, "id": "0561c585-fa36-4e3b-b291-18b391b48c33", "name": "PRB-snap-4258", "quote_summary": {"expires_at": "2026-11-09T06:05:23+0000", "last_quoted_at": "2026-11-09T06:04:23+0000", "quotes": [{"amount_beneficiary_receives": 1, "amount_payer_pays": 1, "fee_amount": 0, "fee_currency": "GBP", "source_currency": "GBP", "transfer_currency": "GBP"}], "validity": "MIN_1"}, "
+  poll 0: batch BOOKING  transfers for payee: []
+  poll 1: batch BOOKING  transfers for payee: []
+  poll 2: batch BOOKING  transfers for payee: []
+  poll 3: batch BOOKING  transfers for payee: []
+  poll 4: batch BOOKING  transfers for payee: []
+  poll 5: batch BOOKING  transfers for payee: []
+  poll 6: batch BOOKING  transfers for payee: []
+  poll 7: batch BOOKING  transfers for payee: []
+  poll 8: batch BOOKING  transfers for payee: []
+  poll 9: batch BOOKING  transfers for payee: []
+
+== C Kestrel token, Northwind beneficiary_id
+GET with Kestrel token: {"_error": 404, "code": "not_found", "msg": "HTTP 404 not_found: empty 200 for GET /beneficiaries/23e09768-1fc2-48e6-aeb2-c6d12f9947f7", "details": null}
+create with Kestrel token: {"id": null, "status": null, "_error": 400, "code": "validation_failed", "msg": "HTTP 400 validation_failed: The request failed our schema validation. Refer to the errors object for erroneous fields, codes and parameters."}
+
+== cleanup
+transfer 2e1e1412-8bb1-45ea-a1c7-40f62bece8b3 CANCELLED
+batch 0561c585-fa36-4e3b-b291-18b391b48c33 {"_error": 401, "code": "unauthorized", "msg": "HTTP 401 unauthorized: Admin permissions required", "details": null}
+beneficiary deleted 378fe998-2088-4675-8004-fb0e746f184e
+beneficiary deleted 315e5f00-922f-4f93-8e1a-5f6af277bba0
+beneficiary deleted 23e09768-1fc2-48e6-aeb2-c6d12f9947f7

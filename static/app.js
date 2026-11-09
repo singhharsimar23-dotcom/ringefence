@@ -444,9 +444,9 @@ function renderProof() {
       <details><summary class="small">${T.debits} (${r.debits.length})</summary>${r.debits.map((d) => `<div class="mono small">${esc(d.transfer_id.slice(0, 8))} ${esc(fmtMoney(d.currency, d.amount))} ${esc(d.status || "")}</div>`).join("")}</details>
       <div class="actions"><a class="btn" href="/api/cert/${t}">${T.download}</a><button data-act="print" data-t="${t}">${T.print}</button></div></div>`;
   }).join("")}</div>`;
-  const pr = "";
+  const notes = `<div class="panel"><p class="muted small">${T.proofInline}</p><p class="muted small">${T.proofMcp}</p></div>`;
   const mt = (P.metal || []).length ? `<div class="panel"><h2>${T.metalProof}</h2>${P.metal.map((m) => `<div class="check ${m.kind === "METAL_PULL" ? "ok" : "no"}">${m.kind === "METAL_PULL" ? ICON.check : ICON.lock}<span>${esc(m.what)}: ${esc(m.usdz)} USDZ${m.code ? ` (${esc(m.code)})` : ""} ${m.explorer_url ? `<a class="link" href="${esc(m.explorer_url)}" target="_blank" rel="noopener">tx ${esc(String(m.tx).slice(0, 10))}</a>` : ""}${m.mandate ? ` <span class="mono">mandate ${esc(String(m.mandate).slice(0, 10))}</span>` : ""}</span></div>`).join("")}</div>` : "";
-  el.innerHTML = `<div class="stack">${verdict}${matrix}${panels}${pr}${mt}</div>`;
+  el.innerHTML = `<div class="stack">${verdict}${matrix}${panels}${notes}${mt}</div>`;
 }
 function printCert(t) {
   const c = PROOF.certs[t].doc, b = c.body;

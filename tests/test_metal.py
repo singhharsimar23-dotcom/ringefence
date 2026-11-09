@@ -210,3 +210,27 @@ def test_lookalike_wallet_is_flagged_then_refused_on_chain(world, L):
     row = L.entries(kind="METAL_REFUSED")[-1]["payload"]
     assert row["code"] == "mandate_payee_not_listed" and row["to"] == fake and row["flag"] == "address_poisoning"
     assert "lookalike wallet" in str(copy.timeline_row(L.entries(kind="METAL_REFUSED")[-1]))
+
+
+def test_the_mandate_refuses_any_address_not_only_a_lookalike(world, L):
+    sim = world[1]
+    sim._tick("harbour")
+    assert sim.run("metal_topup")["ok"]
+    pay = L.entries(kind="METAL_PULL")[0]["payload"]
+    plain = "0x" + "e" * 40  # a plain wrong address, not crafted to look like the settlement wallet
+    assert not metal.looks_like(plain, SETTLE)
+    ev = sim.metal.poisoned_pull(L, sim._run("harbour"), "harbour", pay, plain)
+    assert ev["code"] == "mandate_payee_not_listed" and ev["to"] == plain
+    with pytest.raises(metal.MetalError):  # the mandate's own payee is not a poisoned pull
+        sim.metal.poisoned_pull(L, sim._run("harbour"), "harbour", pay, SETTLE)
+
+
+def test_metal_poison_reads_the_attacker_address_from_the_untrusted_document(world, L):
+    sim = world[1]
+    sim._tick("harbour")
+    assert sim.run("metal_topup")["ok"]
+    from ringfence.inbox import drop_dir
+    assert sim.run("metal_poison")["ok"]
+    doc = (drop_dir("harbour") / "metal_wallet_change.txt").read_text(encoding="utf-8")
+    assert metal.lookalike(SETTLE) in doc  # the address the chain refused came from the document, not a constant
+    assert L.entries(kind="METAL_REFUSED")[-1]["payload"]["to"] == metal.lookalike(SETTLE)

@@ -305,3 +305,9 @@ a.door{border-color:var(--line-3)}
   *{animation:none!important;transition:none!important}
   .js .fade{opacity:1;transform:none}
 }
+/* findings */
+.finds{list-style:none;padding:0;margin:32px 0 0;display:grid;gap:16px}
+.finds .bar .tag{color:var(--ink-3)}
+.finds .col p{margin:0 0 10px}
+.punch{font-size:clamp(22px,3vw,30px);line-height:1.25;margin:40px 0 12px;max-width:820px;color:var(--ink)}
+.finds .gap{margin-top:12px}

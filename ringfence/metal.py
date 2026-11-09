@@ -200,8 +200,8 @@ class Metal:
         """Address poisoning: send to a lookalike of the settlement wallet. Ringfence flags it in code first; the
         refusal on chain shows the mandate would stop it even if the agent were fooled."""
         real = self.cfg()["settlement"]
-        if not looks_like(to, real):
-            raise MetalError("not a lookalike address")
+        if to == real:  # the mandate names exactly one payee: refuse any other address, not only lookalikes
+            raise MetalError("poisoned pull needs an address other than the mandate's payee")
         return self._refused(L, run_id, tenant, pay, pay["usdz"], to,
                              {"what": "Metal refused a pull to a lookalike wallet", "flag": "address_poisoning", "to": to, "real": real})
 

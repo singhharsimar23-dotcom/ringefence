@@ -309,6 +309,21 @@ def test_a_transfer_found_by_request_id_that_differs_from_the_line_is_held_not_a
     assert after["state"] == "HOLD" and after["hold_reason"] == "DUPLICATE_MISMATCH" and n_transfers(fake, "kestrel") == 1
 
 
+def test_an_inline_duplicate_whose_bank_details_differ_from_the_pin_is_held(awx, L, ex):
+    from ringfence import beneficiaries as ben
+    new_run(awx, L, "kestrel", {"noah": D(10)})
+    ln = lines(L, "kestrel")["noah"]
+    reg = ben.load_registry()  # pin the approved bank account for this payee
+    reg["tenants"]["kestrel"].setdefault("pins", {})[ln["beneficiary_id"]] = ben.dest_fp({"bank_details": {"account_number": "11112222"}})
+    ben.save_registry(reg)
+    # an inline-sent transfer under this request_id (beneficiary_id null) that points at another account
+    t = {"beneficiary_id": None, "beneficiary": {"bank_details": {"account_number": "99999901"}},
+         "transfer_amount": ln["amount"], "transfer_currency": ln["currency"]}
+    ex._adopt_found(ln, t)
+    after = lines(L, "kestrel")["noah"]
+    assert after["state"] == "HOLD" and after["hold_reason"] == "DUPLICATE_MISMATCH"
+
+
 def test_a_late_return_does_not_wash_a_hold_into_awaiting_approval(awx, fake, L):
     ex = fee_executor(awx, L)
     new_run(awx, L, "kestrel")

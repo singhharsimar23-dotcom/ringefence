@@ -1,0 +1,22 @@
+{
+  "id": "6924b2fb-60c3-449b-b6d2-582cbfa876b3",
+  "beneficiary": {
+    "bank_details": {
+      "account_currency": "GBP",
+      "account_name": "Ben Payee",
+      "account_number": "11114444",
+      "account_routing_type1": "sort_code",
+      "account_routing_value1": "040004",
+      "bank_country_code": "GB",
+      "bank_name": "Monzo Bank Ltd",
+      "local_clearing_system": "FASTER_PAYMENTS"
+    },
+    "entity_type": "PERSONAL",
+    "type": "BANK_ACCOUNT"
+  },
+  "nickname": "PRB-demo-5533-Ben",
+  "payer_entity_type": "COMPANY",
+  "transfer_methods": [
+    "LOCAL"
+  ]
+}

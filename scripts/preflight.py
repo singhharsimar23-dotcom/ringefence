@@ -78,6 +78,16 @@ def main() -> int:
         return usd <= KESTREL_USD_BASELINE, f"USD {usd} (baseline {KESTREL_USD_BASELINE})"
     check("kestrel baseline", kestrel)
 
+    def payees():  # the demo pays saved beneficiaries; a wiped account would make the run pay nobody
+        bad = []
+        for n in ("northwind", "kestrel"):
+            r = httpx.get(f"{base}/api/v1/beneficiaries", params={"page_num": 0, "page_size": 10},
+                          headers={"Authorization": f"Bearer {tokens[n]}"}, timeout=30)
+            if r.status_code not in (200, 201) or not r.json().get("items"):
+                bad.append(f"{n} HTTP {r.status_code}")
+        return not bad, "all have payees" if not bad else "; ".join(bad)
+    check("payees present", payees)
+
     def metal():
         state = ROOT / "var" / "metal" / "harbour" / "state.json"
         if not state.exists():

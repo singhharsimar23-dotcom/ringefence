@@ -1,0 +1,29 @@
+{
+  "funding": {
+    "status": "FUNDED"
+  },
+  "id": "852512bc-c718-48fb-936f-4834829bc10f",
+  "name": "PRB-demo-5533",
+  "quote_summary": {
+    "expires_at": "2026-11-09T06:26:37+0000",
+    "last_quoted_at": "2026-11-09T06:25:37+0000",
+    "quotes": [
+      {
+        "amount_beneficiary_receives": 1,
+        "amount_payer_pays": 1,
+        "fee_amount": 0,
+        "fee_currency": "GBP",
+        "source_currency": "GBP",
+        "transfer_currency": "GBP"
+      }
+    ],
+    "validity": "MIN_1"
+  },
+  "request_id": "PRB-demo-5533-b",
+  "short_reference_id": "B261109-ZFI7XOY",
+  "status": "BOOKING",
+  "total_item_count": 1,
+  "transfer_date": "2026-11-09",
+  "updated_at": "2026-11-09T06:25:37+0000",
+  "valid_item_count": 1
+}

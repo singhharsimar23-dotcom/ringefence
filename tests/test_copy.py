@@ -137,6 +137,20 @@ def test_every_reason_code_has_text():
     assert all(copy.reason(c, "northwind") for c in REASON_CODES)
 
 
+@pytest.mark.parametrize("code", ["BENEFICIARY_CHANGED_OUTSIDE_RINGFENCE", "PAID_TO_UNAPPROVED_ACCOUNT",
+                                  "ALREADY_PAID_ON_AIRWALLEX", "DUPLICATE_MISMATCH"])
+def test_alert_rows_show_the_reason_on_the_timeline(code):
+    row = copy.timeline_row({"seq": 1, "ts": "t", "kind": "ALERT", "tenant": "northwind", "payload": {"what": code}})
+    assert row and row["phase"] == "Decide" and row["text"] == copy.reason(code, "northwind")
+    assert row["blocked"] and "{t}" not in row["text"]  # the tenant placeholder was filled
+
+
+def test_an_executor_hold_reads_its_code_as_the_reason():
+    row = copy.timeline_row({"seq": 1, "ts": "t", "kind": "HOLD", "tenant": "northwind",
+                             "payload": {"code": "DUPLICATE_MISMATCH"}})
+    assert row and copy.reason("DUPLICATE_MISMATCH") in row["text"]
+
+
 def test_the_scanner_sees_strings_after_nested_templates_and_regex_literals():
     src = 'const r = s.replace(/[&<>"\']/g, "x"); const a = `p ${f(`q`)} r`; const b = "Oops!";'
     assert "Oops!" in js_strings(src) and "q" in js_strings(src)

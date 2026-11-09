@@ -101,6 +101,23 @@ def test_build_backend_fake():
     assert a.for_tenant("harbour").get("/account")["id"] == "acct_FAKE_harbour"
 
 
+def test_transfer_by_request_drops_rows_a_backend_did_not_filter():
+    from ringfence.awx import TenantClient
+
+    class Stub:  # a backend that ignores the request_id query and returns everything
+        def __init__(self, items):
+            self.items = items
+
+        def get(self, path, params=None):
+            return {"items": self.items}
+
+        transfer_by_request = TenantClient.transfer_by_request
+
+    assert Stub([{"id": "a", "request_id": "someone-else"}]).transfer_by_request("mine") is None
+    got = Stub([{"id": "a", "request_id": "someone-else"}, {"id": "b", "request_id": "mine"}]).transfer_by_request("mine")
+    assert got["id"] == "b"
+
+
 def test_the_ca_transfer_spelling_of_a_duplicate_request_id_is_adopted_like_the_transfers_one():
     import httpx
     from ringfence.awx import AwxError, _raise_for

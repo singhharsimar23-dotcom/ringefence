@@ -75,12 +75,21 @@ SCENARIO_EVIDENCE = {
     "double_click": ("Four release requests arrive at once on the same approved run.",
                      "ONE_PAYMENT_KEY", "Ringfence's executor (code)",
                      "Each payout has one payment key and one database claim, so a repeat finds the work done."),
+    "approval_repoint": ("A payee's bank account is changed after the run was approved, before it is sent.",
+                         "PAYEE_REREAD_BEFORE_SEND", "Ringfence's pre-send check (code)",
+                         "Before sending, each payee is read live and checked against the exact account that was approved. A change holds the run."),
+    "approval_race": ("A payee's bank account is changed in the moment between the pre-send check and the send.",
+                      "TRANSFER_READ_BACK", "Ringfence's recall (code)",
+                      "Every transfer carries the approved account and is read back the instant it is created. One pointing elsewhere is cancelled."),
     "network_drop": ("Airwallex takes the payment but the answer is lost.",
                      "FIND_BY_PAYMENT_KEY", "Ringfence's executor (code)",
                      "After a timeout Ringfence looks the payment up by its key instead of sending it again."),
     "tamper_ledger": ("Someone with the database file edits one recorded amount.",
                       "LEDGER_HASH_CHAIN", "The hash chain (code)",
                       "Every row's hash includes the row before it, so one edit breaks the chain at that row."),
+    "tamper_rehash": ("Someone with the database file edits a row and recomputes every later hash.",
+                      "AIRWALLEX_TRANSFER_STAMP", "Airwallex transfer metadata",
+                      "Each transfer carries a copy of the head hash. Re-hashing the database cannot change the copy at Airwallex, so the stamp check fails."),
     "cross_tenant_call": ("One employer's login tries to act on another employer's account.",
                           "AIRWALLEX_ACCOUNT_ISOLATION", "Airwallex",
                           "Airwallex refused the login with HTTP 401. Ringfence cannot even try."),
@@ -138,6 +147,9 @@ EXTRA_TEXT = {
     "FACTS_UNAVAILABLE": "Airwallex did not answer when balances were read, so nothing was sent.",
     "FX_FAILED": "The currency conversion did not go through, so the run was stopped.",
     "DUPLICATE_MISMATCH": "A payment with this key already exists with different details. A person needs to look.",
+    "BENEFICIARY_CHANGED_OUTSIDE_RINGFENCE": "A payee's bank account changed on Airwallex, not through Ringfence, so {t}'s run was held.",
+    "PAID_TO_UNAPPROVED_ACCOUNT": "A transfer pointed at an account that was not approved. It was cancelled before it could send.",
+    "ALREADY_PAID_ON_AIRWALLEX": "Airwallex already holds a payment for this obligation, so {t}'s run was held for a person to check.",
     "UNKNOWN_STATUS": "Airwallex reported a status Ringfence does not know, so the payout was held.",
     "UNKNOWN_AFTER_RETRY": "The payout's outcome is still unknown after checking. A person needs to look.",
     "UNKNOWN_TOOL": "The agent asked for something it cannot do.",
@@ -183,6 +195,7 @@ REALITY = {"live": "Live on Airwallex", "chain": "On Metal testnet", "awx_sim": 
            "fake": "Offline test double"}
 CARD_REALITY = {
     "double_click": "live", "network_drop": "live", "cross_tenant_call": "live", "tamper_ledger": "ours", "rate_move": "ours",
+    "tamper_rehash": "live", "approval_repoint": "live", "approval_race": "live",
     "bank_change_email": "ours", "injection": "ours", "other_tenant_deposit": "awx_sim", "harbour_topup": "awx_sim",
     "topup": "awx_sim", "late_return": "awx_sim", "metal_topup": "chain", "metal_overpull": "chain", "metal_poison": "chain"}
 ROW_REALITY = {"SUBMITTED": "live", "UNKNOWN": "live", "RECONCILED": "live", "FX_CONVERTED": "live", "FEE_CHARGED": "live",
@@ -325,6 +338,9 @@ def timeline_row(e: dict) -> dict | None:
         pct = (Decimal(p["new_rate"]) - Decimal(p["old_rate"])) / Decimal(p["old_rate"]) * 100
         row = ("Decide", (f"{who} asked for {p['new_rate']} an hour ({pct:+.0f}%). Not applied; the approver sees it"
                          f"{' in red' if p.get('over_25pct') else ''}."))
+    elif k == "ALERT" and p.get("what") in ("BENEFICIARY_CHANGED_OUTSIDE_RINGFENCE", "PAID_TO_UNAPPROVED_ACCOUNT",
+                                            "ALREADY_PAID_ON_AIRWALLEX", "DUPLICATE_MISMATCH"):
+        row = ("Decide", reason(p["what"], t or ""))
     elif k == "ALERT" and p.get("kind") == "suspicious_document":
         row = ("Decide", f"Flagged an email to {T} as suspicious: it contains instructions. None were followed.")
     elif k == "ALERT" and p.get("kind") == "timesheet_rejected":
@@ -363,7 +379,8 @@ def timeline_row(e: dict) -> dict | None:
     elif k == "FEE_CREDIT":
         row = ("Reconcile", f"Fee credited back to {T} for the returned payout.")
     elif k == "HOLD":
-        row = ("Decide", f"Held {T}'s run: {reason(p.get('reason', ''), t or '') if p.get('reason') in REASON_TEXT else p.get('reason', '')}")
+        code = p.get("reason") or p.get("code", "")  # executor holds carry `code`, not `reason`
+        row = ("Decide", f"Held {T}'s run: {reason(code, t or '') if code in REASON_TEXT or code in EXTRA_TEXT else code}")
     elif k == "KILL_SWITCH":
         row = ("Decide", "All payouts paused." if p.get("on") else "Payouts resumed.")
     elif k == "SIMULATED":

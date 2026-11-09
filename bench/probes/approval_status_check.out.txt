@@ -1,0 +1,5 @@
+tag PRB-appchk-1285
+created efd66cc9-08bd-40a7-810e-16e173733e55 status: SCHEDULED
+VERDICT: approval routing NOT active (status SCHEDULED) - feature not provisioned for the org
+cleanup transfer efd66cc9-08bd-40a7-810e-16e173733e55 CANCELLED
+cleanup payee 92664bce-e4b9-40cc-afdb-945d028deba0 deleted

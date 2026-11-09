@@ -2,7 +2,7 @@ import pytest
 from helpers import acct
 from invariants import assert_invariants
 
-from ringfence import copy, store
+from ringfence import copy, store, verify
 from ringfence.agent import loop
 from ringfence.orchestrator import Orchestrator
 from ringfence.scenarios import SCENARIOS, Simulator
@@ -69,6 +69,39 @@ def test_tamper_breaks_the_chain_at_the_row_and_repair_restores_it(world, L):
     r = sim.run("tamper_ledger")
     assert r["ok"] and not L.verify().ok and L.verify().bad_seq == r["bad_seq"]
     assert sim.run("tamper_ledger")["ok"] and L.verify().ok
+
+
+def test_approval_repoint_holds_the_whole_run_and_sends_nobody(world, L, fake):
+    sim = world[1]
+    sim._tick("northwind")
+    r = sim.run("approval_repoint", "northwind")
+    assert r["ok"], r["summary"]
+    assert store.get_run(L, world[2](), "northwind")["state"] == "HELD"
+    assert not fake.all_transfers(acct("northwind"))
+
+
+def test_approval_race_cancels_the_redirected_transfer(world, fake):
+    sim = world[1]
+    sim._tick("northwind")
+    r = sim.run("approval_race", "northwind")
+    assert r["ok"], r["summary"]
+    assert any(t.get("status") == "CANCELLED" for t in fake.all_transfers(acct("northwind")))
+
+
+def test_tamper_rehash_keeps_the_chain_but_fails_the_airwallex_stamp(world, L, fake):
+    o, sim, rid = world
+    sim._tick("northwind")
+    approve(o, L, rid, "northwind")
+    o.advance(rid(), "northwind")
+    assert fake.all_transfers(acct("northwind"))  # a stamped transfer exists to disagree
+    r = sim.run("tamper_rehash")
+    assert r["ok"], r["summary"]
+    assert L.verify().ok  # the re-hashed chain still verifies
+    rep = verify.report(o.awx, L)
+    assert rep["chain"]["ok"] and not rep["ok"]  # chain green, overall red on the stamp
+    assert any(not c["ok"] and c["name"].startswith("The ledger still matches the head hash")
+               for t in rep["tenants"].values() for c in t["checks"])
+    assert sim.run("tamper_rehash")["ok"] and L.verify().ok  # a second press repairs
 
 
 def test_cross_tenant_probes_are_all_refused(world):

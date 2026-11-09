@@ -1,0 +1,37 @@
+
+== CHAIN 1: silent repoint (what can a reconciler detect?)
+payee id b0668866-7a4e-41d9-a061-332f0336d4b9 account ..2222 sort 040004
+audit/version fields present on payee object: NONE
+repoint in place: ok
+account now ..9901 sort 200000 | id unchanged: b0668866-7a4e-41d9-a061-332f0336d4b9
+fields that CHANGED on the payee after repoint:
+    beneficiary.bank_details.account_number: '11112222' -> '99999901'
+    beneficiary.bank_details.account_routing_value1: '040004' -> '200000'
+    beneficiary.bank_details.bank_name: 'Monzo Bank Ltd' -> 'Barclays Bank PLC'
+    nickname: 'PRB-divert-7777-Legit' -> None
+VERDICT C1: only the bank account changed - NO signal a reconciler could key on
+paid: transfer 198eff9a-d58c-48a8-9e70-d2efe4e8b392 reference='Payroll Oct - J. Doe' payee_id=b0668866-7a4e-41d9-a061-332f0336d4b9 -> money to ..9901 sort 200000
+VERDICT C1b: approver/ledger see id+reference of last month's payee; money went to ..9901 sort 200000
+
+== CHAIN 2: idempotency substitution (attacker pre-registers the request_id)
+attacker fired FIRST  request_id=PRB-divert-7777-run42 -> transfer e96c0054-375a-409d-a225-53c96ce1525c to MULE ..9901 sort 200000
+legit executor fires SAME request_id to real payee -> {"_error": 400, "code": "duplicate_request_id", "id": null, "status": null}
+duplicate_request_id points recovery at original id: e96c0054-375a-409d-a225-53c96ce1525c
+recovery GET e96c0054-375a-409d-a225-53c96ce1525c -> payee_id=17422a8e-6648-4425-a251-c4d8fd699d2d money to ..9901 sort 200000
+VERDICT C2: SUBSTITUTED - executor adopts the MULE transfer as the 'paid' payroll line
+
+== cleanup
+transfer 198eff9a-d58c-48a8-9e70-d2efe4e8b392 CANCELLED
+transfer e96c0054-375a-409d-a225-53c96ce1525c CANCELLED
+payee deleted b0668866-7a4e-41d9-a061-332f0336d4b9
+payee deleted 26a8d22d-0ffd-4c59-be4e-89b3f9b70401
+payee deleted 17422a8e-6648-4425-a251-c4d8fd699d2d
+
+SUMMARY silent_repoint_undetectable=True idempotency_substitution=True
+self-check ok
+
+NOTE (added, not probe output): this probe shows the BASELINE (beneficiary_id) path. Ringfence sends every
+payout inline, so each transfer carries its own bank-details snapshot. C1's silent repoint is caught because
+the pre-send re-read and the transfer snapshot no longer match the approved pin; C2's idempotency
+substitution is caught because adopt-by-request_id compares the found transfer's payee/amount/snapshot to the
+line and holds on any mismatch (DUPLICATE_MISMATCH) instead of adopting the mule.

@@ -133,12 +133,16 @@ the payee is typed on the device and never taken from the server, and why the te
 credential rather than echoed from the request. This is not a claim that Ringfence would have stopped Bybit. The
 attack class there was a different one.
 
-## H4: the ledger can be rewritten by whoever holds it (open)
+## H4: the ledger can be rewritten by whoever holds it (anchored)
 
-`Ledger.reset()` ([ledger.py:220](../ringfence/ledger.py#L220)) drops the append-only triggers and deletes every row.
-The hash chain has no external anchor, so an owner of the disk can recompute it. **Not fixed.** The fix would be to
-publish each run's head hash somewhere the server can't rewrite (Airwallex transfer metadata, or a Metal payment id).
-That touches the frozen executor, so it's deferred.
+`Ledger.reset()` ([ledger.py:220](../ringfence/ledger.py#L220)) drops the append-only triggers and deletes every row,
+and an owner of the disk can recompute the whole hash chain so it verifies again. **The fix is in:** at create time
+every transfer carries the ledger head's `rf_seq`/`rf_hash` in its Airwallex metadata ([executor.py](../ringfence/executor.py)),
+an anchor the server can't rewrite. Proof's stamp check (`verify._stamp_ok`) re-reads each transfer and fails when the
+stamped hash no longer matches the row at that seq, so a re-hashed ledger is caught even though its own chain self-check
+passes. The `tamper_rehash` scenario demonstrates exactly this. Residual limit: only transfers that carry a stamp are
+anchored — fee transfers, and any made before the stamp existed, carry none and are skipped — so the anchor is as
+complete as the set of stamped transfers.
 
 ## H5: the bank-name check fails open (found in our own fix)
 

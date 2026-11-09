@@ -1,0 +1,13 @@
+tag PRB-val-3900
+T1 negative transfer: rejected (validation_failed)
+T2 negative conversion: rejected (invalid_argument)
+T3 GBP start=10162094.03 after_create=10162092.03 after_cancel=10162094.03 (cancel status CANCELLED)
+T3 debited=2.00 refunded=2.00
+T3 VERDICT: BALANCE RESTORED EXACTLY (accounting correct)
+
+settlement-risk note: a PENDING global-account deposit is spendable immediately (CLAUDE.md), which is the precondition for a front-the-float loss, but /simulation/deposits/{id}/reverse 404s on GA deposits, so the loss cannot be completed live.
+self-check ok: negative transfer rejected
+
+== cleanup
+transfer 5469a718-ec98-4c8a-9062-7b7f8573e281 CANCELLED
+payee deleted 1678b271-68b0-47ac-982d-c352d7df62a8

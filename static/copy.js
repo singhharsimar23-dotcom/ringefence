@@ -89,6 +89,8 @@ const T = {
   examples: ["No single payment over 700 GBP.", "Cap each run at 15k GBP.", "FX within 30 bps."],
   proofTitle: "Proof: where the money went", verifyAgain: "Verify again", download: "Download receipt", print: "Print receipt",
   isolation: "Money kept separate:", chain: "Records untouched", certs: "receipts valid", of: "of", employers: "companies",
+  proofInline: "The approved bank details are sent inside each transfer and read back before release, so there is no pointer left to repoint.",
+  proofMcp: "The Ringfence MCP server exposes get_status, price_run, propose_run, request_release and certificate. There is no approve tool: a person approves, this server cannot.",
   probesTitle: "Cross-employer access", pass: "Pass", fail: "Fail",
   contractorLink: "Contractor link", walledId: "Account",
   steps3: ["Planned", "On its way", "Paid"],
@@ -104,7 +106,7 @@ const BEATS = [
   "Proof: each employer's money stayed in its own account. Edit one ledger row and verification fails there.",
 ];
 
-const CARD_ORDER = ["bank_change_email", "double_click", "network_drop", "tamper_ledger", "cross_tenant_call", "rate_move"];
+const CARD_ORDER = ["bank_change_email", "double_click", "approval_repoint", "approval_race", "network_drop", "tamper_ledger", "tamper_rehash", "cross_tenant_call", "rate_move"];
 const EVENT_ORDER = ["other_tenant_deposit", "harbour_topup", "late_return"];
 
 const clock = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "");

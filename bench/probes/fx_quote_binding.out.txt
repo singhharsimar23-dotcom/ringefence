@@ -1,0 +1,13 @@
+tag PRB-fx-510
+T0 quote ff918033-a907-32b8-bd0e-5c503d5a3457 sell EUR 1.21 -> buy GBP 1.00 @ 0.829785
+T0 convert buy 1 : SETTLED settled_rate 1.210000
+T1 amount buy 5 : SETTLED settled_rate 1.206000 quoted_rate 0.829785
+T1 VERDICT: settled at a DIFFERENT rate (re-priced)
+T2 currency ->HKD: {'_error': 400, 'code': 'conflict_original_ccy', 'msg': 'HTTP 400 conflict_original_ccy: Quote currencies (buy=GBP, sell=EUR) differ from currencies in execution request (buy=HKD, sell=EUR)', 'details': [{'code': 'correlation_id', 'message': 'a2f5ac47-3aa2-4358-936b-1a7334f4c992'}]} buy_ccy None settled_rate None
+T2 VERDICT: rejected (conflict_original_ccy) - currency is bound
+T3 quote 409343ff-1357-319d-8de9-5b817e3c79c8 validity MIN_1; sleeping 65s
+T3 expired : {'_error': 400, 'code': 'expired_quote', 'msg': 'HTTP 400 expired_quote: Quote has expired', 'details': [{'code': 'correlation_id', 'message': '2dc14018-070b-4fa6-ae2c-b441e3b546ad'}]}
+T3 VERDICT: rejected (expired_quote) - validity enforced
+
+conversion receipts: ['40606f1c-d215-472e-ba8e-c42d29bbf0b3', '75018896-7409-4418-a774-79d5277acb5d']
+self-check ok: baseline settled

@@ -1,0 +1,11 @@
+tag PRB-amt-3660
+T0 transfer_amount=1 : {"status": "SCHEDULED", "transfer_amount": 1, "source_amount": 1, "amount_beneficiary_receives": 1}
+T1 tf=1 src=5 (conflict): {"status": null, "transfer_amount": null, "source_amount": null, "amount_beneficiary_receives": null}
+T2 tf=5 src=1 (conflict): {"status": null, "transfer_amount": null, "source_amount": null, "amount_beneficiary_receives": null}
+VERDICT T1: REJECTED (validation_failed) - conflict is bound (good)
+VERDICT T2: REJECTED (validation_failed) - conflict is bound (good)
+self-check ok: baseline created 8ab20278-36a3-4ebb-8f8f-70b726d69fd0
+payee deleted c37e2fa6-e473-4564-9a3c-1b79eb8cb445
+
+== cleanup
+transfer 8ab20278-36a3-4ebb-8f8f-70b726d69fd0 CANCELLED

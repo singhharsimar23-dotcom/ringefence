@@ -106,8 +106,9 @@ feature. The gap is in the agent setup: approval binds a pointer, not content.
 ## Limits (honest)
 
 - **The race recall works only until the transfer is SENT.** In production, a transfer can be SENT first. The
-  structural fix is to send the pinned bank details inline in `transfers/create`, which Airwallex supports, instead
-  of a `beneficiary_id`. That leaves nothing to repoint. It needs a change to the frozen executor and isn't done.
+  structural fix is done: Ringfence sends the pinned bank details **inline** in `transfers/create`, which Airwallex
+  supports, instead of a `beneficiary_id`, so there is nothing left to repoint, and it reads each transfer's own
+  snapshot back before release. The recall is the backstop for the brief window before that read.
 - **Ringfence holds the whole run on one bad payee;** the baseline paid the other two. That is safer, but it costs
   on-time pay for honest contractors until a human clears the hold.
 - **Small n:** 3 trials per fault, one model, one sandbox account.

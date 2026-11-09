@@ -128,8 +128,10 @@ independent movement of money.
   on duplicate" handler misses one of them.
 - Charges itself returned 400 "Permission denied." on this sandbox, so that half is docs-only.
 
-**Ringfence.** It never mints a new id: ids are deterministic per run, tenant, contractor and attempt. On the CA
-spelling today it fails closed, but leaves the fee unrecorded. The normaliser is in the Sonnet handoff.
+**Ringfence.** It never mints a new id: ids are deterministic per run, tenant, contractor and attempt. The CA spelling
+`request_id_duplicate` with `details.source_id` is normalised to the same `duplicate_request_id` + `details.id` path, so
+one adopt-the-original handler covers both; adopt-by-request_id then checks payee, amount and currency and holds on any
+mismatch (`b9403e6`, `7d8ff13`).
 
 **Video line.** "Airwallex's own error table says: if you see a duplicate, retry with a new id. We did exactly that, and
 it moved the money twice. Instantly, with no cancel."
@@ -152,8 +154,8 @@ verifiers re-ran it read-only and could not refute it):
 - The official MCP's `list_transfers` sends no query parameters at all
   (`@airwallex/developer-mcp@0.3.0-beta.13 dist/tools/listTransfers.js`).
 
-**Ringfence.** Its own Proof paged with `page_num` too, and looped forever past 100 transfers. That is fixed in the
-working tree with the cursor pager (see the handoff).
+**Ringfence.** Its own Proof paged with `page_num` too, and looped forever past 100 transfers. That is fixed: Proof
+follows the undocumented `page_after` cursor and fails if the cursor stalls, so a truncated listing cannot pass (`0e1bcb7`).
 
 **Video line.** "Follow Airwallex's guide to check who's been paid, and half of Northwind's payments disappear. Re-pay
 the missing ones, and you've paid 66 people twice."
@@ -290,7 +292,7 @@ So the repoint-in-place attack does not extend to this rail, and an attacker nee
   thing it leaves mutable under an approved id is the destination bank account, which is the one field the approval
   screen never shows.
 
-## Ringfence status per gap (6 Nov, 446 offline tests)
+## Ringfence status per gap (9 Nov, 462 offline tests)
 
 **Fixed or mitigated in Ringfence, with a test.**
 
