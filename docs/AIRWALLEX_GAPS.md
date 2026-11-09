@@ -277,6 +277,18 @@ So the repoint-in-place attack does not extend to this rail, and an attacker nee
 - **Destination snapshots.** Single transfers, including future-dated ones, keep the destination they had at create.
 - **The in-place switch to a wallet is refused** (`beneficiary_switch_unsupported`).
 - **`request_id` dedupe within an account.** It did most of the retry safety in the bench, for both systems.
+- **Amount is bound.** A transfer with `transfer_amount` and `source_amount` in conflict (same currency) is rejected
+  `validation_failed`, both directions (`bench/probes/amount_binding.py`, `.out.txt`). The approved number is the moved number.
+- **FX is bound.** A conversion's currency and the quote's validity window are enforced; a mismatched `buy_currency`
+  (`conflict_original_ccy`) or an expired quote (`expired_quote`) is rejected (`bench/probes/fx_quote_binding.py`).
+- **No value creation / the platform's own accounting is sound.** Negative transfer and negative conversion amounts
+  are rejected (`validation_failed`, `invalid_argument`); a cancelled transfer refunds the debit exactly, to the penny
+  (`bench/probes/value_creation.py`, `.out.txt`). Airwallex itself does not lose money in any case we could test; the
+  only money that goes wrong is the employer's, to the wrong destination. (Front-the-float on unsettled deposits is a
+  precondition that exists — a PENDING GA deposit is spendable — but deposit reversal 404s, so no live loss.)
+- **The sharpened thesis.** Airwallex binds every field an approver checks — amount, currency, expiry, payer. The one
+  thing it leaves mutable under an approved id is the destination bank account, which is the one field the approval
+  screen never shows.
 
 ## Ringfence status per gap (6 Nov, 446 offline tests)
 
