@@ -1,5 +1,16 @@
 {
   "mcpServers": {
+    "ringfence": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "-m",
+        "ringfence.mcp_server",
+        "--backend",
+        "fake"
+      ]
+    },
     "airwallex-docs": {
       "type": "http",
       "url": "https://mcp.sandbox.airwallex.com/docs"

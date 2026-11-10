@@ -248,13 +248,12 @@ export const Chip: React.FC<{text: string}> = ({text}) => (
 
 // ---------------------------------------------------------------- face ----
 /** the opening: his camera, full frame, cropped 16:9 clear of Loom's controls */
-const CROP = {x: 368, y: 13, w: 1043};
 export const FaceFull: React.FC<{t0: number; notes?: [number, number, string, string][]}> = ({t0, notes = []}) => {
-  const t = useT(), abs = t0 + t, k = 1920 / CROP.w;
+  const t = useT(), abs = t0 + t;
   return (
     <AbsoluteFill style={{background: C.bg, overflow: "hidden"}}>
       <OffthreadVideo src={staticFile("loom_cut.mp4")} startFrom={Math.round(t0 * FPS)} muted
-        style={{position: "absolute", width: 1920 * k, height: 798 * k, left: -CROP.x * k, top: -CROP.y * k, maxWidth: "none"}} />
+        style={{position: "absolute", width: 1920, height: 798, left: 0, top: (1080 - 798) / 2}} />
       <div style={{position: "absolute", left: 72, bottom: 150, opacity: ramp(t, 0.6, 1.1) * (1 - ramp(t, 4.4, 4.9)), borderLeft: `3px solid ${C.ink}`, paddingLeft: 20,
         background: "rgba(0,0,0,.55)", padding: "12px 22px"}}>
         <div style={{fontFamily: SANS, fontSize: 44, fontWeight: 720, letterSpacing: "-0.02em"}}>Harsimar Singh</div>
@@ -263,7 +262,7 @@ export const FaceFull: React.FC<{t0: number; notes?: [number, number, string, st
       {notes.map(([a, b, big, small], i) => {
         const p = ramp(abs, a, a + 0.5) * (1 - ramp(abs, b - 0.3, b));
         return p > 0 ? (
-          <div key={i} style={{position: "absolute", right: 72, top: 300, width: 560, opacity: p, transform: `translateX(${(1 - p) * 24}px)`, background: "rgba(0,0,0,.72)",
+          <div key={i} style={{position: "absolute", right: 36, top: 300, width: 470, opacity: p, transform: `translateX(${(1 - p) * 24}px)`, background: "rgba(0,0,0,.72)",
             border: `1px solid ${C.line}`, borderRadius: 14, padding: "26px 30px"}}>
             <div style={{fontFamily: SANS, fontSize: 46, fontWeight: 740, letterSpacing: "-0.025em", lineHeight: 1.08}}>{big}</div>
             <div style={{fontFamily: SANS, fontSize: 26, color: C.mute, marginTop: 12, lineHeight: 1.3}}>{small}</div>

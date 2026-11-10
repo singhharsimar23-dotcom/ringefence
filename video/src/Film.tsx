@@ -20,8 +20,8 @@ const AB = approvalBatch as unknown as {lines: [number, string][]};
 const RP = retryPages as unknown as {lines: [number, string][]};
 const OUT = outs as {bec: string[]; sdk: string[]};
 
-export const END_CARD = 6;
-export const LENGTH = TOTAL + END_CARD; // 299.7 s, under 5:00
+export const END_CARD = 6.2;
+export const LENGTH = TOTAL + END_CARD; // 299.9 s, under 5:00
 const SWITCH = 18.227; // Loom flips from full camera to screen + bubble here
 
 type Shot = {from: number; to: number; el: (t0: number) => React.ReactNode; subs?: boolean; bubble?: boolean};
@@ -241,25 +241,11 @@ const SHOTS: Shot[] = [
   // 08 try it
   S(TRY, W("Try to make it"), () => <Cap src="cap/try.mp4" from={0.4} />),
   S(W("Try to make it"), W("So ring fence is a normal"), () => <Cap src="cap/try.mp4" from={18.6} zooms={[{at: 0.2, box: [320, 380, 800, 200], scale: 1.4}]} />),
-  S(W("So ring fence is a normal"), W("All the findings"), () => <Cap src="cap/try.mp4" from={30.0} rate={2} zooms={[{at: 0, box: [240, 60, 960, 680], scale: 1.25}]} />),
-  S(W("All the findings"), CLOSE, () => <Board title="All the findings and proofs are in the repo." fix={0} fixStep={0} foot="github.com/singhharsimar23-dotcom/ringefence" />, {bubble: false}),
+  S(W("So ring fence is a normal"), END, () => <Board title="All the findings and proofs are in the repo." fix={0} fixStep={0} foot="github.com/singhharsimar23-dotcom/ringefence" />, {bubble: false}),
 
-  // the close: his face big, the question once more
-  S(CLOSE, END, (t0) => <Close t0={t0} />, {subs: false}),
   card(END, LENGTH, () => <EndCard />),
 ];
 
-const Close: React.FC<{t0: number}> = ({t0}) => {
-  const t = useT();
-  const q = W("How do I make sure AI") - t0;
-  return (
-    <AbsoluteFill style={{background: C.bg}}>
-      <div style={{position: "absolute", top: 700, width: "100%", textAlign: "center", opacity: ramp(t, q - 0.1, q + 0.3)}}>
-        <Rise text="How do I make sure AI never pays the wrong person?" at={q} size={64} stagger={0.12} />
-      </div>
-    </AbsoluteFill>
-  );
-};
 
 const EndCard: React.FC = () => {
   const t = useT();
@@ -284,21 +270,20 @@ const GROWS: Grow[] = [
   {a: RF, b: RULE - 0.6, x: 520, y: 540, d: 600},
   {a: RETEST, b: SWAPR - 0.6, x: 520, y: 540, d: 600},
   {a: ENG, b: W("The model never chooses") - 0.5, x: 520, y: 540, d: 600},
-  {a: CLOSE, b: END - 0.4, x: 960, y: 380, d: 520},
 ];
 
 const CHAPTERS: [number, string][] = [
   [0, "01 THE QUESTION"],
   [SETUP, "02 THE SETUP"],
   [FOUND, "03 WHAT I FOUND"],
-  [F1, "03 · F1 APPROVAL SWAP"],
-  [F2, "03 · F2 BANK CHANGE EMAIL"],
+  [F1, "BUG F1 · AN APPROVED PAYMENT GOES TO A SWAPPED BANK ACCOUNT"],
+  [F2, "BUG F2 · ONE EMAIL CHANGES WHERE PAY GOES"],
   [STACK, "03 WHAT I FOUND"],
-  [F5, "03 · F5 BATCH PAYROLL"],
-  [F3, "03 · F3 SDK SHARES A LOGIN"],
-  [F4, "03 · F4 RETRY PAYS TWICE"],
-  [F6, "03 · F6 PAYMENT LIST REPEATS"],
-  [F7, "03 · F7 SDK RETRY DROPS ITS FILTER"],
+  [F5, "BUG F5 · A BATCH PAYS THE SWAPPED ACCOUNT, NO WAY TO CANCEL"],
+  [F3, "BUG F3 · ONE CLIENT'S PAYMENT RUNS ON ANOTHER CLIENT'S LOGIN"],
+  [F4, "BUG F4 · A RETRY PAYS TWICE"],
+  [F6, "BUG F6 · PAID PEOPLE SHOW AS UNPAID, SO THEY GET PAID AGAIN"],
+  [F7, "BUG F7 · UNPAID PEOPLE SHOW AS PAID"],
   [ISO, "03 · AIRWALLEX ISOLATION HELD"],
   [RF, "04 RINGFENCE LIVE"],
   [RETEST, "05 RETEST"],
@@ -345,7 +330,7 @@ export const Film: React.FC = () => (
     <Rubric from={WEEK} to={RETEST} steps={RUBRIC} />
     <SandboxTag from={SETUP} to={END} />
     <FaceBubble hide={NO_BUBBLE} from={SWITCH} grows={GROWS} />
-    <Chapter chapters={CHAPTERS} until={CLOSE} />
+    <Chapter chapters={CHAPTERS} until={END} />
     <Bams lines={BAMS} />
     <Subs hide={HIDE} />
     <Audio src={staticFile("loom_cut.mp4")} />

@@ -1,128 +1,80 @@
 # Ringfence
 
-**A payroll agent that can move every employer's money, but only its own.**
-Airwallex Agentic Banking Hackathon, Kit 06 (multi-employer payroll executor).
+**Multi-Employer Payroll Executor: deadline-aware, fund-isolated payroll runs on Airwallex.**
+Airwallex Agentic Banking Hackathon, Kit 06.
 
-**Live demo (demo identities, no login, test money only):** https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com
-Demo script: [docs/DEMO.md](docs/DEMO.md)
+A payroll provider pays contractors for several companies. Ringfence lets an AI agent prepare every company's payroll.
+It never pays one company's people with another company's money, never pays the wrong person, and never misses a pay deadline without warning.
 
-![Ringfence home](docs/img/home.png)
-
-## The problem
-
-A payroll bureau pays staff for several companies. One wrong transfer pays company A's people with company B's cash.
-An AI agent makes that risk bigger, because it reads emails and invoices that anyone can write.
-
-## What Ringfence does
-
-| Rule | How it is enforced |
-|---|---|
-| Each employer gets its own Airwallex account token | The harness picks the account, never the model. Airwallex itself returns 401 if one employer's token touches another's account. |
-| The model proposes, code decides | Amounts, limits, approvals and request_ids come from code (Decimal, never floats). |
-| A named person approves | Only that employer's finance approver can release a run, bound to the exact batch. |
-| Every call is exactly-once | Deterministic request_ids; a retry or a double click pays once. |
-| Everything is provable | Append-only hash-chained ledger, plus a signed certificate built from Airwallex's own records. It verifies offline. |
-| Untrusted input stays untrusted | A bank-change email or hidden instruction in a timesheet is quarantined and flagged. Nothing is sent. |
-
-## Try it in two minutes (live link above)
-
-1. **Three employers** tab, press **Run Friday payroll**. Kestrel is inside its mandate. Northwind has rate changes and
-   waits for its approver. Harbour is short on AUD and gets its own funding details.
-2. Hold to approve Northwind. Then fund Harbour and approve.
-3. Press the **Try to break it** cards: a bank-change email, a double click, a network drop, a cross-tenant call, a tampered ledger row.
-4. **Proof** tab: isolation is green per employer, certificates download and verify offline.
-5. **Try it** tab: attach a file from [demo/samples/](demo/samples/) (a CSV timesheet, a bank-change email, a hidden-instruction email)
-   or type your own payroll, and watch it run in a world of its own.
+- **Live demo** (no login, test money only): https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com
+- **Video 1, the product** (non-technical): _link_
+- **Video 2, the findings** (technical, the seven bugs in depth): _link_
+- **Findings:** [FINDINGS.md](FINDINGS.md). Seven ways an agent on Airwallex can be led to pay the wrong person, each proven live and fixed in Ringfence.
 
 ![Three employers](docs/img/demo.png)
 
-## Metal testnet: the second lock (live in the demo)
+## How it meets the brief
 
-Harbour keeps a stablecoin treasury on Metal testnet and signs an on-chain mandate: one pull, capped at the shortfall,
-payable only to the platform. On **Three employers**, the section *Harbour's ringfence, enforced on chain* has three buttons,
-each a real testnet transaction with an explorer link:
-
-1. **Pay from crypto wallet**: the pull succeeds; Airwallex then gets a `[SIMULATED]` deposit so the usual matcher closes the request.
-2. **Try to take too much**: Metal refuses on chain (`mandate_cap_exceeded`).
-3. **Try a fake wallet address** (address poisoning): an email gives a wallet with the same first 6 and last 4 characters.
-   Ringfence compares the whole address and flags it; pushed anyway, Metal refuses (`mandate_payee_not_listed`).
-
-![Metal section](docs/img/chain.png)
-
-Testnet scale is 1 USDZ = USD 10, because the faucet gives about 100 USDZ. If Metal is down the button does a real Airwallex top-up marked `[SIMULATED]` and says so.
-
-## What is real
-
-Every card, timeline row and payout in the app carries one of four badges:
-
-| Badge | Means |
+| Brief | How Ringfence does it |
 |---|---|
-| Live on Airwallex | A real call to the Airwallex sandbox: transfers, FX quotes and conversions, beneficiaries, balances, webhooks, the cross-company 401. |
-| On Metal testnet | A real transaction on the Metal test network. |
-| Airwallex simulator | The sandbox's own simulator moved it: deposits, SENT and PAID steps, a returned payout. |
-| Simulated by us | Our own stand-in: the exchange-rate move, the platform fee credit, the lost reply on the network-drop card, the tampered ledger, the bank-change email and the hidden instruction. |
+| **Multi-employer** | Each employer is its own Airwallex account, with its own beneficiaries, balances, approver and rules. |
+| **Fund-isolated** | Code logs in as each employer: one token per employer, chosen by the harness, never by the model. Balances are never pooled or summed. Airwallex returns `401` if one employer's token touches another account. |
+| **Deadline-aware** | Each run knows its pay date. A short employer is told exactly how much to send, to its own account, and by when (e.g. "Short AUD 1,240.17, fund by Sat 09:00"). The run pays automatically when the money lands. Late or failed payouts are flagged. |
+| **Payroll runs** | Timesheets are read, priced (with FX where needed), approved by a named person, then executed exactly once. Every payout is tracked to PAID, including a late return. |
 
-On the offline fake the first and third badges read "Offline test double", because nothing there is Airwallex.
+**The agent proposes. Code decides.** Claude reads timesheets and emails. Amounts (in `Decimal`), limits, approvals, request IDs and the employer binding all come from code.
+Untrusted input, such as a bank-change email or a hidden instruction, is quarantined. Every step goes into a hash-chained ledger whose head is stamped into each Airwallex transfer.
 
-## Check it yourself
+## Try it
 
-Everything marked live leaves an ID you can look up in the Airwallex web app (sandbox): search the ID in the search bar, or open Settings, Developer, Events for webhook events. Metal transactions open in the explorer from the link on the card.
+1. Open the live demo and go to **Three employers**. Press **Run Friday payroll**. Kestrel pays, Northwind waits for its approver, and Harbour is short of AUD and gets its own funding instructions.
+2. Approve Northwind. Fund Harbour, then approve.
+3. Use the **Try to break it** cards: a bank-change email, a double click, a network drop, a cross-employer call, a tampered ledger.
+4. Open **Proof**: per-employer isolation checks, and certificates that verify offline.
+5. Open **Try it**: upload a timesheet from [demo/samples/](demo/samples/) or type your own payroll.
 
-| What | Where to find it |
-|---|---|
-| Transfer IDs (`transfer_id`) | Payments, search by ID; also on the Proof tab of the demo |
-| FX conversion (`conversion_id`) | Transactions, FX; the quote id is in the same ledger row |
-| Global account ID | Global Accounts, the account's detail page |
-| Webhook event IDs | Settings, Developer, Events |
-| Metal transaction hashes | The explorer link on the crypto wallet card |
+Every row is badged **Live on Airwallex**, **Airwallex simulator** or **Simulated by us** (`[SIMULATED]`), so you always know what is real.
 
-IDs from the final live run (4 Nov 2026, https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com):
+## Use it from Claude (MCP)
 
-- Kestrel Labs payroll, live transfers: `1796e54e-0a5a-4419-8327-5e0fcb2f06ba`, `6bc57037-dfa4-4896-83c4-2ced31b5502a`. Platform fee: `d5e4b67f-37c8-471f-a2f1-ac262e6ef404`.
-- Harbour Foods AUD global account: `8ec497a4-67a9-4ba2-8b3d-48f1a53d1f4d`.
-- Network storm on live (20 parallel releases, 3 answers lost, still one transfer per person): `018c1249…`, `583fb3b7…`, `7951311b…`. Full IDs are in `docs/gauntlet/results.json`.
-- Metal testnet, Harbour's mandate `0x479bff46…7e91`:
-  - pull of 87.26 test coins: [0x814fdcdd…8cc1](https://testnet.metalntwx.com/tx/0x814fdcdd4f9820d3c2807d90907f927cf284881775679b5f497a94fd35ae8cc1)
-  - over the cap, refused on chain (`mandate_cap_exceeded`): [0x6532d238…6dcd](https://testnet.metalntwx.com/tx/0x6532d23876e9ef70e76f3d9ad62ee0a139eabffc4ae5e1b2bd1349bcb1a26dcd)
-  - lookalike wallet address, refused on chain (`mandate_payee_not_listed`): [0x33315e65…8fbf](https://testnet.metalntwx.com/tx/0x33315e6565974f7226ec5a8d3e4c2c322244502019945c8e26011ed42cb38fbf)
+Ringfence ships an MCP server. It has no approve tool, so a human always signs.
 
-## Run it yourself
+```
+claude mcp add ringfence -- uv run python -m ringfence.mcp_server --backend fake
+```
 
-No keys needed for the offline demo (fake Airwallex, scripted agent). Needs [uv](https://docs.astral.sh/uv/).
+Or open this repo in Claude Code: `.mcp.json` already registers it. The tools are `get_status`, `price_run`, `propose_run`, `request_release` and `certificate`.
+Use `--backend live` with the sandbox environment variables below.
+
+## Run it locally
+
+Requires [uv](https://docs.astral.sh/uv/). No keys are needed for the offline demo, which uses a fake Airwallex and a scripted agent.
 
 ```
 make sync
-make fake-demo        # open http://127.0.0.1:8000
-make check            # ruff + 419 offline tests, invariants I1-I9 after every scenario
+make fake-demo     # http://127.0.0.1:8000
+make check         # lint + the offline test suite
 ```
 
-Live sandbox: set `AWX_CLIENT_ID`, `AWX_API_KEY`, `AWX_BASE_URL`, `AWX_PLATFORM_ACCOUNT`, `AWX_EMPLOYER_A/B/C` as
-environment variables (never commit them), then `uv run python -m ringfence.setup_demo` and `make demo`.
-Set `ANTHROPIC_API_KEY` to use Claude (`claude-sonnet-5-5`); without it the scripted agent runs and the demo is unchanged.
+**Live sandbox.** Set `AWX_CLIENT_ID`, `AWX_API_KEY`, `AWX_BASE_URL`, `AWX_PLATFORM_ACCOUNT` and `AWX_EMPLOYER_A/B/C` as environment variables (never commit them).
+Then run `uv run python -m ringfence.setup_demo` and `make demo`. Set `ANTHROPIC_API_KEY` to use Claude; without it, the scripted agent runs.
 
-## How it fits together
+## Repo map
 
-```
-lanes (one token per employer) -> gate (pure rules) -> executor (exactly-once) -> Airwallex
-                 ledger (hash chain, SQLite) <- every step      verify.py -> Ed25519 certificates
-```
-
-| Path | What is there |
+| Path | What |
 |---|---|
-| `ringfence/` | gate, executor, ledger, mandates, funding, FX, agent loop, FastAPI app, Metal, MCP server |
-| `static/` | the single-page UI |
-| `tests/` | offline suite against a fake Airwallex |
-| `scripts/` | sandbox probes, live reconciliation checks, e2e demo |
+| [FINDINGS.md](FINDINGS.md) | The seven findings, with evidence and fixes |
+| `ringfence/` | Gate (pure rules), executor (exactly-once), ledger (hash chain), funding and deadlines, FX, agent loop, app, MCP server |
+| `static/` | The single-page UI |
+| `tests/` | The offline suite against a fake Airwallex |
+| `scripts/` | `breakit.py` (reproduces the findings), isolation and money-path checks, sandbox probes |
+| `bench/` | Probe outputs (`bench/probes/*.out.txt`) and benchmark results |
+| `docs/` | [DEMO.md](docs/DEMO.md), [AIRWALLEX_GAPS.md](docs/AIRWALLEX_GAPS.md), [PROBES.md](docs/PROBES.md), [GAUNTLET.md](docs/GAUNTLET.md), [BENCH.md](docs/BENCH.md) |
 | `deploy/` | Azure VM, Caddy HTTPS, systemd |
-| `docs/` | [DEMO.md](docs/DEMO.md), [PLAN.md](docs/PLAN.md), [BUILD_SPEC.md](docs/BUILD_SPEC.md), [PROBES.md](docs/PROBES.md) (what the sandbox really does) |
-
-Also included: a CLI (`uv run python -m ringfence --help`), an MCP server with no approve tool
-(`claude mcp add ringfence -- uv run python -m ringfence.mcp_server --backend fake`), plain-English rules the
-employer signs, signed webhooks (a hint only; polling stays the truth), and a contractor link that shows one person
-their own payment.
+| `video/` | Source for the demo film (Remotion) |
 
 ## Honest notes
 
-- Fee credits and some deposits are marked `[SIMULATED]` because the Airwallex sandbox cannot do them. Every Airwallex call on the live demo is real; the triggers listed under "Simulated by us" are scripted and marked.
-- The live demo is shared and public. Runs reset on request (once per 20 s) and playground runs are deleted after 30 minutes.
-- No secrets are in the repo. Deploy steps are in [deploy/](deploy/) and `deploy/metal_vm.sh`.
+- Sandbox only. Fee credits and some deposits are `[SIMULATED]` because the sandbox can't do them. Every other Airwallex call in the live demo is real.
+- The live demo is shared. Runs reset on request, and playground runs are deleted after 30 minutes.
+- No secrets are in this repo.

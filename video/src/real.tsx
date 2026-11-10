@@ -52,7 +52,7 @@ export const Chapter: React.FC<{chapters: [number, string][]; until: number; fro
   return (
     <div style={{position: "absolute", left: 36, top: 28, fontFamily: MONO, fontSize: 18, letterSpacing: "0.06em", color: C.ink, background: "rgba(0,0,0,.8)",
       padding: "8px 14px", borderRadius: 8, border: `1px solid ${C.line}`, whiteSpace: "pre"}}>
-      <span style={{color: C.mute}}>{mm}:{ss}</span>  ·  {c}
+      <span style={{color: C.mute}}>{mm}:{ss}</span>  ·  <span style={{color: c.startsWith("BUG") ? C.red : C.ink, fontWeight: c.startsWith("BUG") ? 700 : 400}}>{c}</span>
     </div>
   );
 };
