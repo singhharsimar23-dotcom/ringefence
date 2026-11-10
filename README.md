@@ -46,6 +46,39 @@ Each payment's request ID is fixed before the first attempt. A timeout never tri
 - **Money waits for its own employer.** A short employer is never covered from another employer's balance. It gets its own instructions and deadline, and the run resumes when its money lands.
 - **Tamper-evident record.** Every step goes into a hash-chained ledger. The ledger head is sent with each Airwallex transfer, so a rewritten ledger no longer matches Airwallex's copy. Run certificates verify offline.
 
+## From the shortlisted proposal to the build
+
+The proposal said the hard part of multi-employer payroll is not arithmetic. It is irreversible money movement, from separate employer balances, against fixed pay-day deadlines. Here is each item of the proposal and what was built.
+
+**Core design**
+
+| Proposal | Status | What was built |
+|---|---|---|
+| Harness binds each run to one employer; the model never picks the account | **Built, changed** | Proposed `x-on-behalf-of` from one platform account. Connected-account onboarding isn't enabled on our sandbox, so each employer has its own login (`x-login-as`), chosen by code. Only the binding layer would change if onboarding is enabled. |
+| Run mandate + deterministic gate: "the agent proposes; the gate decides" | **Built** | Signed mandate per employer: allowed contractors, currencies, cap per payment and per run, FX rate band, approver, expiry. The gate ([gate.py](ringfence/gate.py)) re-checks every release and blocks anything outside it. The pay date lives on the run. |
+| Timeline projection and an "act by" time, not just a balance check | **Partly built** | Act-by = the currency's bank cut-off on pay day minus 2 hours, in the employer's timezone, with a live countdown on the funding card. Deposits matched by reference resume the run. Not built: a full model of the wallet over time (expected deposits, direct-debit settlement, the 9:00 processing start). |
+| Isolation evidence from a separate non-LLM verifier | **Built** | [verify.py](ringfence/verify.py) reads each employer's transfers with that employer's own token and checks them against the ledger. Each employer gets a report and an Ed25519-signed certificate that verifies offline. |
+
+**Failure cases**
+
+| Proposal | Status | What was built |
+|---|---|---|
+| Funding deadline, `OVERDUE` transfers | **Built** | A short employer gets a funding card: exact amount, its own account, a unique reference, act-by time. `OVERDUE` transfers are tracked and counted as not yet debited in the funds check. |
+| Provisional funds, direct-debit reversals, shared direct-debit limits | **Not built** | The sandbox has no direct debit, and its deposit settle/reverse calls return 404. Deposits are accepted while `PENDING` because the sandbox makes them available at once (one flag, `ACCEPT_PENDING`, switches to settled-only). A reversed deposit reopens the funding request. There is no shared-limit allocation. |
+| Approval delay | **Built, changed** | No batches, so no batch date moves. Approvals expire and must be given again (`APPROVAL_EXPIRED`). Transfers in `IN_APPROVAL` are tracked. There's no automatic escalation beyond the countdown. |
+| Bank-detail changes before a run (payroll diversion) | **Built, extended** | A bank change from an email is quarantined until a phone callback. Each payee is re-read from Airwallex before release. Each transfer is read back right after it is created, and recalled if it points elsewhere. See findings F1 and F2. |
+| Batch limits and retries | **Built, changed** | No batches at all: testing showed a batch pays whoever the payee is at submit time and can't be cancelled (finding F5). Each payment is a single transfer with a request ID fixed before the first try. A timeout leads to a lookup, never a resend. PAID is not final: a late return becomes `RETURNED`, and paying again needs a new approval. |
+
+**Sandbox demo**
+
+| Proposal | Status | What was built |
+|---|---|---|
+| Three employer accounts, one in a second currency | **Built** | Northwind pays GBP, EUR and AUD (with FX), Kestrel pays USD, and Harbour pays AUD and starts short. |
+| Faults: short funding, late approval, changed beneficiary, retried submission, out-of-mandate payment | **Built** | Live cards for short funding, bank-change email, change during send, network drop, cross-employer call, FX rate move, ledger tampering and late return. Hostile instructions to the agent: ghost contractor, pay from another employer, split under the cap, skip approval, CEO override. Approval expiry is covered in the test suite. |
+| Pass criteria: zero cross-account debits, zero duplicate payouts, every payout traceable to a run, an isolation report per employer | **Built** | Each criterion is a check in the per-employer report. Every payee is that employer's own. No contractor was paid twice. Each intent has exactly one transfer. Every transfer has a ledger entry and carries the run in its reference. |
+
+**Scope is unchanged.** Sandbox only. Wage and tax calculation stay in the employer's payroll system, and this is not compliance software. Behaviour the sandbox can't reproduce is simulated and labelled `[SIMULATED]`.
+
 ## Try it
 
 1. Open the live demo and go to **Three employers**. Press **Run Friday payroll**. Kestrel pays. Northwind waits for its approver. Harbour is short of AUD and gets its own funding card.
