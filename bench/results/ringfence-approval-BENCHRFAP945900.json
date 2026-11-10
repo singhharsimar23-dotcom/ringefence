@@ -1,0 +1,33 @@
+{
+ "fault": "approval",
+ "trial": 0,
+ "tag": "BENCHRFAP945900",
+ "run_id": "20261231-BENCHRFAP945900",
+ "events": [
+  "to_ready -> READY",
+  "repointed ada in place to ..9901",
+  "advance -> HELD"
+ ],
+ "states": [
+  {
+   "who": "first process",
+   "run": "HELD",
+   "hold": "beneficiary_changed_outside_ringfence",
+   "lines": {
+    "ada": "PLANNED",
+    "lukas": "PLANNED"
+   },
+   "ledger": [
+    "ALERT {\"lines\": [{\"approved\": \"deaea10f55f37ac3\", \"beneficiary_id\": \"f4e05125-2ce8-4381-95b7-c1ba752983de\", \"contractor_id\": \"ada\", \"live\": \"7c5fbf597f926c29\", \"live_",
+    "HOLD {\"note\": \"a payee's bank account changed on Airwallex, not through Ringfence: re-approve it as a bank change\", \"reason\": \"beneficiary_changed_outside_ringfence\""
+   ]
+  }
+ ],
+ "transfers": [],
+ "paid_twice": [],
+ "unpaid": [
+  "ada",
+  "lukas"
+ ],
+ "to_mule": []
+}

@@ -6,8 +6,8 @@ Airwallex Agentic Banking Hackathon, Kit 06.
 A payroll provider pays contractors for several companies from one place. Ringfence lets an AI agent run every company's payroll on Airwallex. It never pays one company's people with another company's money. It never pays a bank account that nobody approved. Each company is told what it owes, and by when, in time to make payday.
 
 - **Live demo** (no login, test money only): https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com
-- **Video 1, the product** (non-technical): _link_
-- **Video 2, the findings** (technical): _link_
+- **Video 1, the product** (non-technical): https://drive.google.com/file/d/12EMcRB7AoGwF9cdbaqS5QGDKp-xv-E7r/view?usp=sharing
+- **Video 2, the findings** (technical): https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing
 
 ![Three employers](docs/img/demo.png)
 
