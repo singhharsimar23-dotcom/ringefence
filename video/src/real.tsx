@@ -22,34 +22,37 @@ export const RawCuts: React.FC<{t0: number; cuts: [number, string][]}> = ({t0, c
   return <Raw key={c[1]} src={c[1]} />;
 };
 
-// the Loom keeps Harsimar full-frame until 61 s, then in a circle bottom-left; crop whichever is on screen
-const LOOM_SWITCH = 61;
-const REGION = (t: number) => (t < LOOM_SWITCH ? {x: 650, y: 50, s: 560} : {x: 10, y: 290, s: 500});
-const D = 220;
-/** his face, from the same Loom frame as the voice, so the lips always match */
-export const FaceBubble: React.FC<{hide: [number, number][]}> = ({hide}) => {
+// after the switch the Loom shows Harsimar in a circle bottom-left; this square crops it (raw Loom px, 1920x798)
+const REGION = {x: 25, y: 303, s: 470};
+export type Grow = {a: number; b: number; x: number; y: number; d: number}; // a..b: big at centre (x, y) with diameter d
+const SMALL = {x: 40 + 105, y: 1080 - 40 - 105, d: 210};
+/** his face, from the same Loom frame as the voice, so the lips always match; it grows at chapter openers and springs back */
+export const FaceBubble: React.FC<{hide: [number, number][]; from: number; grows: Grow[]}> = ({hide, from, grows}) => {
   const t = useCurrentFrame() / FPS;
-  if (hide.some(([a, b]) => t >= a && t < b)) return null;
-  const r = REGION(t);
-  const k = D / r.s;
+  if (t < from || hide.some(([a, b]) => t >= a && t < b)) return null;
+  const g = grows.find((x) => t >= x.a - 0.05 && t < x.b + 0.8);
+  const k = g ? ramp(t, g.a, g.a + 0.75) * (1 - ramp(t, g.b, g.b + 0.75)) : 0;
+  const lerp = (u: number, v: number) => u + (v - u) * k;
+  const D = g ? lerp(SMALL.d, g.d) : SMALL.d, cx = g ? lerp(SMALL.x, g.x) : SMALL.x, cy = g ? lerp(SMALL.y, g.y) : SMALL.y;
+  const z = D / REGION.s;
   return (
-    <div style={{position: "absolute", left: 36, bottom: 36, width: D, height: D, borderRadius: D, overflow: "hidden", border: "2px solid rgba(255,255,255,.85)",
-      boxShadow: "0 8px 30px rgba(0,0,0,.5)"}}>
-      <OffthreadVideo src={staticFile("loom_cut.mp4")} muted style={{position: "absolute", width: 1920 * k, height: 798 * k, left: -r.x * k, top: -r.y * k, maxWidth: "none"}} />
+    <div style={{position: "absolute", left: cx - D / 2, top: cy - D / 2, width: D, height: D, borderRadius: D, overflow: "hidden",
+      border: `${2 + k}px solid rgba(255,255,255,${0.85 - 0.25 * k})`, boxShadow: `0 ${8 + 22 * k}px ${30 + 50 * k}px rgba(0,0,0,.6)`}}>
+      <OffthreadVideo src={staticFile("loom_cut.mp4")} muted style={{position: "absolute", width: 1920 * z, height: 798 * z, left: -REGION.x * z, top: -REGION.y * z, maxWidth: "none"}} />
     </div>
   );
 };
 
 /** where we are in the film: running timecode + chapter, top-left */
-export const Chapter: React.FC<{chapters: [number, string][]; until: number}> = ({chapters, until}) => {
+export const Chapter: React.FC<{chapters: [number, string][]; until: number; from?: number}> = ({chapters, until, from = 0}) => {
   const t = useCurrentFrame() / FPS;
-  if (t >= until) return null;
+  if (t >= until || t < from) return null;
   const c = [...chapters].reverse().find(([s]) => t >= s)?.[1] ?? "";
   const mm = `${Math.floor(t / 60)}`.padStart(2, "0"), ss = `${Math.floor(t % 60)}`.padStart(2, "0");
   return (
-    <div style={{position: "absolute", left: 36, top: 28, fontFamily: MONO, fontSize: 18, letterSpacing: "0.06em", color: C.ink, background: "rgba(0,0,0,.72)",
-      padding: "7px 12px", borderRadius: 6}}>
-      <span style={{color: "#ff4d4d"}}>●</span> {mm}:{ss} · {c}
+    <div style={{position: "absolute", left: 36, top: 28, fontFamily: MONO, fontSize: 18, letterSpacing: "0.06em", color: C.ink, background: "rgba(0,0,0,.8)",
+      padding: "8px 14px", borderRadius: 8, border: `1px solid ${C.line}`, whiteSpace: "pre"}}>
+      <span style={{color: C.mute}}>{mm}:{ss}</span>  ·  {c}
     </div>
   );
 };

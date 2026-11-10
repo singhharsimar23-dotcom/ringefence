@@ -1,0 +1,130 @@
+{
+"cmd": [
+"uv",
+"run",
+"python",
+"scripts/breakit.py",
+"approval",
+"batch"
+],
+"date": "2026-11-10 12:40 India Standard Time",
+"rc": 0,
+"lines": [
+[
+0.0,
+"$ scripts/breakit.py approval batch"
+],
+[
+3.8,
+""
+],
+[
+3.8,
+"\u001b[1m1 \u00b7 A human approves every payment\u001b[0m"
+],
+[
+3.8,
+"  \u001b[90mAirwallex: \"Require manual approval for tool calls\"\u001b[0m"
+],
+[
+5.09,
+"  payee Ben \u00b7 id 92f13a55\u2026 \u00b7 bank ..0002"
+],
+[
+5.89,
+"  approval card: beneficiary 92f13a55\u2026 \u00b7 GBP 2.00 \u2192 \u001b[92mAPPROVED\u001b[0m"
+],
+[
+7.33,
+"  meanwhile: /beneficiaries/92f13a55\u2026/update \u00b7 same id \u00b7 bank ..9901"
+],
+[
+9.09,
+"  \u001b[91m\u001b[1m\u2717 paid f94984f9-77c7-4f9c-996b-d326f36f34c7 SCHEDULED \u2192 ..9901 sort 200000\u001b[0m"
+],
+[
+9.09,
+""
+],
+[
+9.09,
+"  \u001b[1mRINGFENCE \u00b7 same fault, live\u001b[0m"
+],
+[
+24.08,
+"  \u001b[91m\u001b[1m\u2717 approval trial 0  paid_twice=[] unpaid=['ada', 'lukas'] to_mule=0 transfers=0  [('first process', 'HELD', 'beneficiary_changed_outside_ringfence')]\u001b[0m"
+],
+[
+24.08,
+""
+],
+[
+24.08,
+"\u001b[1m2 \u00b7 Batch payroll\u001b[0m"
+],
+[
+24.08,
+"  \u001b[90mAirwallex: \"for payroll runs and supplier payments\"\u001b[0m"
+],
+[
+25.23,
+"  batch da6de0cd\u2026 \u00b7 1 item \u00b7 payee ..4444 \u00b7 bank details shown to reviewer: NONE"
+],
+[
+26.3,
+"  payee edited in place \u00b7 same id \u00b7 bank ..9901"
+],
+[
+28.03,
+"  submit"
+],
+[
+32.11,
+"  \u001b[91m\u001b[1m\u2717 BOOKED cd261c64-2639-4d23-95f8-04bbda63d543 \u2192 ..9901 sort 200000\u001b[0m"
+],
+[
+33.92,
+"  \u001b[91m\u001b[1m\u2717 cancel the batch \u2192 HTTP 401 HTTP 401 unauthorized: Admin permissions required\u001b[0m"
+],
+[
+33.92,
+""
+],
+[
+33.92,
+"  \u001b[1mRINGFENCE \u00b7 same fault, live\u001b[0m"
+],
+[
+52.84,
+"  \u001b[91m\u001b[1m\u2717 race     trial 0  paid_twice=[] unpaid=['ada'] to_mule=0 transfers=2  [('first process', 'RELEASED', None)]\u001b[0m"
+],
+[
+52.84,
+"\u001b[90m"
+],
+[
+52.84,
+"== cleanup"
+],
+[
+53.59,
+"transfer f94984f9-77c7-4f9c-996b-d326f36f34c7 CANCELLED"
+],
+[
+54.27,
+"transfer cd261c64-2639-4d23-95f8-04bbda63d543 CANCELLED"
+],
+[
+54.44,
+"beneficiary deleted 92f13a55-8e5b-4035-a7c2-716f4deb9427"
+],
+[
+54.61,
+"beneficiary deleted 6800e1d5-b2c5-4af9-a802-71ef09b0cf39"
+],
+[
+54.8,
+"\u001b[0m"
+]
+]
+}

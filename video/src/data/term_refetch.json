@@ -1,0 +1,66 @@
+{
+"cmd": [
+"python",
+"var/v11/refetch.py"
+],
+"date": "2026-11-10 13:20 India Standard Time",
+"rc": 0,
+"lines": [
+[
+0.0,
+"$ python var/v11/refetch.py"
+],
+[
+2.62,
+"\u001b[2mGET /transfers/f94984f9\u2026\u001b[0m  F1 approved, then repointed"
+],
+[
+2.62,
+"  2 GBP  status CANCELLED (our test cleanup)  ref PRB-snap-94573"
+],
+[
+2.62,
+"  \u001b[31msent to account 99999901  sort 200000\u001b[0m"
+],
+[
+3.2,
+"\u001b[2mGET /transfers/cd261c64\u2026\u001b[0m  F5 payroll batch"
+],
+[
+3.2,
+"  1 GBP  status CANCELLED (our test cleanup)  ref PRB-snap-94573"
+],
+[
+3.2,
+"  \u001b[31msent to account 99999901  sort 200000\u001b[0m"
+],
+[
+3.98,
+"\u001b[2mGET /transfers/45528e1d\u2026\u001b[0m  F2 bank-change email"
+],
+[
+3.98,
+"  1 GBP  status CANCELLED (our test cleanup)  ref Payroll"
+],
+[
+3.98,
+"  \u001b[31msent to account 99999901  sort 200000\u001b[0m"
+],
+[
+4.7,
+"\u001b[2mGET /connected_account_transfers\u001b[0m  F4 retry, ref PRB-snap-94650"
+],
+[
+4.7,
+"  1 GBP  SETTLED  request PRB-snap-94650-ca2"
+],
+[
+4.7,
+"  1 GBP  SETTLED  request PRB-snap-94650-ca1"
+],
+[
+4.7,
+"  \u001b[31m2 transfers \u00b7 GBP 2 moved for GBP 1 owed\u001b[0m"
+]
+]
+}

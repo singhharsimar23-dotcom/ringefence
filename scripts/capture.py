@@ -239,6 +239,89 @@ async def app(page, url: str):
         await cards(page, r)
 
 
+async def week(page, url: str):
+    """v11: one payroll week in the order the film tells it (no Metal), then the retest cards, then Proof."""
+    await page.goto(url + "/app#/demo")
+    await page.evaluate("fetch('/api/reset', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({user: 'maya'})})")
+    await until(page, lambda s: all(lane(s, t) in (None, "") for t in ("northwind", "kestrel", "harbour")), 60)
+    await page.reload()
+    await page.wait_for_timeout(2500)
+    async with Rec(page, "v11") as r:
+        r.mark("run")
+        await page.wait_for_timeout(1500)
+        await press(page, "#next button.primary", "/api/start")
+        await until(page, lambda s: lane(s, "harbour") == "AWAITING_FUNDS" and lane(s, "northwind") == "AWAITING_APPROVAL"
+                    and s["lanes"]["northwind"].get("diff"), 400)
+        await page.wait_for_timeout(1500)
+        r.mark("plan")
+        for t in ("kestrel", "northwind", "harbour"):
+            await move(page, f".lane[data-t={t}] .status")
+            await page.wait_for_timeout(2600)
+        r.mark("read")
+        await click(page, "[data-act=inbox][data-t=northwind]")
+        await page.wait_for_timeout(4500)
+        await page.keyboard.press("Escape")
+        r.mark("approve_northwind")
+        await click(page, "[data-act=review][data-t=northwind]")
+        await page.wait_for_selector("#hold-ok:not([disabled])")
+        await page.wait_for_timeout(3000)
+        await hold(page, "#hold-ok")
+        await until(page, lambda s: lane(s, "northwind") in ("RELEASING", "RELEASED", "DONE"), 300)
+        await page.wait_for_timeout(1500)
+        r.mark("fx")
+        await move(page, "#tl")
+        await page.wait_for_timeout(3500)
+        r.mark("harbour_short")
+        await move(page, ".lane[data-t=harbour] .funding")
+        await page.wait_for_timeout(3500)
+        r.mark("deposit")
+        await press(page, ".card[data-id=other_tenant_deposit] [data-act=scenario]", "/api/scenario/")
+        await page.wait_for_selector(".card[data-id=other_tenant_deposit] .result", timeout=120_000)
+        await page.wait_for_timeout(2500)
+        r.mark("naive")
+        if await page.locator("#naive:not([hidden])").count():
+            await move(page, "#naive")
+            await page.wait_for_timeout(3000)
+        await move(page, ".lane[data-t=harbour] .status")
+        await page.wait_for_timeout(2000)
+        r.mark("topup")
+        await press(page, ".card[data-id=harbour_topup] [data-act=scenario]", "/api/scenario/")
+        await page.wait_for_selector(".card[data-id=harbour_topup] .result", timeout=120_000)
+        await page.wait_for_timeout(2000)
+        await move(page, ".lane[data-t=harbour] .status")
+        await until(page, lambda s: lane(s, "harbour") in ("RELEASING", "RELEASED", "DONE")
+                    or (lane(s, "harbour") == "AWAITING_APPROVAL" and s["lanes"]["harbour"].get("diff")), 900)
+        if lane(await state(page), "harbour") == "AWAITING_APPROVAL":
+            r.mark("approve_harbour")
+            await click(page, "[data-act=review][data-t=harbour]")
+            await page.wait_for_selector("#hold-ok:not([disabled])")
+            await page.wait_for_timeout(2500)
+            await hold(page, "#hold-ok")
+        await until(page, lambda s: all(lane(s, t) in ("RELEASED", "DONE") for t in ("northwind", "kestrel", "harbour")), 300)
+        r.mark("all_paid")
+        await glide(page, "#lanes", 2)
+        for t in ("kestrel", "northwind", "harbour"):
+            await move(page, f".lane[data-t={t}] .status")
+            await page.wait_for_timeout(1800)
+        for card in ("approval_repoint", "bank_change_email", "network_drop", "cross_tenant_call", "tamper_rehash"):
+            r.mark(card)
+            await press(page, f".card[data-id={card}] [data-act=scenario]", "/api/scenario/")
+            await page.wait_for_selector(f".card[data-id={card}] .result", timeout=180_000)
+            await page.wait_for_timeout(1500)
+            await move(page, f".card[data-id={card}] .result")
+            await page.wait_for_timeout(1500)
+            if await page.locator(f".card[data-id={card}] details summary").count():
+                await click(page, f".card[data-id={card}] details summary")
+            await page.wait_for_timeout(4000)
+        r.mark("proof")
+        await click(page, "#tab-proof")
+        await page.wait_for_timeout(3500)
+        await page.mouse.wheel(0, 700)
+        await page.wait_for_timeout(5000)
+        await page.mouse.wheel(0, 900)
+        await page.wait_for_timeout(5000)
+
+
 async def tail(page, url: str):
     """The end of the app beat on its own, on whatever run is live (no reset)."""
     await page.goto(url + "/app#/demo")
@@ -301,7 +384,7 @@ async def try_it(page, url: str):
 async def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", required=True)
-    ap.add_argument("--beat", nargs="*", choices=["problem", "design", "app", "tail", "breakit", "try"])
+    ap.add_argument("--beat", nargs="*", choices=["problem", "design", "app", "week", "tail", "breakit", "try"])
     a = ap.parse_args()
     url, want = a.url.rstrip("/"), set(a.beat or ["problem", "design", "app", "breakit", "try"])
     from playwright.async_api import async_playwright
@@ -319,10 +402,12 @@ async def main() -> int:
             await landing(await page(True), url, "design", [("#how", 8), ("#isolation", 8)])
         if "app" in want:
             await app(await page(True), url)
+        if "week" in want:
+            await week(await page(True), url)
         if "tail" in want:
             await tail(await page(True), url)
         if "breakit" in want:
-            await landing(await page(True), url, "breakit", [("#proof", 8), ("#storm", 8), ("#ledger", 6), ("#band", 5)])
+            await landing(await page(True), url, "breakit", [("#found", 6), ("#proof", 8), ("#storm", 8), ("#ledger", 6), ("#band", 5)])
         if "try" in want:
             await try_it(await page(False), url)
         await b.close()

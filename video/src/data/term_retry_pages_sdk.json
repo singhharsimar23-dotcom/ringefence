@@ -1,0 +1,119 @@
+{
+"cmd": [
+"uv",
+"run",
+"python",
+"scripts/breakit.py",
+"retry",
+"pages",
+"sdk"
+],
+"date": "2026-11-10 12:41 India Standard Time",
+"rc": 0,
+"lines": [
+[
+0.0,
+"$ scripts/breakit.py retry pages sdk"
+],
+[
+1.08,
+""
+],
+[
+1.08,
+"\u001b[1m3 \u00b7 The response got lost. Retry the documented way\u001b[0m"
+],
+[
+1.08,
+"  \u001b[90mAirwallex: \"Retry the request with a new request_id\"\u001b[0m"
+],
+[
+2.16,
+"  Northwind \u2192 Kestrel \u00b7 GBP 1 \u00b7 tr__BMWy9fOPPCSS6S3xzRQsg NEW \u00b7 response lost"
+],
+[
+3.22,
+"  \u001b[91m\u001b[1m\u2717 new request_id \u2192 tr_iVDKL-DHPI6UoJf0YQSp1A NEW \u00b7 GBP 2 moved for GBP 1 \u00b7 no cancel endpoint\u001b[0m"
+],
+[
+3.22,
+""
+],
+[
+3.22,
+"  \u001b[1mRINGFENCE \u00b7 same id, never a new one\u001b[0m"
+],
+[
+3.38,
+"  \u001b[92m\u001b[1m\u2713 duplicate_request_id \u2192 adopts tr__BMWy9fOPPCSS6S3xzRQsg \u00b7 moved once\u001b[0m"
+],
+[
+4.03,
+"  \u001b[90m[cleanup] Kestrel \u2192 Northwind GBP 2 \u00b7 tr_0AdniYYANY6yJmvPt-M-WA\u001b[0m"
+],
+[
+4.83,
+""
+],
+[
+4.83,
+"\u001b[1m4 \u00b7 Who's been paid?\u001b[0m"
+],
+[
+4.83,
+"  \u001b[90mAirwallex: \"use the pagination parameters (page_num, page_size)\"\u001b[0m"
+],
+[
+5.73,
+"  page_num=0,1,2 \u2192 100, 100, 100 transfers \u00b7 same ones: True"
+],
+[
+7.17,
+"  \u001b[91m\u001b[1m\u2717 the guide's reconcile sees 100 of 222 \u00b7 122 look UNPAID \u2192 paid again\u001b[0m"
+],
+[
+7.17,
+"  \u001b[92m\u001b[1m\u2713 Ringfence (cursor): 222 of 222\u001b[0m"
+],
+[
+7.17,
+""
+],
+[
+7.17,
+"\u001b[1m5 \u00b7 Did it land? The official Node SDK\u001b[0m"
+],
+[
+7.17,
+"  \u001b[90mAirwallex: \"get a payout with this request_id to find out\"\u001b[0m"
+],
+[
+7.31,
+"  GET /transfers?request_id=prb-never-used-000001 \u2192 0 items"
+],
+[
+8.11,
+"  network blip \u00b7 SDK retries \u00b7 apiClient.js:157 _request(method, url, config, data)  \u2190 args swapped"
+],
+[
+11.78,
+"  \u001b[91m\u001b[1m\u2717 the retry drops the filter \u2192 222 items \u2192 'it landed' \u2192 never paid\u001b[0m"
+],
+[
+11.91,
+"  \u001b[92m\u001b[1m\u2713 Ringfence matches request_id on each item \u2192 no match \u2192 reconcile\u001b[0m"
+],
+[
+11.91,
+"\u001b[90m"
+],
+[
+11.91,
+"== cleanup"
+],
+[
+12.03,
+"\u001b[0m"
+]
+]
+}

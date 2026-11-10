@@ -15,7 +15,8 @@ from pathlib import Path
 import noisereduce as nr
 import numpy as np
 import soundfile as sf
-from scipy.signal import find_peaks, istft, stft
+from scipy.ndimage import percentile_filter
+from scipy.signal import istft, stft
 
 ROOT = Path(__file__).resolve().parent.parent
 V = ROOT / "var/v11"
@@ -24,7 +25,7 @@ GAP, LEAD, TEMPO, SR = 0.35, 0.3, 1.05, 48000
 # spoken fillers that aren't in the script, and the closing "Bye" (raw seconds, cut at word edges)
 DROP = [(44.20, 45.80), (285.00, 287.30), (317.50, 320.47), (333.40, 336.2)]
 # train horns, verified on the spectrogram (raw seconds): repair only inside these windows
-HORNS = [(59.3, 62.8), (70.3, 75.1), (76.3, 78.2), (84.7, 87.8)]
+HORNS = [(59.3, 62.8), (71.3, 74.9), (76.3, 78.2), (84.7, 87.8)]
 REF = (40.0, 55.0)  # clean speech: what the spectrum looks like without a horn
 
 
@@ -38,24 +39,25 @@ def extract() -> np.ndarray:
 
 
 def dehorn(a: np.ndarray) -> np.ndarray:
+    """Subtract the horn's steady part. A horn holds its partials for seconds while speech keeps moving, so inside a horn
+    window a sliding 20th-percentile level of each frequency is the horn (plus room tone); whatever it adds over clean speech's
+    25th percentile is subtracted, 250 Hz to 4 kHz only (the voice's fundamental lives below)."""
     n, hop = 4096, 256
     f, t, Z = stft(a, SR, nperseg=n, noverlap=n - hop)
     mag, ph = np.abs(Z), np.angle(Z)
-    db = 20 * np.log10(mag + 1e-9)
-    ref = np.median(db[:, (t >= REF[0]) & (t < REF[1])], axis=1)
+    ref = np.percentile(mag[:, (t >= REF[0]) & (t < REF[1])], 25, axis=1)
+    band = (f > 250) & (f < 4000)
     for a0, a1 in HORNS:
-        sel = (t >= a0) & (t < a1)
-        d = np.median(db[:, sel], axis=1) - ref
-        pk, _ = find_peaks(np.where((f > 250) & (f < 3200), d, -99), prominence=6, height=6)
-        w = np.clip(np.minimum(t - a0, a1 - t) / 0.15, 0, 1)  # 150 ms ramps at the window edges
-        for k in pk:
-            lo, hi = max(k - 2, 0), k + 3
-            side = np.r_[mag[max(k - 9, 0):lo], mag[hi:k + 10]]
-            floor = np.median(side, axis=0)
-            band = mag[lo:hi]
-            fixed = np.minimum(band, floor)
-            mag[lo:hi] = band * (1 - w) + fixed * w
-        print(f"horn {a0:.1f}-{a1:.1f}s: {len(pk)} lines repaired {[round(f[k]) for k in pk][:12]}")
+        sel = (t >= a0 - 0.5) & (t < a1 + 0.5)
+        m = mag[band][:, sel]
+        # the horn's level right now: a 20th percentile over the surrounding 0.8 s, which speech (always moving) can't hold up
+        steady = percentile_filter(m, 20, size=(1, int(0.8 * SR / hop)), mode="nearest")
+        excess = np.clip(steady - 1.6 * ref[band][:, None], 0, None)  # under 4 dB over clean speech's floor is not a horn
+        tt = t[sel]
+        w = np.clip(np.minimum(tt - a0, a1 - tt) / 0.15, 0, 1)  # 150 ms ramps at the window edges
+        fixed = np.maximum(m - 3.0 * excess, 0.05 * m)
+        mag[np.ix_(band, sel)] = m * (1 - w) + fixed * w
+        print(f"horn {a0:.1f}-{a1:.1f}s: {100 * (excess > 0).mean():.0f}% of cells cleaned")
     _, out = istft(mag * np.exp(1j * ph), SR, nperseg=n, noverlap=n - hop)
     return out[: len(a)]
 
