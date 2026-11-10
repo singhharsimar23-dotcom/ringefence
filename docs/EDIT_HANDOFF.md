@@ -3,8 +3,8 @@
 You are editing the Ringfence hackathon film from the user's Loom. Hard cap: **under 5:00**. The user wants it finished fast, with no exaggeration.
 
 ## Read first, in this order
-1. `docs/SPEAK_V8.md`: the narration the user speaks. It is the spine. The receipts table at the bottom backs every claim.
-2. `docs/FOOTAGE_V8.md`: the shot list, giving time, voice cue, on-screen visual, source and on-screen text for each shot, plus the capture checklist.
+1. `docs/SPEAK_V10.md` (final; V8 is the old fallback): the narration the user speaks. It is the spine. The receipts table at the bottom backs every claim.
+2. `docs/FOOTAGE_V10.md`: the shot list, giving time, voice cue, on-screen visual, source and on-screen text for each shot, plus the capture checklist.
 3. `docs/WHY_THESE_FINDINGS.md`: why each finding is in, with caveats. Don't overstate beyond it.
 4. Memory files in `~/.claude/projects/c--Users-hprad-OneDrive-Desktop-fintech/memory/`:
    - `handoff-to-sonnet-and-design-taste.md`
@@ -13,7 +13,9 @@ You are editing the Ringfence hackathon film from the user's Loom. Hard cap: **u
    - `worst-finding-beat-the-human.md`
    - `no-claude-attribution-in-git.md`
 
-## Story order (the landing `/#found` matches it)
+## Story order
+**Superseded by SPEAK_V10 / FOOTAGE_V10** (scope card, F1–F7 finding cards, the rubric beat, the retest, no Metal). The list below is V8 and is kept for history only.
+
 1. Open.
 2. "I built theirs first": the agent the guide shows, with a human approving.
 3. **Bug one, the approval swap.** The bank account behind an approved payee is changed while it waits. 3/3: `22c0a5d8…`, `49a84d09…`, `0d0b978b…`, all to ..9901. The way in: an invoice email, 5/5 (`45528e1d…`, `749ebed0…`, `3dd76387…`, `70b841be…`, `958cc5cd…`). Peak line: "The approval checks a label. The money follows wherever that label points."
@@ -42,7 +44,7 @@ You are editing the Ringfence hackathon film from the user's Loom. Hard cap: **u
 - Never cut separate attack runs together to look like one unbroken run.
 
 ## Pipeline (Remotion, already built: reuse it, don't rebuild)
-- The Loom goes to `var/loom_v8.mp4`. `video/prep.py` currently reads `var/loom.mp4`, the older take, so point it at the new file or copy it over.
+- The Loom goes to `var/loom_v10.mp4`. `video/prep.py` currently reads `var/loom.mp4`, the older take, so point it at the new file or copy it over.
 - Word timings: run faster-whisper into `var/edit/words.json`, then `python video/prep.py`. That writes `video/public/loom_cut.mp4` (pauses trimmed, voice levelled) and `video/public/words.json`.
 - `uv run python video/facts.py` snapshots the live IDs into `video/src/facts.json`.
 - `video/chain.py` screenshots Metal explorer txs. `video/realshots.py` grabs real desktop windows into `video/public/real/` (gitignored).
@@ -52,7 +54,7 @@ You are editing the Ringfence hackathon film from the user's Loom. Hard cap: **u
   - `video/src/subs.tsx` does subtitles, `cap.tsx` captions, `xray.tsx` the X-ray overlays, `base.tsx` the shared styles.
   - Adapt the scenes to the v8 order. Add new beats as needed: plan cards, the approval-swap split, the software-bugs terminal, and the bug-to-fix table.
 - Preview with `cd video && npx remotion studio src/index.ts`. Render with `npm run render`, which writes `var/edit/film.mp4`.
-- Check the length with ffprobe; it must be under 5:00. If it runs long, cut in this order (from SPEAK_V8):
+- Check the length with ffprobe; it must be under 5:00. If it runs long, cut in this order (from SPEAK_V10):
   1. §7 "twenty / two hundred"
   2. §6 ledger line
   3. the SDK retry line
