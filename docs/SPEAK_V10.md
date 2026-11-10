@@ -23,9 +23,9 @@ So my question was: / if an AI agent does that job, / how do I make sure it **ne
 
 ## 2 · The setup
 
-I set up a payroll provider on the Airwallex **sandbox**, / with three **simulated** client companies, / each on its **own** account. //
-The platform's guide shows how to build a payment agent, / with a **human** approving every payment. /
-I built that agent first, / and spent days trying to **break** it, / with small amounts, / cancelled after. /
+I set up a payroll provider on the Airwallex **sandbox**, / with three client companies, / each on its **own** account. //
+The platform's guide shows how to build a payment agent: / a frontier model, / the Airwallex API as its tools, / and a **human** approving every payment. /
+I built that agent first, / and spent days trying to **break** it. /
 If it breaks there, / it breaks in **every** agent built that way. //
 
 ---
@@ -34,43 +34,43 @@ If it breaks there, / it breaks in **every** agent built that way. //
 
 Here's what I found. //
 The worst one beats the **human**. / The approver checks the name, / the amount / and the payee, / and says yes. / But while the payment waited, / the **bank account** behind that payee was swapped. / The money went to the **new** account, / three out of three, / with no alert. /
-The payee stays saved, / so every run after that pays it too, / and nothing flags it. //
+The payee stays saved, / so every payroll run after that pays the same account, / and nothing flags it. //
 And who swapped it? / **The agent**, / after reading a fake invoice email. / Five out of five. //
 The approval checks a **label**. / The money follows wherever the label **points**. //
 
-I found the same weakness in other places. /
-Payroll batches pay the swapped account too, / and an agent can't cancel them. /
+The same weakness shows up across the stack. /
+Payroll batches pay the swapped account too, / never show the reviewer the bank account, / and can't be cancelled through the API. /
 In the SDK code, / one client's payment can go out on **another** client's login. /
-A retry can pay **twice**. / I ran it: / one pound owed, / **two** moved. /
-And the payment list can show paid people as **unpaid**, / and unpaid people as **paid**. //
-Airwallex kept every client's money **separate**. / The problem is what an **agent** can be led to do. //
+A retry can pay **twice**. / The agent loses the reply, / tries again, / and the money moves again. / I ran it: / one pound owed, / **two** moved, / and no way to cancel. /
+And the payment list can be wrong in both directions. / Paid people show as **unpaid**, / so they get paid again. / Unpaid people show as **paid**, / so they never get paid. //
+Airwallex itself kept every client's money **separate**. / The problem is what an **agent** can be led to do. //
 
 ---
 
 ## 4 · Ringfence
 
-So I built **Ringfence**, / on the same simulated setup. / The agent **proposes**, / and my code **decides** what money moves. //
-The goal is to pay every client's contractors this week. / The agent reads the timesheets and the inbox, / and plans all three. /
+So I built **Ringfence** from these findings. / Every bug became a rule the agent can't get around. / The agent **proposes**, / and the code **decides** what money moves. //
+Here's a payroll week. / The goal is to pay every client's contractors. / The agent reads the timesheets and the inbox, / and plans all three clients. /
 Kestrel had a normal week, / so it **pays**. / Northwind changed pay rates, / so it **waits** for approval, / then converts the currency it needs. //
 Harbour is where the plan **changes**. / It's short of Australian dollars, / and isn't allowed to convert. / So the agent **revises the plan**: / it holds Harbour, / works out the exact shortfall, / and asks for a top-up before the deadline. //
-Meanwhile, / a simulated fifty thousand lands in **Kestrel's** account. / Ringfence won't touch it. / It's not Harbour's money. //
-Harbour's simulated top-up lands in its Airwallex global account, / the agent matches it, / and pays. / Everyone's paid, / and **every client's balance is still its own**. //
+Meanwhile, / fifty thousand dollars lands in **Kestrel's** account. / A naive agent would spend it on Harbour. / Ringfence won't. //
+Harbour's top-up lands in its Airwallex global account, / the agent matches it, / and pays. / Everyone's paid, / and **every client's balance is still its own**. //
 
 ---
 
 ## 5 · Retest
 
 Then I ran every attack again, / on Ringfence. //
-The bank swap is **held**, / because Ringfence locks the exact bank details into the approval. /
-The fake email is **quarantined**, / until a different person confirms by phone. /
+The bank swap is **held**, / because Ringfence locks the exact bank details into the approval / and sends them with the payment. / There's no label left to swap. /
+The fake email is **quarantined** / until a different person confirms the change by phone. /
 The retry pays **once**, / because every payment's ID is fixed before the first try. /
-And each client has its **own** login. / I tried crossing that line twelve ways, / and Airwallex **blocked all twelve**. //
+And each client runs on its **own** login. / I tried crossing that line twelve ways, / and Airwallex **blocked all twelve**. //
 
 ---
 
 ## 6 · For the engineers
 
-For the engineers: //
+Here's a quick one for the engineers. //
 The model never chooses which account it acts on. / Code logs in as each client / and sets amounts, limits and request IDs, / in decimals, never floats. //
 Webhooks are a **hint**, / so every one is re-fetched from Airwallex. / Lookups follow the cursor / and check the request ID on every result. / And a paid transfer can still fail later, / so paid is never final. //
 Every action goes into a **hash-chained ledger**, / with the chain head stamped inside each Airwallex transfer. / Rewrite my database and re-hash the chain, / and Airwallex's copy **still disagrees**. //
@@ -87,8 +87,7 @@ But don't take my word for it. / The demo is **live**. / Try to make it pay the 
 
 ## 8 · Close
 
-Ringfence is a normal payroll agent, / **hardened** against everything I found. //
-All the findings and proof are in the repo. //
+Ringfence is a normal payroll agent, / **hardened** against everything I found. / All the findings and proof are in the repo. //
 So, / back to my first question: / how do I make sure an AI agent / **never pays the wrong person**? //
 **That's Ringfence.** // Thanks for watching.
 
@@ -118,6 +117,7 @@ So, / back to my first question: / how do I make sure an AI agent / **never pays
 | Each client on its own account; goal; agent plans all three; code (not the model) logs in per client; decimals | 4 accounts, `x-login-as` per employer chosen by the harness; amounts in `Decimal`; RUN_CREATED and PLAN rows in the live timeline |
 | Northwind converts within its band | `demo/employers.json`: Mia is paid in AUD, setup drains Northwind's AUD, Northwind has `fx: within_band`, 50 bps → FX_QUOTE + FX_CONVERTED with `conversion_id` (`executor.py:_convert`). **Check that the row appears in the shoot-day run**; if it doesn't, cut that sentence. |
 | Harbour short, no conversion allowed, exact shortfall, deadline | Harbour has `fx: never`; FUNDING_REQUESTED with amount and `act_by` (`funding.py`) |
+| A naive agent would use Kestrel's 50k; Ringfence won't | `ringfence/shadow.py` `naive_total`: the crossed-out "naive total" strip in the app (display only). |
 | 50k to Kestrel untouched | live card "Another employer's money arrives" `[SIMULATED]`; balances are never summed across employers |
 | Harbour's top-up lands in its global account, matched, paid | live card "Harbour's own top-up" (Airwallex simulated deposit to the AUD global account, `[SIMULATED]`); FUNDING_MATCHED, then release |
 | Retest: held 3/3; last-second cancel; quarantine; ID before first try; 12/12 | `39a2bf9`; live cards "Swap the bank account after approval" (HELD), "Swap it at the last second" (CANCELLED, fresh world), "Fake bank-change email", "Internet drops mid-payment"; deterministic `request_id` + `_adopt`; `GAUNTLET.md` §4 |
@@ -133,12 +133,12 @@ So, / back to my first question: / how do I make sure an AI agent / **never pays
 | 462 tests vs fake Airwallex | `uv run pytest -q`: say the number on the day |
 
 ## Runtime
-About 713 spoken words: about 4:18 at your measured 166 wpm, plus a 5 s end card, so under 5:00 with room for pauses. The bug section is told in plain words; the screen carries the technical detail (finding cards F1 to F7 with IDs). If the edit still runs over, cut in this order:
+About 789 spoken words: about 4:45 at your measured 166 wpm, plus a 5 s end card, so just under 5:00. The screen carries the technical detail (finding cards F1 to F7 with IDs). If the edit runs over, cut in this order:
 1. "Webhooks are a hint… paid is never final" in §6.
 2. "Two hundred ledger edits…" in §7.
 3. "then converts the currency it needs" in §4.
 
-Never cut: the §2 setup line (simulated clients on the sandbox), the label line in §3, the Harbour beat in §4, or the close.
+Never cut: the §2 setup line, the label line in §3, "So I built Ringfence from these findings", the Harbour beat in §4, or the close.
 
 ## Why there's no Metal
 The judging criteria are finance value, Airwallex relevance, agentic behaviour and controls, and technical execution, and the demo rubric is goal → plan → new information → revised decision → result. Metal fits none of these and splits the story across two platforms. Its 25 seconds now go to the Harbour beat (the agent revising its plan and the final balances), which is what C3 and C4 score. The Metal cards stay in the live app for anyone who looks.
