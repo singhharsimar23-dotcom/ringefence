@@ -54,13 +54,13 @@ You are editing the Ringfence hackathon film from the user's Loom. Hard cap: **u
   - `video/src/subs.tsx` does subtitles, `cap.tsx` captions, `xray.tsx` the X-ray overlays, `base.tsx` the shared styles.
   - Adapt the scenes to the FOOTAGE_V10 shot list: scope card, finding cards F1–F7, rubric strip, final-state table, retest column.
 - Preview with `cd video && npx remotion studio src/index.ts`. Render with `npm run render`, which writes `var/edit/film.mp4`.
-- Check the length with ffprobe; it must be under 5:00. If it runs long, cut in this order (from SPEAK_V10):
-  1. §6 webhook line
+- Check the length with ffprobe; the user will speak fast; spoken script is ~5:18 at 166 wpm. If it runs long, cut in this order (from SPEAK_V10):
+  1. §6 webhook / cursor / paid-isn't-final lines
   2. §6/§7 ledger line ("edited the ledger two hundred times")
   3. the §4 Northwind conversion clause (cut it anyway if no FX row appears on shoot day)
   4. shorten §7 to the 36-documents line
 
-  **Never cut** the §2 scope line, the §4 rubric beat ("Then the week changes" → final balances), or the §8 close.
+  **Never cut** the §2 scope line, the §4 Harbour beat ("The next one, Harbour, is where the plan changes" → final balances), or the §8 close.
 
 ## Live app for captures
 - https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com

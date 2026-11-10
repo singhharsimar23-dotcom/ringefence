@@ -1,6 +1,6 @@
 # Footage (v10, final): what's on screen, shot by shot
 
-Pairs with `docs/SPEAK_V10.md`. The voice is the Loom (`var/loom_v10.mp4`). Times are estimates at the user's measured pace (166 wpm); re-time to `words.json` after the take.
+Pairs with `docs/SPEAK_V10.md`. The voice is the Loom (`var/loom_v10.mp4`). Times are estimates at the user's measured pace (166 wpm; ~5:18 spoken, the user will speak faster); re-time to `words.json` after the take.
 
 **Style.** x.ai monochrome, no gradients. Face bubble bottom left throughout. Chapter label and timecode in a corner. One plain line of on-screen text per beat. Subtitles throughout. Red only for their failure, green only for Ringfence's fix. Music only under the end card.
 
@@ -30,7 +30,7 @@ F1  Approval swap                       SEVERITY  High
 | F6 | Transfer list ignores the page number | Low | LIVE, read-only | 100 of 215 seen | cursor paging; fail if the cursor stalls |
 | F7 | SDK retry drops its filter | Low | CODE + LIVE result | `apiClient.js:157`; filter 0 vs 215 | match request_id on every item |
 
-F5 to F7 are **not spoken**. They appear on screen during "I kept finding the same shape" (F5) and as a fast board during §3's end and §6 (F6, F7). The full board (F1 to F7) holds for 2 s at the end of §3, with the line "Isolation: held 12/12" in green under it.
+F5 to F7 are **not spoken**. They appear on screen during "I found the same pattern in other places" (F5) and as a fast board during §3's end and §6 (F6, F7). The full board (F1 to F7) holds for 2 s at the end of §3, with the line "Isolation: held 12/12" in green under it.
 
 ## Shot list
 
@@ -38,45 +38,45 @@ F5 to F7 are **not spoken**. They appear on screen during "I kept finding the sa
 |---|---|---|---|---|---|
 | 1 | 0:00 | "Hi, I'm Harsimar" | Full face; landing hero behind. | camera | Ringfence |
 | 1 | 0:08 | "millions… aren't theirs" | Three client tiles under one operator. | landing `#how` | Not their money |
-| 2 | 0:20 | "their guide shows how you'd build one" | Diagram: model → Airwallex API tools → human approval step. | `bench/market_agent.py` | The reference agent |
-| 2 | 0:32 | "built that one… break it" | Terminal of the reference agent running. | bench terminal | Target: the reference agent |
-| 2 | 0:38 | "All on the sandbox, my own accounts…" | **Scope card**: `Sandbox only · own 4 accounts · ≤ GBP/EUR 5 · every transfer cancelled or reversed`. | edit | Scope |
-| 2 | 0:50 | "Airwallex kept every client's money separate" | 12 green 401 cells. | `GAUNTLET.md` §4 | Isolation held |
-| 3 | 0:59 | "beats the human… name, amount, payee" | The approval card, each field ticking. | BENCH approval | Looks correct |
-| 3 | 1:08 | "bank account behind that payee got changed" | Split: approval card unchanged, beside `POST /beneficiaries/{id}/update` → ..9901. | `breakit.py approval` | Same ID. New account. |
-| 3 | 1:15 | "three out of three, no alert" | Dashboard `22c0a5d8…` → ..9901 boxed in red; **F1 card**. | sandbox dashboard | F1 · High · 3/3 |
-| 3 | 1:20 | "keeps paying that account, run after run" | Saved payee; next runs' arrows all land on ..9901; webhook list with no beneficiary event. | edit + `silent_divert.out.txt` | No alert fires |
-| 3 | 1:27 | "The agent does. From an email." | Invoice text types on; the agent's update call; **F2 card**. | `agent_bec_repeat.out.txt` (9 Nov) | F2 · 5/5 |
-| 3 | 1:40 | "The approval checks a label" | Full face, then a label with an arrow that swings to a new account. | camera + edit | It checks a label |
-| 3 | 1:47 | "I kept finding the same shape" | **F5 card** flashes (batch preview with no bank column, 401). | BENCH batch | F5 · 4/4 |
-| 3 | 1:52 | "one login for the whole program" | SDK source: the module singleton; A's call carrying B's token; **F3 card**. | `sdk_singleton_check.out.txt` | F3 · found in code |
-| 3 | 2:00 | "a new ID… one pound owed, two moved" | `uuid.v4()` line; then two SETTLED transfers; **F4 card**. | MCP source + `charges-…-new-id.out.txt` | F4 · 1 owed · 2 moved |
-| 3 | 2:07 | (end of §3) | **Full board F1 to F7** for 2 s; F6 and F7 enter here. | edit | 7 findings · isolation held |
-| 4 | 2:09 | "here's what I built. Ringfence." | Live app, three clients, each with its own account id. | app | Agent suggests · code decides |
-| 4 | 2:20 | "the goal… plans all three" | **Rubric strip** at the top of the frame, built step by step: `Goal → Plan → New info → Revised → Result`. Goal and Plan light up; the agent's plan rows appear. | app timeline | Goal · Plan |
-| 4 | 2:30 | "Kestrel pays… Northwind waits… converts" | Kestrel SCHEDULED with transfer id; Northwind diff (rate change); FX_QUOTE → FX_CONVERTED with `conversion_id`. | app | Paid · Waiting · FX within band |
-| 4 | 2:42 | "Then the week changes… Harbour short… no conversion" | Rubric "New info" lights. Harbour AUD balance short; rule `fx: never`; funding card with the exact shortfall and deadline. | app | New info |
-| 4 | 2:52 | "revises the plan" | Rubric "Revised" lights. Harbour HELD, funding requested. | app | Revised decision |
-| 4 | 2:58 | "fifty thousand… Kestrel's money" | `[SIMULATED]` 50k lands in Kestrel; Harbour stays held; Kestrel's balance boxed. | app card "Another employer's money arrives" | [SIMULATED] · not Harbour's |
-| 4 | 3:05 | "top-up lands in its global account… pays" | `[SIMULATED]` deposit to Harbour's AUD global account; FUNDING_MATCHED; released. | app card "Harbour's own top-up" | Matched · paid |
-| 4 | 3:10 | "Everyone's paid… its own" | Rubric "Result" lights. **Final-state table**: each employer's balance before → after, every line PAID/SCHEDULED, Kestrel's 50k still there. | app `/api/state` | Result |
-| 5 | 3:10 | "every attack from the hunt, again, on Ringfence" | The F-board returns; each row flips to a green "retest" column as it's named. | edit | Retest |
-| 5 | 3:16 | "approval swap… held" | Card "Swap the bank account after approval" → HELD. Then, unspoken, "Swap it at the last second" → transfer read back, CANCELLED. | app (fresh world) | F1 → HELD 3/3 · race → CANCELLED |
-| 5 | 3:26 | "quarantine… by phone" | Card "Fake bank-change email" → quarantine pill → callback by a different person. | app | F2 → quarantined |
-| 5 | 3:33 | "ID before the first try… never a second payment" | Card "Internet drops mid-payment": lost reply → lookup by request_id → one transfer. | app | F4 → 1 transfer |
-| 5 | 3:40 | "own login… all twelve" | Card "Use another company's money" + the 12 × 401 grid. | app + `GAUNTLET.md` §4 | F3 → 12/12 blocked |
-| 6 | 3:43 | "Quick one for the engineers" | Fast cuts of live cards, one per line. Unspoken on-screen captions: "Double-click pay" → 1 transfer; "Payment bounces back" → paid isn't final, reopened; Proof paging by cursor (F6, F7 → fixed). | app | For engineers |
-| 6 | 3:47 | "Webhooks are a hint" | Webhook event, then the GET that re-fetches it. | app timeline | Hint → re-fetch |
-| 6 | 3:52 | "hash-chained ledger… stamped inside each transfer… re-hash… disagrees" | Transfer metadata `rf_seq`/`rf_hash`; card "Change a record and re-hash the chain" → self-check passes but the Airwallex stamp row turns red. | app Proof | Re-hashed → still caught |
-| 6 | 4:00 | "MCP server with no approve tool" | MCP tool list; no approve. | `mcp_server.py` | A human signs |
-| 7 | 4:04 | "agent that obeys every attack… thirty-six" | Gauntlet board: obedient agent 28 obeyed / 28 denied / 0 moved (8 no tool); Claude 0 obeyed. | landing Gauntlet + `GAUNTLET.md` §1 | 36 docs · 0 moved |
-| 7 | 4:12 | "Twenty payments at once… Airwallex's own count" | Live `/transfers` count by request_id: [1, 1, 1]. | `GAUNTLET.md` §2 | 20 releases · 1 each |
-| 7 | 4:18 | "edited the ledger two hundred times" | 200/200 caught at the right row. | `GAUNTLET.md` §5 | 200/200 |
-| 7 | 4:22 | "four hundred and sixty-two tests" | `pytest -q` final line. | terminal | the day's number |
-| 7 | 4:27 | "don't take my word… live" | Live URL; Try it composer. | app Try it | Try it |
-| 8 | 4:33 | "normal payroll agent… one fix for every way" | The F-board, every row green. | edit | Same agent. Hardened. |
-| 8 | 4:40 | "back to my first question… That's Ringfence" | Full face, hold. | camera | Ringfence |
-| 8 | 4:52 | (end) | Black end card: repo + live URL. Music only here. | edit | — |
+| 2 | 0:20 | "the platform's developer guide shows how to build one" | Diagram: model → Airwallex API tools → human approval step. | `bench/market_agent.py` | The reference agent |
+| 2 | 0:32 | "I built that reference agent first… break it" | Terminal of the reference agent running. | bench terminal | Target: the reference agent |
+| 2 | 0:37 | "on the sandbox, with my own accounts and a few pounds" | **Scope card**: `Sandbox only · own 4 accounts · ≤ GBP/EUR 5 · every transfer cancelled or reversed`. | edit | Scope |
+| 2 | 0:52 | "Airwallex kept each client's money separate" | 12 green 401 cells. | `GAUNTLET.md` §4 | Isolation held |
+| 3 | 0:59 | "defeats the human approver… name, amount, payee" | The approval card, each field ticking. | BENCH approval | Looks correct |
+| 3 | 1:09 | "the bank account behind that payee was changed" | Split: approval card unchanged, beside `POST /beneficiaries/{id}/update` → ..9901. | `breakit.py approval` | Same ID. New account. |
+| 3 | 1:18 | "Three out of three, with no alert" | Dashboard `22c0a5d8…` → ..9901 boxed in red; **F1 card**. | sandbox dashboard | F1 · High · 3/3 |
+| 3 | 1:21 | "every later run pays that account too" | Saved payee; next runs' arrows all land on ..9901; webhook list with no beneficiary event. | edit + `silent_divert.out.txt` | No alert fires |
+| 3 | 1:27 | "The agent does, from an email" | Invoice text types on; the agent's update call; **F2 card**. | `agent_bec_repeat.out.txt` (9 Nov) | F2 · 5/5 |
+| 3 | 1:38 | "The approval checks a label" | Full face, then a label with an arrow that swings to a new account. | camera + edit | It checks a label |
+| 3 | 1:43 | "the same pattern in other places" | **F5 card** flashes (batch preview with no bank column, 401). | BENCH batch | F5 · 4/4 |
+| 3 | 1:46 | "one login for the whole program" | SDK source: the module singleton; A's call carrying B's token; **F3 card**. | `sdk_singleton_check.out.txt` | F3 · found in code |
+| 3 | 1:57 | "a new request ID… one pound owed, two moved" | `uuid.v4()` line; then two SETTLED transfers; **F4 card**. | MCP source + `charges-…-new-id.out.txt` | F4 · 1 owed · 2 moved |
+| 3 | 2:13 | (end of §3, just before) | **Full board F1 to F7** for 2 s; F6 and F7 enter here. | edit | 7 findings · isolation held |
+| 4 | 2:13 | "Based on this analysis, I built Ringfence" | Live app, three clients, each with its own account id. | app | Agent suggests · code decides |
+| 4 | 2:25 | "The goal… plans all three" | **Rubric strip** at the top of the frame, built step by step: `Goal → Plan → New info → Revised → Result`. Goal and Plan light up; the agent's plan rows appear. | app timeline | Goal · Plan |
+| 4 | 2:33 | "Kestrel pays… Northwind waits… converts" | Kestrel SCHEDULED with transfer id; Northwind diff (rate change); FX_QUOTE → FX_CONVERTED with `conversion_id`. | app | Paid · Waiting · FX within band |
+| 4 | 2:43 | "The next one, Harbour… short… no conversion" | Rubric "New info" lights. Harbour AUD balance short; rule `fx: never`; funding card with the exact shortfall and deadline. | app | New info |
+| 4 | 2:51 | "revises its plan" | Rubric "Revised" lights. Harbour HELD, funding requested. | app | Revised decision |
+| 4 | 3:00 | "fifty thousand… Kestrel's money" | `[SIMULATED]` 50k lands in Kestrel; Harbour stays held; Kestrel's balance boxed. | app card "Another employer's money arrives" | [SIMULATED] · not Harbour's |
+| 4 | 3:07 | "top-up arrives in its global account… releases" | `[SIMULATED]` deposit to Harbour's AUD global account; FUNDING_MATCHED; released. | app card "Harbour's own top-up" | Matched · paid |
+| 4 | 3:12 | "Everyone is paid… its own" | Rubric "Result" lights. **Final-state table**: each employer's balance before → after, every line PAID/SCHEDULED, Kestrel's 50k still there. | app `/api/state` | Result |
+| 5 | 3:16 | "re-ran every attack from my research against Ringfence" | The F-board returns; each row flips to a green "retest" column as it's named. | edit | Retest |
+| 5 | 3:20 | "approval swap is held" | Card "Swap the bank account after approval" → HELD. Then, unspoken, "Swap it at the last second" → transfer read back, CANCELLED. | app (fresh world) | F1 → HELD 3/3 · race → CANCELLED |
+| 5 | 3:31 | "quarantine… by phone" | Card "Fake bank-change email" → quarantine pill → callback by a different person. | app | F2 → quarantined |
+| 5 | 3:37 | "request ID before the first attempt… never a second payment" | Card "Internet drops mid-payment": lost reply → lookup by request_id → one transfer. | app | F4 → 1 transfer |
+| 5 | 3:44 | "own login… all twelve" | Card "Use another company's money" + the 12 × 401 grid. | app + `GAUNTLET.md` §4 | F3 → 12/12 blocked |
+| 6 | 3:52 | "For the engineers" | Fast cuts, one per line: login per client chosen by code (the `x-login-as` call, not the model); `Decimal` amounts. Unspoken caption: "Double-click pay" → 1 transfer. | app | For engineers |
+| 6 | 4:02 | "Webhooks are a hint… cursor… paid is never final" | Webhook event, then the GET that re-fetches it; cursor paging (F6, F7 → fixed); card "Payment bounces back" → PAID then FAILED, reopened. | app timeline + Proof | Hint → re-fetch · cursor · paid isn't final |
+| 6 | 4:15 | "hash-chained ledger… stamped inside each transfer… re-hash… disagrees" | Transfer metadata `rf_seq`/`rf_hash`; card "Change a record and re-hash the chain" → self-check passes but the Airwallex stamp row turns red. | app Proof | Re-hashed → still caught |
+| 6 | 4:25 | "MCP server with no approve tool" | MCP tool list; no approve. | `mcp_server.py` | A human signs |
+| 7 | 4:31 | "an agent that follows every instruction… thirty-six" | Gauntlet board: obedient agent 28 obeyed / 28 denied / 0 moved (8 no tool); Claude 0 obeyed. | landing Gauntlet + `GAUNTLET.md` §1 | 36 docs · 0 moved |
+| 7 | 4:38 | "Twenty payment releases at once… Airwallex's own records" | Live `/transfers` count by request_id: [1, 1, 1]. | `GAUNTLET.md` §2 | 20 releases · 1 each |
+| 7 | 4:44 | "Two hundred ledger edits" | 200/200 caught at the right row. | `GAUNTLET.md` §5 | 200/200 |
+| 7 | 4:48 | "four hundred and sixty-two tests" | `pytest -q` final line. | terminal | the day's number |
+| 7 | 4:53 | "don't take my word… live" | Live URL; Try it composer. | app Try it | Try it |
+| 8 | 5:00 | "normal payroll agent… one fix for every way" | The F-board, every row green. | edit | Same agent. Hardened. |
+| 8 | 5:10 | "back to my first question… That's Ringfence" | Full face, hold. | camera | Ringfence |
+| 8 | 5:21 | (end) | Black end card: repo + live URL. Music only here. | edit | — |
 
 ## Capture checklist (shoot day, in order)
 1. `uv run pytest -q`: grab the final line.
