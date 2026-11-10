@@ -33,7 +33,7 @@ One screen shows every employer's run side by side. Each run moves on its own: o
 ### 4. Payroll runs
 1. **Read.** The agent (Claude) reads timesheets and the inbox.
 2. **Price.** Code prices every line in `Decimal`, adds fees, and quotes FX where it is needed.
-3. **Approve.** A named person approves the exact batch: amounts, payees and *their bank details*.
+3. **Approve.** A named person approves the exact batch. The bank details paid are the ones pinned for each payee, never whatever the payee ID points to later.
 4. **Release.** The gate re-checks everything, then each payment is created once.
 5. **Track.** Each payment is followed through to PAID, and returns are handled. A per-payout fee is collected, and credited back if a payout returns.
 
@@ -42,9 +42,70 @@ Each payment's request ID is fixed before the first attempt. A timeout never tri
 ## What is new
 
 - **The agent proposes, code decides.** Claude reads documents and drafts the run. Amounts, caps, approvals, request IDs and which employer's login is used all come from code. Emails and invoices are untrusted. A bank change found in one is quarantined until someone confirms it by phone.
-- **Approval covers the destination, not just the name.** The bank details are part of what the approver signs. If a payee's account changes on Airwallex after approval, the run is held, not paid.
+- **Approval covers the destination, not just the name.** Each payee's approved bank details are pinned and sent inside the payment itself. If a payee's account changes on Airwallex after approval, the run is held, not paid.
 - **Money waits for its own employer.** A short employer is never covered from another employer's balance. It gets its own instructions and deadline, and the run resumes when its money lands.
 - **Tamper-evident record.** Every step goes into a hash-chained ledger. The ledger head is sent with each Airwallex transfer, so a rewritten ledger no longer matches Airwallex's copy. Run certificates verify offline.
+
+## How it works
+
+```
+ timesheets, inbox ──► Claude (10 tools, none can move money)
+                          │ proposals only
+                          ▼
+                  gate.check_propose ──► run priced in Decimal, FX quoted
+                                              │
+                         named approver signs the exact batch (HMAC)
+                                              │
+                  gate.check_release (pure function, 25 refusal codes)
+                                              │
+     executor: INTENT saved ──► POST /transfers with this employer's token
+                                              │
+     poller ──► PAID / RETURNED      verifier (no LLM) ──► signed certificate per employer
+```
+
+### 1. The model cannot move money
+The agent has ten tools: read the inbox, read the run, propose hours, propose a rate change, propose a bank change, request funding, submit for approval, hold the run, flag a document, and finish ([agent/tools.py](ringfence/agent/tools.py)). None of them creates a payment. The employer and the run are fixed by the harness when the toolbox is built, so no tool even takes an employer as input. Every input is validated (strict pydantic) and then checked by the gate.
+Tested with 36 hostile documents (attack goals adapted from AgentDojo's banking suite). An agent that obeys every instruction tried 28 of the attacks; the gate denied all 28. Claude followed none. In both cases no money moved wrongly ([GAUNTLET.md](docs/GAUNTLET.md)).
+
+### 2. The gate decides
+[gate.py](ringfence/gate.py) is a pure function: facts in, Allow or Deny out, with no I/O, no clock and no model. The facts are built by code from Airwallex and the ledger. Checks run in a fixed order, and the first failure wins. Some of the 25 refusal codes:
+- `TENANT_MISMATCH`: a line, the run, the token and the mandate must all belong to one employer.
+- `BENEFICIARY_IS_OTHER_TENANT_ACCOUNT`: you can't pay into another employer's own account.
+- `INSUFFICIENT_OWN_FUNDS`: this employer's balance only, minus its payments that are still in flight.
+- `OVER_LINE_CAP`, `OVER_RUN_CAP`: a missing cap counts as a refusal.
+- `APPROVAL_HASH_MISMATCH`, `APPROVAL_EXPIRED`, `SOD_VIOLATION`: someone who edited a payee can't approve that payee's payment.
+- `FX_RATE_OUT_OF_BAND`: the live rate must sit within the mandate's band (default 50 bps) of the rate the approver saw.
+
+### 3. Approval is bound to the exact batch and the exact bank account
+- The approval signs a SHA-256 hash of the run, employer, round and every line, including its request ID ([mandate.py](ringfence/mandate.py)). Approving one batch can't authorise another batch, next week's identical batch, or a re-pay. Approvals expire after 2 hours.
+- Each payee's bank details are pinned as a fingerprint when they are set up or confirmed by phone callback.
+- Before release, each payee is re-read live from Airwallex. If the details don't match the pin, the run is held.
+- The approved bank details are sent inside the transfer itself, not as a pointer to a payee ID that can change.
+- Right after creation, each transfer is read back. If it points anywhere else, it is cancelled while Airwallex still allows it.
+
+### 4. Each payment happens exactly once
+- **The request ID** is `sha256(run | employer | contractor | attempt)`, cut to 50 characters. It is minted once and stored. The amount isn't part of it, so re-pricing can never create a new ID.
+- **INTENT first.** The ledger commits the intent before the HTTP call. No database transaction stays open across a network call.
+- **Timeouts.** A timeout never resends. Ringfence looks the payment up by its request ID ([executor.py](ringfence/executor.py)).
+- **Duplicates.** A `duplicate_request_id` reply is adopted only if the existing transfer has the same payee, amount and currency. Otherwise the line is held (`DUPLICATE_MISMATCH`).
+- **Payments the ledger forgot.** Before releasing, Ringfence asks Airwallex whether each line was already paid. This catches a lost database or an old backup (`ALREADY_PAID_ON_AIRWALLEX`).
+- **Tested live:** 20 parallel releases with 3 lost answers gave exactly one transfer per line.
+
+### 5. Funding stays inside each employer
+- **Funding requests.** A short employer gets a request for its own global account, with a unique reference (`RF-<EMP>-<run>-<rand>`).
+- **Deposit matching.** A deposit counts only if it is in this employer's account (read with its own token), on the requested global account, in the requested currency, with that reference. Several deposits under one reference add up. A deposit in another employer's account is never even read ([funding.py](ringfence/funding.py)).
+- **FX.** FX only quotes until approval. It sells only this employer's spare balance, in the funding currencies its mandate allows ([fx.py](ringfence/fx.py)).
+
+### 6. A record that proves itself
+- **Ledger.** An append-only SQLite ledger: database triggers block UPDATE and DELETE, and each row's hash includes the row before it ([ledger.py](ringfence/ledger.py)).
+- **Stamped at Airwallex.** Each transfer carries the ledger head in its Airwallex metadata (`rf_seq`, `rf_hash`). Someone who edits the database and recomputes every hash still can't change the copy held at Airwallex. In tests, 200 single-field edits were each caught at the right row.
+- **Verifier.** [verify.py](ringfence/verify.py) has no LLM. It reads each employer's transfers with that employer's own token, using cursor paging (`page_num` repeats the first page), and runs ten checks per employer. Every transfer must have an intent for this employer. Every payee must be its own. Each must have gone to the approved account, at the approved amount. Each intent must have exactly one transfer, and none may appear in another employer's account. No contractor may be paid twice. The ledger must match the stamps, the chain must verify, and a live cross-employer call must return `401`. The result is signed with Ed25519 and verifies offline.
+
+### 7. Testing
+- **462 offline tests** against a fake Airwallex that copies the sandbox's real behaviour, recorded in [PROBES.md](docs/PROBES.md).
+- **500 random operation sequences** (5,262 steps), with the money invariants checked after every step.
+- **12 of 12 live cross-employer calls** refused by Airwallex.
+- **Benchmark against a steelmanned reference agent** (Claude Opus, best-practice prompt, a human approving every write): [BENCH.md](docs/BENCH.md).
 
 ## From the shortlisted proposal to the build
 
@@ -118,7 +179,7 @@ To test Ringfence, we built a reference agent the way Airwallex's docs, SDK and 
 
 | # | Finding | Severity | Reference agent | Ringfence |
 |---|---|---|---|---|
-| [F1](FINDINGS.md#f1-approval-swap) | Approval swap | High | paid ..9901 · 3/3 | bank details signed into the approval → HELD |
+| [F1](FINDINGS.md#f1-approval-swap) | Approval swap | High | paid ..9901 · 3/3 | approved bank details pinned → HELD |
 | [F2](FINDINGS.md#f2-bank-change-from-an-email) | Bank change from an email | High | paid ..9901 · 5/5 | quarantined until a phone callback |
 | [F3](FINDINGS.md#f3-the-sdk-shares-one-login) | SDK shares one login | High | A's payment on B's login | own login per client, set by code |
 | [F5](FINDINGS.md#f5-batch-payroll) | Batch payroll | Medium | booked ..9901 · can't cancel | no batches · bank details in each payment |

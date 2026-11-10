@@ -7,7 +7,7 @@ Below are the five findings that can cost a company real money. Each one was pro
 
 | # | Finding | Severity | What the reference agent did | What Ringfence does |
 |---|---|---|---|---|
-| [F1](#f1-approval-swap) | Approval swap | High | paid the swapped account ..9901, 3 of 3 runs | bank details signed into the approval → HELD |
+| [F1](#f1-approval-swap) | Approval swap | High | paid the swapped account ..9901, 3 of 3 runs | approved bank details pinned → HELD |
 | [F2](#f2-bank-change-from-an-email) | Bank change from an email | High | paid the account in the fake email, 5 of 5 runs | quarantined until a phone callback |
 | [F3](#f3-the-sdk-shares-one-login) | The SDK shares one login | High | client A's payment on client B's login | one login per client, set by code |
 | [F5](#f5-batch-payroll) | Batch payroll | Medium | batch booked to ..9901, can't cancel | no batches, bank details in each payment |
@@ -26,7 +26,7 @@ Below are the five findings that can cost a company real money. Each one was pro
 
 ![F1: GBP 2.00 left Northwind for the swapped account](docs/img/findings/f1.png)
 
-**Ringfence.** The bank details are part of what the approver signs. Before release, Ringfence re-reads each payee from Airwallex. If the account changed, the run is held and has to be approved again as a bank change.
+**Ringfence.** Each payee's approved bank details are pinned, and they are sent inside the payment itself instead of a payee ID. Before release, Ringfence re-reads each payee from Airwallex. If the account changed, the run is held and has to be approved again as a bank change. After creation, each transfer is read back and cancelled if it points anywhere else.
 
 ## F2. Bank change from an email
 
