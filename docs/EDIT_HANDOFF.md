@@ -14,7 +14,7 @@ You are editing the Ringfence hackathon film from the user's Loom. Hard cap: **u
    - `no-claude-attribution-in-git.md`
 
 ## Story order
-**Superseded by SPEAK_V10 / FOOTAGE_V10** (scope card, F1–F7 finding cards, the rubric beat, the retest, no Metal). The list below is V8 and is kept for history only.
+**Superseded by SPEAK_V10 / FOOTAGE_V10** (setup card with the [SIMULATED] tag, scope card, path map who/how/check, all seven findings spoken with F1–F7 cards, the rubric beat, the retest, no Metal). The list below is V8 and is kept for history only.
 
 1. Open.
 2. "I built theirs first": the agent the guide shows, with a human approving.
@@ -54,13 +54,13 @@ You are editing the Ringfence hackathon film from the user's Loom. Hard cap: **u
   - `video/src/subs.tsx` does subtitles, `cap.tsx` captions, `xray.tsx` the X-ray overlays, `base.tsx` the shared styles.
   - Adapt the scenes to the FOOTAGE_V10 shot list: scope card, finding cards F1–F7, rubric strip, final-state table, retest column.
 - Preview with `cd video && npx remotion studio src/index.ts`. Render with `npm run render`, which writes `var/edit/film.mp4`.
-- Check the length with ffprobe; the user will speak fast; spoken script is ~5:18 at 166 wpm. If it runs long, cut in this order (from SPEAK_V10):
-  1. §6 webhook / cursor / paid-isn't-final lines
+- Check the length with ffprobe; the user will speak fast; the script is 983 words, ~5:19 at 185 wpm (submission cap 5:00). If it runs long, cut in this order (from SPEAK_V10):
+  1. §6 webhook / paid-isn't-final lines
   2. §6/§7 ledger line ("edited the ledger two hundred times")
   3. the §4 Northwind conversion clause (cut it anyway if no FX row appears on shoot day)
   4. shorten §7 to the 36-documents line
 
-  **Never cut** the §2 scope line, the §4 Harbour beat ("The next one, Harbour, is where the plan changes" → final balances), or the §8 close.
+  **Never cut** the §2 setup line (simulated clients on the sandbox) and scope line, the §4 Harbour beat ("The next one, Harbour, is where the plan changes" → final balances), or the §8 close.
 
 ## Live app for captures
 - https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com
