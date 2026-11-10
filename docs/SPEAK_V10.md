@@ -16,61 +16,55 @@ The screen carries the detail (IDs, code, analysis); your voice carries the stor
 
 Hi, I'm Harsimar Singh, / and this is **Ringfence**, / my submission for the Airwallex hackathon. //
 
-Some companies run payroll for lots of other companies. / Every Friday they're holding millions of dollars / that **aren't theirs**. //
-So my first question was: / if an AI agent does that job, / how do I make sure it **never pays the wrong person**? //
+Some companies run payroll for lots of other companies. / Every Friday they hold millions of dollars / that **aren't theirs**. //
+So my question was: / if an AI agent does that job, / how do I make sure it **never pays the wrong person**? //
 
 ---
 
-## 2 · The setup and the hunt
+## 2 · The setup
 
-To test that, / I set up a payroll provider on the Airwallex **sandbox**, / with three **simulated** client companies, / Northwind, / Kestrel / and Harbour, / each on its **own** Airwallex account. //
-The platform's developer guide shows how to build an agent that moves money: / a frontier model, / the Airwallex API as its tools, / and a **human** approving every payment. //
-I built that reference agent first, / on the same accounts, / and spent several days trying to **break** it, / using a few pounds / and cancelling every transfer after. //
-If an attack works there, / it works on **every** agent built that way, / so I hardened Ringfence against **everything** I found. //
-Airwallex kept every client's money **separate**. / The issues are in what an agent can be **led to do**. //
+I set up a payroll provider on the Airwallex **sandbox**, / with three **simulated** client companies, / each on its **own** account. //
+The platform's guide shows how to build a payment agent, / with a **human** approving every payment. /
+I built that agent first, / and spent days trying to **break** it, / with small amounts, / cancelled after. /
+If it breaks there, / it breaks in **every** agent built that way. //
 
 ---
 
 ## 3 · What I found
 
-I tested the whole path a payment takes: / **who** it's paid to, / **how** it's sent, / and how the agent **checks** it. / Every step had a problem. //
+Here's what I found. //
+The worst one beats the **human**. / The approver checks the name, / the amount / and the payee, / and says yes. / But while the payment waited, / the **bank account** behind that payee was swapped. / The money went to the **new** account, / three out of three, / with no alert. /
+The payee stays saved, / so every run after that pays it too, / and nothing flags it. //
+And who swapped it? / **The agent**, / after reading a fake invoice email. / Five out of five. //
+The approval checks a **label**. / The money follows wherever the label **points**. //
 
-First, / who it's paid to. /
-The most serious finding defeats the **human approver**. /
-A payment waits for approval. / The approver checks the name, / the amount / and the payee, / and approves. / But while it waited, / the **bank account** behind that payee was changed. / Same name, / same payee ID, / so the money goes to the **new** account. / **Three out of three**, / no alert. //
-The payee stays saved, / so every later run pays that account too, / and nothing in the system flags it. //
-Who changes the bank account? / **The agent does, / from an email.** / A normal-looking invoice says the supplier changed banks, / and the agent updates the payee. / **Five out of five.** //
-The approval checks a **label**, / and the money follows wherever that label **points**. //
-
-Second, / how it's sent. /
-Batch payouts, / built for payroll, / have the same gap: / the batch pays whatever the payee is at submit, / the review never shows the bank account, / and an API key **can't cancel** it. / Four out of four. //
-The platform's Node SDK holds **one login** for the whole program, / so Northwind's payment can go out on **Kestrel's** login. / I found that in the SDK code. //
-The platform's MCP server gives every payment a **new request ID**, / so a retry after a lost reply is a **second** payment. / I ran that retry live against the API: / one pound owed, / **two moved**, / no way to cancel. //
-
-Third, / how the agent checks. /
-The transfer list ignores the page number, / so only the first **hundred** come back, / the rest look **unpaid**, / and a re-pay job pays them **again**. /
-And when the SDK retries a lookup, / it drops the question, / so an employee who was never paid / looks **paid**. //
+I found the same weakness in other places. /
+Payroll batches pay the swapped account too, / and an agent can't cancel them. /
+In the SDK code, / one client's payment can go out on **another** client's login. /
+A retry can pay **twice**. / I ran it: / one pound owed, / **two** moved. /
+And the payment list can show paid people as **unpaid**, / and unpaid people as **paid**. //
+Airwallex kept every client's money **separate**. / The problem is what an **agent** can be led to do. //
 
 ---
 
 ## 4 · Ringfence
 
-Based on this analysis, / I built **Ringfence**, / and ran it on the same simulated setup. / The agent **proposes**, / and my code **decides** what money moves. //
-The goal was to pay every client's contractors for the week. / The agent reads each client's timesheets and inbox, / and plans all three. //
-Kestrel had a normal week, / so it **pays**. / Northwind changed pay rates, / so it **waits** for approval, / then converts the Australian dollars it needs / within its allowed rate. //
-The next one, / Harbour, / is where the plan **changes**. / Harbour is short of Australian dollars, / and its rules don't allow a conversion. / So the agent **revises its plan**: / it holds Harbour, / calculates the exact shortfall, / and asks Harbour to top up before the deadline. //
-Meanwhile, / a simulated fifty thousand dollars lands in **Kestrel's** account. / Ringfence won't touch it for Harbour. //
-Harbour's simulated top-up arrives in its Airwallex global account. / The agent matches it / and pays. / Everyone is paid, / and **each client's balance is still its own**. //
+So I built **Ringfence**, / on the same simulated setup. / The agent **proposes**, / and my code **decides** what money moves. //
+The goal is to pay every client's contractors this week. / The agent reads the timesheets and the inbox, / and plans all three. /
+Kestrel had a normal week, / so it **pays**. / Northwind changed pay rates, / so it **waits** for approval, / then converts the currency it needs. //
+Harbour is where the plan **changes**. / It's short of Australian dollars, / and isn't allowed to convert. / So the agent **revises the plan**: / it holds Harbour, / works out the exact shortfall, / and asks for a top-up before the deadline. //
+Meanwhile, / a simulated fifty thousand lands in **Kestrel's** account. / Ringfence won't touch it. / It's not Harbour's money. //
+Harbour's simulated top-up lands in its Airwallex global account, / the agent matches it, / and pays. / Everyone's paid, / and **every client's balance is still its own**. //
 
 ---
 
 ## 5 · Retest
 
-Then I re-ran every attack from my research / against Ringfence. //
-The approval swap is **held**, / three out of three. / Ringfence signs the exact bank details into the approval / and sends them inside the transfer, / so there's no label to swap, / and no batches. //
-A bank change from an email goes into **quarantine** / until a different person confirms it by phone. //
-Every payment gets its request ID **before** the first attempt, / so a lost reply means a lookup, / **never** a second payment. / Lookups follow the cursor, / and check the request ID on every result. //
-And each client has its **own** login. / I tried to cross that boundary twelve ways, / and Airwallex **blocked all twelve**. //
+Then I ran every attack again, / on Ringfence. //
+The bank swap is **held**, / because Ringfence locks the exact bank details into the approval. /
+The fake email is **quarantined**, / until a different person confirms by phone. /
+The retry pays **once**, / because every payment's ID is fixed before the first try. /
+And each client has its **own** login. / I tried crossing that line twelve ways, / and Airwallex **blocked all twelve**. //
 
 ---
 
@@ -78,18 +72,16 @@ And each client has its **own** login. / I tried to cross that boundary twelve w
 
 For the engineers: //
 The model never chooses which account it acts on. / Code logs in as each client / and sets amounts, limits and request IDs, / in decimals, never floats. //
-Webhooks are a **hint**, / so every one is re-fetched from Airwallex. / And a paid transfer can still fail later, / so paid is never final. //
+Webhooks are a **hint**, / so every one is re-fetched from Airwallex. / Lookups follow the cursor / and check the request ID on every result. / And a paid transfer can still fail later, / so paid is never final. //
 Every action goes into a **hash-chained ledger**, / with the chain head stamped inside each Airwallex transfer. / Rewrite my database and re-hash the chain, / and Airwallex's copy **still disagrees**. //
 And Ringfence runs as an **MCP server** / with **no approve tool**, / so a human always signs. //
 
 ---
 
-## 7 · Testing Ringfence directly
+## 7 · Testing Ringfence
 
-I also attacked Ringfence directly. / An agent that follows every instruction it reads, / given thirty-six hostile documents, / moved **no money**. //
-Twenty releases at once, / replies dropped: / Airwallex's own records show each payment **exactly once**. //
-Two hundred ledger edits, / every one caught at the correct row. / And four hundred and sixty-two tests / against a mock of the Airwallex API. //
-But don't take my word for it. / The demo is **live**, / so try to make it pay the wrong person. //
+I also attacked Ringfence directly. / Thirty-six hostile documents: / **no money** moved. / Twenty payments at once, / with replies dropped: / each paid **exactly once**. / Two hundred ledger edits: / every one **caught**. / And four hundred and sixty-two tests. //
+But don't take my word for it. / The demo is **live**. / Try to make it pay the wrong person. //
 
 ---
 
@@ -121,7 +113,7 @@ So, / back to my first question: / how do I make sure an AI agent / **never pays
 | Batches: no bank account at review; whole run; key can't cancel | `f5bd21a8…`, `f1cd2e93…`, `66404ad8…`, `f72b2134…` (4/4); 401 "Admin permissions required" |
 | SDK keeps one login; found in code | `bench/probes/sdk_singleton_check.out.txt`, offline: A's call attached B's token. We checked the token, not a completed payment. |
 | MCP: a new ID per payment; a retry is a second payment | `@airwallex/developer-mcp@0.3.0-beta.13` `createTransfer.js`: `request_id: uuid.v4()` per call (code) |
-| Retry live: one pound owed, two moved, no cancel | `charges-request-id-duplicate-new-id.out.txt`: `tr_EVfI4fFUMiKaByQv2_pW4w` + `tr_i7K2mR5GNpqv0iirL3-rGg`, both SETTLED, connected-account transfer with no cancel endpoint. It was a REST retry, not one through the MCP: never say "the MCP paid twice", and never cite the docs row. |
+| Retry live: one pound owed, two moved ("A retry can pay twice. I ran it") | `charges-request-id-duplicate-new-id.out.txt`: `tr_EVfI4fFUMiKaByQv2_pW4w` + `tr_i7K2mR5GNpqv0iirL3-rGg`, both SETTLED, connected-account transfer with no cancel endpoint. It was a REST retry, not one through the MCP: never say "the MCP paid twice", and never cite the docs row. |
 | Page number ignored; retry drops filter | `scripts/breakit.py pages sdk`, live, 9 Nov: 100 of 215 seen, so 115 look unpaid; request_id filter returns 0, unfiltered 215, so a never-paid line looks paid; `apiClient.js:157` |
 | Each client on its own account; goal; agent plans all three; code (not the model) logs in per client; decimals | 4 accounts, `x-login-as` per employer chosen by the harness; amounts in `Decimal`; RUN_CREATED and PLAN rows in the live timeline |
 | Northwind converts within its band | `demo/employers.json`: Mia is paid in AUD, setup drains Northwind's AUD, Northwind has `fx: within_band`, 50 bps → FX_QUOTE + FX_CONVERTED with `conversion_id` (`executor.py:_convert`). **Check that the row appears in the shoot-day run**; if it doesn't, cut that sentence. |
@@ -141,13 +133,12 @@ So, / back to my first question: / how do I make sure an AI agent / **never pays
 | 462 tests vs fake Airwallex | `uv run pytest -q`: say the number on the day |
 
 ## Runtime
-About 983 spoken words: about 5:19 at a fast 185 wpm, or about 5:55 at your last measured pace (166 wpm). You asked to keep it under 5:20 and handle the pace yourself. All seven findings are now spoken. The last-second swap and "Double-click pay" are on screen only (see FOOTAGE_V10). The submission cap is 5:00. If the final edit runs over, cut in this order:
-1. The webhook / paid-isn't-final lines in §6.
+About 713 spoken words: about 4:18 at your measured 166 wpm, plus a 5 s end card, so under 5:00 with room for pauses. The bug section is told in plain words; the screen carries the technical detail (finding cards F1 to F7 with IDs). If the edit still runs over, cut in this order:
+1. "Webhooks are a hint… paid is never final" in §6.
 2. "Two hundred ledger edits…" in §7.
-3. The Northwind conversion clause in §4.
-4. §7 reduced to the thirty-six-documents line.
+3. "then converts the currency it needs" in §4.
 
-Never cut: the §2 setup line (simulated clients on the sandbox), the label line in §3, the Harbour beat in §4 ("The next one, Harbour, is where the plan changes" through the final balances), or the close.
+Never cut: the §2 setup line (simulated clients on the sandbox), the label line in §3, the Harbour beat in §4, or the close.
 
 ## Why there's no Metal
 The judging criteria are finance value, Airwallex relevance, agentic behaviour and controls, and technical execution, and the demo rubric is goal → plan → new information → revised decision → result. Metal fits none of these and splits the story across two platforms. Its 25 seconds now go to the Harbour beat (the agent revising its plan and the final balances), which is what C3 and C4 score. The Metal cards stay in the live app for anyone who looks.
