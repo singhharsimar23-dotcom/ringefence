@@ -77,7 +77,7 @@ All seven are **spoken** in §3, grouped by the path map: who it's paid to (F1, 
 | 7 | 4:48 | "Two hundred ledger edits" | 200/200 caught at the right row. | `GAUNTLET.md` §5 | 200/200 |
 | 7 | 4:52 | "four hundred and sixty-two tests" | `pytest -q` final line. | terminal | the day's number |
 | 7 | 4:56 | "don't take my word… live" | Live URL; Try it composer. | app Try it | Try it |
-| 8 | 5:02 | "normal payroll agent… one fix for every way" | The F-board, every row green. | edit | Same agent. Hardened. |
+| 8 | 5:02 | "a normal payroll agent, hardened against everything I found" | The F-board, every row green. | edit | Same agent. Hardened. |
 | 8 | 5:11 | "back to my first question… That's Ringfence" | Full face, hold. | camera | Ringfence |
 | 8 | 5:22 | (end) | Black end card: repo + live URL. Music only here. | edit | — |
 

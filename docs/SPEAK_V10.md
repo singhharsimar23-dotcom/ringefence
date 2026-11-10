@@ -95,8 +95,8 @@ But don't take my word for it. / The demo is **live**, / so try to make it pay t
 
 ## 8 · Close
 
-It's still a normal payroll agent, / with **one fix** for every way I broke the reference agent. //
-Every finding is in the repo / with its transfer IDs. //
+Ringfence is a normal payroll agent, / **hardened** against everything I found. //
+All the findings and proof are in the repo. //
 So, / back to my first question: / how do I make sure an AI agent / **never pays the wrong person**? //
 **That's Ringfence.** // Thanks for watching.
 
