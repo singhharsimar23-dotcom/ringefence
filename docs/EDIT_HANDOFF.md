@@ -52,16 +52,15 @@ You are editing the Ringfence hackathon film from the user's Loom. Hard cap: **u
   - `video/src/Film.tsx` holds the scenes.
   - `video/src/scenes/*` holds Email, App, Isolation, Gauntlet, Mandate, Overpull, Mcp, Decisions, Evidence and others.
   - `video/src/subs.tsx` does subtitles, `cap.tsx` captions, `xray.tsx` the X-ray overlays, `base.tsx` the shared styles.
-  - Adapt the scenes to the v8 order. Add new beats as needed: plan cards, the approval-swap split, the software-bugs terminal, and the bug-to-fix table.
+  - Adapt the scenes to the FOOTAGE_V10 shot list: scope card, finding cards F1–F7, rubric strip, final-state table, retest column.
 - Preview with `cd video && npx remotion studio src/index.ts`. Render with `npm run render`, which writes `var/edit/film.mp4`.
 - Check the length with ffprobe; it must be under 5:00. If it runs long, cut in this order (from SPEAK_V10):
-  1. §7 "twenty / two hundred"
-  2. §6 ledger line
-  3. the SDK retry line
-  4. the §5 trap
-  5. §8 Metal
+  1. §6 webhook line
+  2. §6/§7 ledger line ("edited the ledger two hundred times")
+  3. the §4 Northwind conversion clause (cut it anyway if no FX row appears on shoot day)
+  4. shorten §7 to the 36-documents line
 
-  **Never cut** the §2 plan line or §9 "the point".
+  **Never cut** the §2 scope line, the §4 rubric beat ("Then the week changes" → final balances), or the §8 close.
 
 ## Live app for captures
 - https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com
@@ -70,7 +69,7 @@ You are editing the Ringfence hackathon film from the user's Loom. Hard cap: **u
   - "Swap the bank account after approval" goes HELD.
   - "Swap it at the last second" goes CANCELLED, but only on a fresh world. If an earlier bank-change email left a payee quarantined, it says "Nothing was sent… Start over".
   - "Change a record and re-hash the chain" turns the stamp check red.
-  - Metal "Try a fake wallet address" is refused on chain.
+  - (Metal cards stay in the app but are not in the film.)
 
 ## Honesty laws (non-negotiable)
 - Don't badmouth Airwallex or quote their docs against them.
