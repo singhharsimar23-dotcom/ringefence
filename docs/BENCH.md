@@ -97,7 +97,7 @@ used here.
 This is not an Airwallex flaw. Each transfer snapshots its destination at create, and in-place edits are a documented
 feature. The gap is in the agent setup: approval binds a pointer, not content.
 
-**Ringfence's answer** ([THREAT_SERVER_OWNED.md, H1](THREAT_SERVER_OWNED.md)):
+**Ringfence's answer:**
 - At approval time, a pin fingerprints the bank details we meant to create.
 - `drifted()` re-reads every payee live at release, and any mismatch holds the run.
 - `_recall_redirected` re-reads each new transfer's own destination snapshot. A mismatch means the payee was edited
