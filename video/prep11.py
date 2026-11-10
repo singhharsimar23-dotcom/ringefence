@@ -7,7 +7,7 @@ Reads var/loom_v10.mp4 (the raw Loom) and var/v11/words.json (faster-whisper wor
 
 Voice chain: train horns removed by time-gated spectral repair (only the horn's steady lines, only while it sounds),
 gentle stationary denoise (~8 dB), cuts at the middle of silences with 8 ms fades, then high-pass, mud cut, presence
-lift, 3:1 compression, 1.05x tempo, two-pass loudness."""
+lift, 3:1 compression, 1.035x tempo, two-pass loudness."""
 import json
 import subprocess
 from pathlib import Path
@@ -21,7 +21,7 @@ from scipy.signal import istft, stft
 ROOT = Path(__file__).resolve().parent.parent
 V = ROOT / "var/v11"
 SRC = ROOT / "var/loom_v10.mp4"
-GAP, LEAD, TEMPO, SR = 0.35, 0.3, 1.05, 48000
+GAP, LEAD, TEMPO, SR = 0.35, 0.3, 1.035, 48000
 # spoken fillers that aren't in the script, and the closing "Bye" (raw seconds, cut at word edges)
 DROP = [(44.20, 45.80), (285.00, 287.30), (317.50, 320.47), (333.40, 336.2)]
 # train horns, verified on the spectrogram (raw seconds): repair only inside these windows
@@ -114,7 +114,12 @@ def main():
     ln = (f"loudnorm=I=-14:TP=-1.5:LRA=7:measured_I={j['input_i']}:measured_TP={j['input_tp']}:measured_LRA={j['input_lra']}"
           f":measured_thresh={j['input_thresh']}:offset={j['target_offset']}:linear=true")
     sel = "+".join(f"between(t,{s:.3f},{e:.3f})" for s, e in keep)
-    graph = (f"[0:v]fps=30,select='{sel}',setpts=N/30/TB/{TEMPO},fps=30[v];"
+    # each kept frame goes to its piece's exact audio offset; renumbering frames (N/30) drifted ~1 frame per 20 cuts
+    off, shift = 0.0, []
+    for s, e in keep:
+        shift.append(f"between(T,{s:.3f},{e:.3f})*{off - s:.4f}")
+        off += e - s
+    graph = (f"[0:v]fps=30,select='{sel}',setpts='(T+{'+'.join(shift)})/{TEMPO}/TB',fps=30[v];"
              f"[1:a]{chain},{ln},aresample=48000,aformat=channel_layouts=stereo[a]")
     (V / "cut.graph").write_text(graph)
     pub = ROOT / "video/public"

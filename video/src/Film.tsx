@@ -21,8 +21,8 @@ const RP = retryPages as unknown as {lines: [number, string][]};
 const OUT = outs as {bec: string[]; sdk: string[]};
 
 export const END_CARD = 6;
-export const LENGTH = TOTAL + END_CARD; // 295.5 s, under 5:00
-const SWITCH = 17.967; // Loom flips from full camera to screen + bubble here
+export const LENGTH = TOTAL + END_CARD; // 299.7 s, under 5:00
+const SWITCH = 18.227; // Loom flips from full camera to screen + bubble here
 
 type Shot = {from: number; to: number; el: (t0: number) => React.ReactNode; subs?: boolean; bubble?: boolean};
 const S = (from: number, to: number, el: Shot["el"], o: {subs?: boolean; bubble?: boolean} = {}): Shot => ({from, to, el, subs: o.subs ?? true, bubble: o.bubble ?? true});
