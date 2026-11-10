@@ -41,7 +41,7 @@ def ringfence(fault):
     out = subprocess.run([sys.executable, "bench/ringfence_bench.py", fault, "1"], cwd=ROOT, capture_output=True,
                          text=True, encoding="utf-8").stdout
     line = next((ln.strip() for ln in out.splitlines() if "trial 0" in ln), out.strip()[-300:] or "bench gave no output")
-    (good if "to_mule=0" in line and "paid_twice=0" in line else bad)(line)
+    (good if "to_mule=0" in line and "paid_twice=[]" in line else bad)(line)
 
 
 def approval():
@@ -78,7 +78,7 @@ def batch():
         made_t.append((nw, t["id"]))
         bad(f"BOOKED {t['id']} → {dest(t)}")
     e = call(nw.post, f"/batch_transfers/{b['id']}/cancel", {})
-    bad(f"cancel the batch → HTTP {e.get('_error')} {str(e.get('msg', ''))[:50]}")
+    bad(f"cancel the batch → {str(e.get('msg', ''))[:60]}")
     ringfence("race")
 
 
