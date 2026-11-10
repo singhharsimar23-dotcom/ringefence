@@ -1,24 +1,86 @@
 # Findings: how an AI payroll agent on Airwallex can be led to pay the wrong person
 
-Seven findings, found while building Ringfence. Each one moved real sandbox money, or was proven against Airwallex's published code.
-Every one became a rule in Ringfence, and every one was retested against the live app.
+Before building Ringfence, we built a reference agent the way Airwallex's docs, SDK and MCP suggest, and tried to make it pay the wrong person.
+Below are the five findings that can cost a company real money. Each one was proven live on the Airwallex sandbox, or in Airwallex's published code. Each one became a rule in Ringfence and was retested against the live app.
 
-**Scope.** Airwallex sandbox only, on our own four accounts. Amounts of GBP/EUR 5 or less. Every transfer was cancelled or reversed, and every throwaway payee was deleted.
-"Reference agent" means an agent built the way the Airwallex docs, SDK and MCP suggest. Claude Sonnet 5.5 was used where a model was needed.
+**Scope.** Airwallex sandbox only, on our own accounts, with amounts of GBP 5 or less. Every test transfer was cancelled or reversed, and every throwaway payee was deleted.
 
-| ID | Finding | Severity | What the reference agent did | What Ringfence does | Evidence |
-|---|---|---|---|---|---|
-| F1 | **Approval swap.** The approval checks a payee ID. The bank account behind that ID can be changed after approval, before release. | High | Paid the swapped account `..9901`, 3 of 3 runs, with no alert. The payee stays saved, so later runs pay it too. | Signs the exact bank details into the approval. If they change, the run is **held**. | Live, 10 Nov: transfer `f94984f9-77c7-4f9c-996b-d326f36f34c7` (Northwind, `P261110-4S793UI`). `scripts/breakit.py approval`, [silent_divert](bench/probes/silent_divert.out.txt) (no beneficiary-changed webhook) |
-| F2 | **Bank change from an email.** A fake invoice email gives new bank details. | High | Paid the account in the fake email, 5 of 5 runs. | Quarantines the bank change until a phone callback. | Live, 9 Nov: transfer `45528e1d-4929-4779-9dc0-1b29bf48c70e` (Kestrel, `P261109-3IKTZJ5`). [agent_bec_repeat](bench/probes/agent_bec_repeat.out.txt) |
-| F5 | **Batch payroll.** A batch pays whoever the payee is at submit time. The reviewer sees no bank details, and the platform can't cancel it. | Medium | Batch booked to `..9901`. Cancel returned HTTP 401 "Admin permissions required". | No batches. Bank details travel inside each payment. | Live, 10 Nov: `scripts/breakit.py batch`, [batch probe](bench/probes/batch-status-empty-wrong-binding-resubmit.out.txt), [SDK batch binding](bench/probes/node_sdk_batch_binding.out.txt) |
-| F3 | **The SDK shares one login.** The official Node SDK holds one login per process. | High | Client A's payment goes out on client B's login. | One login per client, chosen by code, never by the model. | Found in their code, checked offline: [sdk_singleton_check](bench/probes/sdk_singleton_check.out.txt) |
-| F4 | **A retry pays twice.** The agent loses the reply and tries again with a new request ID. | Medium | GBP 2 moved for GBP 1 owed. There is no cancel endpoint. | The request ID is fixed before the first try, so a retry pays once. | Live, 10 Nov: `scripts/breakit.py retry`. A separate run of the same retry: `PRB-snap-94650` |
-| F6 | **The payment list repeats.** Paging by `page_num` returns the same page again. | Low | 122 of 222 payments look unpaid, so they get paid again. | Cursor paging, which sees 222 of 222. | Live, 10 Nov: `scripts/breakit.py pages`, [pagination probe](bench/probes/transfers-pagination-page-num-ignored.out.txt) |
-| F7 | **The SDK retry drops its filter.** A retried lookup loses its `request_id` filter. | Low | "It landed" was reported for a payment that was never made. | Matches `request_id` on every result, then reconciles. | Live, 10 Nov: `scripts/breakit.py sdk`, [reconcile probe](bench/probes/probe_reconcile_filter_ignored.out.txt), [SDK retry](bench/probes/node-sdk-retry-reconcile.out.txt) |
+| # | Finding | Severity | What the reference agent did | What Ringfence does |
+|---|---|---|---|---|
+| [F1](#f1-approval-swap) | Approval swap | High | paid the swapped account ..9901, 3 of 3 runs | bank details signed into the approval → HELD |
+| [F2](#f2-bank-change-from-an-email) | Bank change from an email | High | paid the account in the fake email, 5 of 5 runs | quarantined until a phone callback |
+| [F3](#f3-the-sdk-shares-one-login) | The SDK shares one login | High | client A's payment on client B's login | one login per client, set by code |
+| [F5](#f5-batch-payroll) | Batch payroll | Medium | batch booked to ..9901, can't cancel | no batches, bank details in each payment |
+| [F4](#f4-a-retry-pays-twice) | A retry pays twice | Medium | GBP 2 moved for GBP 1 owed | request ID fixed before the first try → pays once |
+| [✓](#what-airwallex-got-right) | Airwallex account isolation | Held | 12 of 12 cross-account calls refused | Ringfence builds on it |
 
-**What Airwallex got right.** Each employer's token is locked to its own account. All 12 cross-account calls we tried returned `401 credentials_invalid`. Ringfence builds on that: [scripts/recon_isolation.py](scripts/recon_isolation.py).
+---
 
-**More detail.** [docs/AIRWALLEX_GAPS.md](docs/AIRWALLEX_GAPS.md) has every probe and transfer ID. [docs/PROBES.md](docs/PROBES.md) records what the sandbox really does. [docs/GAUNTLET.md](docs/GAUNTLET.md) covers 36 hostile documents, a network storm and 200 ledger edits.
+## F1. Approval swap
 
-**Reproduce.** Set the sandbox environment variables (see the README), then run `uv run python scripts/breakit.py` (all five, or name one: `approval`, `batch`, `retry`, `pages`, `sdk`).
+**What happens.** A person approves a payroll run. The approval records the payee's ID, not the bank account behind it. Between approval and release, the bank account on that payee is changed. The agent releases, and the money goes to the new account. No alert is raised, and the payee stays changed, so later runs pay it too.
+
+**Why it hurts.** It defeats the human approval step. The approver signed off on the right person, and the money still goes to an attacker.
+
+**Proof.** Live, 10 Nov. Transfer `f94984f9-77c7-4f9c-996b-d326f36f34c7` (Northwind, `P261110-4S793UI`), GBP 2.00 sent to account 99999901. It was cancelled afterwards by our test cleanup. Reproduce with `scripts/breakit.py approval`. Airwallex sends no webhook for a changed beneficiary: [silent_divert](bench/probes/silent_divert.out.txt).
+
+![F1: GBP 2.00 left Northwind for the swapped account](docs/img/findings/f1.png)
+
+**Ringfence.** The bank details are part of what the approver signs. Before release, Ringfence re-reads each payee from Airwallex. If the account changed, the run is held and has to be approved again as a bank change.
+
+## F2. Bank change from an email
+
+**What happens.** A fake invoice email arrives with "new bank details" for a contractor. The agent reads it, updates the payee, and pays.
+
+**Why it hurts.** This is the most common payroll fraud, and an AI agent that reads email falls for it every time.
+
+**Proof.** Live, 9 Nov. Transfer `45528e1d-4929-4779-9dc0-1b29bf48c70e` (Kestrel, `P261109-3IKTZJ5`), GBP 1.00 to the account in the fake email, cancelled afterwards. 5 of 5 runs paid it: [agent_bec_repeat](bench/probes/agent_bec_repeat.out.txt).
+
+![F2: Kestrel paid the account from the fake email](docs/img/findings/f2.png)
+
+**Ringfence.** Emails and invoices are untrusted. A bank change found in one is quarantined. It is not used until an approver confirms it by phone callback and records the call's reference.
+
+## F3. The SDK shares one login
+
+**What happens.** The official Node SDK holds one login per process. A platform serving several clients from one process sends client A's payment out on client B's login.
+
+**Why it hurts.** One client's payroll is paid from another client's money.
+
+**Proof.** Found in the published SDK code and checked offline against it: [sdk_singleton_check](bench/probes/sdk_singleton_check.out.txt), [node_sdk_batch_binding](bench/probes/node_sdk_batch_binding.out.txt).
+
+**Ringfence.** Each employer has its own login, bound by code (`x-login-as`). The model never chooses it. The release gate checks again that the run, every line, the token and the mandate all belong to the same employer.
+
+## F5. Batch payroll
+
+**What happens.** A batch transfer pays whoever the payee is at the moment of submit. The reviewer sees payee names, not bank details. Once booked, the platform cannot cancel it: the cancel call returns `401 "Admin permissions required"`.
+
+**Why it hurts.** A whole payroll can go to a swapped account, with no way to stop it.
+
+**Proof.** Live, 10 Nov. Reproduce with `scripts/breakit.py batch`. See [batch probe](bench/probes/batch-status-empty-wrong-binding-resubmit.out.txt).
+
+**Ringfence.** No batches. Each payment carries its own bank details, which were checked at approval.
+
+## F4. A retry pays twice
+
+**What happens.** The agent sends a payment, and the reply is lost on the network. It tries again with a new request ID, and Airwallex makes a second payment. There is no cancel endpoint for it.
+
+**Why it hurts.** Every network blip can double a payment, and the money cannot be pulled back.
+
+**Proof.** Live, 10 Nov, with `scripts/breakit.py retry`. The screenshot is a separate run of the same retry: two GBP 1.00 transfers from Northwind (request IDs `PRB-snap-94650-ca1` and `-ca2`) for one GBP 1.00 owed. Both were reversed afterwards.
+
+![F4: two GBP 1.00 payments for one owed](docs/img/findings/f4.png)
+
+**Ringfence.** Each payment's request ID is fixed and saved before the first attempt. After a timeout, Ringfence never sends again. It looks the payment up by that ID and adopts it if it exists.
+
+---
+
+## What Airwallex got right
+
+Each employer's login is locked to its own account. We made 12 cross-account calls with one employer's token against another employer's account, and all 12 returned `401 credentials_invalid`. Ringfence builds on this: [scripts/recon_isolation.py](scripts/recon_isolation.py).
+
+![Separate Airwallex accounts per employer](docs/img/findings/iso.png)
+
+## Reproduce
+
+Set the sandbox environment variables (see the [README](README.md)), then run `uv run python scripts/breakit.py`. It runs all the live tests, or you can name one: `approval`, `batch` or `retry`.
 It writes only to the two employer accounts, at GBP 2 or less, then cancels or reverses every transfer and deletes every payee it created.

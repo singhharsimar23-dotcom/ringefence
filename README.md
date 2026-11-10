@@ -7,7 +7,7 @@ A payroll provider pays contractors for several companies from one place. Ringfe
 
 - **Live demo** (no login, test money only): https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com
 - **Main video, the product:** https://drive.google.com/file/d/12EMcRB7AoGwF9cdbaqS5QGDKp-xv-E7r/view?usp=sharing
-- **Deep dive, the seven findings:** https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing
+- **Deep dive, the findings:** https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing
 
 ![Three employers](docs/img/demo.png)
 
@@ -79,20 +79,18 @@ make check         # lint + the offline test suite
 **Live sandbox.** Set these environment variables, and never commit them: `AWX_CLIENT_ID`, `AWX_API_KEY`, `AWX_BASE_URL`, `AWX_PLATFORM_ACCOUNT` and `AWX_EMPLOYER_A/B/C`.
 Then run `uv run python -m ringfence.setup_demo` and `make demo`. Set `ANTHROPIC_API_KEY` to use Claude. Without it, the scripted agent runs.
 
-## How we tested it: seven findings
+## How we tested it: the findings
 
-To test Ringfence, we built a reference agent the way Airwallex's docs, SDK and MCP suggest, then tried to make it pay the wrong person. Every finding below became a rule in Ringfence, and each was retested against the live app. [FINDINGS.md](FINDINGS.md) has the evidence: transfer IDs, probe outputs, and a script that reproduces them.
+To test Ringfence, we built a reference agent the way Airwallex's docs, SDK and MCP suggest, then tried to make it pay the wrong person. These five findings could cost a company real money. Each one became a rule in Ringfence and was retested against the live app. **[FINDINGS.md](FINDINGS.md)** has the full report for each one: what happens, why it hurts, Airwallex screenshots, transfer IDs, and a script that reproduces it.
 
 | # | Finding | Severity | Reference agent | Ringfence |
 |---|---|---|---|---|
-| F1 | Approval swap | High | paid ..9901 · 3/3 | bank details signed into the approval → HELD |
-| F2 | Bank change from an email | High | paid ..9901 · 5/5 | quarantined until a phone callback |
-| F5 | Batch payroll | Medium | booked ..9901 · can't cancel | no batches · bank details in each payment |
-| F3 | SDK shares one login | High | A's payment on B's login | own login per client, set by code |
-| F4 | Retry pays twice | Medium | GBP 2 moved for GBP 1 | request ID fixed before the first try → pays once |
-| F6 | Payment list repeats | Low | 122 look unpaid → paid again | cursor paging → 222 of 222 |
-| F7 | SDK retry drops its filter | Low | "it landed" → never paid | request_id matched on every item |
-| ✓ | Airwallex isolation | Held | 12/12 cross-account calls blocked | built on it |
+| [F1](FINDINGS.md#f1-approval-swap) | Approval swap | High | paid ..9901 · 3/3 | bank details signed into the approval → HELD |
+| [F2](FINDINGS.md#f2-bank-change-from-an-email) | Bank change from an email | High | paid ..9901 · 5/5 | quarantined until a phone callback |
+| [F3](FINDINGS.md#f3-the-sdk-shares-one-login) | SDK shares one login | High | A's payment on B's login | own login per client, set by code |
+| [F5](FINDINGS.md#f5-batch-payroll) | Batch payroll | Medium | booked ..9901 · can't cancel | no batches · bank details in each payment |
+| [F4](FINDINGS.md#f4-a-retry-pays-twice) | Retry pays twice | Medium | GBP 2 moved for GBP 1 | request ID fixed before the first try → pays once |
+| [✓](FINDINGS.md#what-airwallex-got-right) | Airwallex isolation | Held | 12/12 cross-account calls blocked | built on it |
 
 ## Repo map
 
@@ -101,10 +99,10 @@ To test Ringfence, we built a reference agent the way Airwallex's docs, SDK and 
 | [ringfence/](ringfence/) | `gate.py` (release rules), `mandate.py` (signed per-employer rules), `funding.py` (shortfalls and deadlines), `fx.py`, `executor.py` (exactly-once payouts), `ledger.py` (hash chain), `agent/` (Claude loop), `app.py`, `mcp_server.py` |
 | [static/](static/) | The single-page UI |
 | [tests/](tests/) | The offline suite, run against a fake Airwallex |
-| [FINDINGS.md](FINDINGS.md) | The seven findings, with evidence and fixes |
+| [FINDINGS.md](FINDINGS.md) | The findings report: evidence, screenshots and fixes |
 | [scripts/](scripts/) | `breakit.py` (reproduces the findings), isolation and money-path checks, sandbox probes |
 | [bench/](bench/) | Probe outputs and benchmark results |
-| [docs/](docs/) | [DEMO.md](docs/DEMO.md), [AIRWALLEX_GAPS.md](docs/AIRWALLEX_GAPS.md), [PROBES.md](docs/PROBES.md), [GAUNTLET.md](docs/GAUNTLET.md), [BENCH.md](docs/BENCH.md) |
+| [docs/](docs/) | [DEMO.md](docs/DEMO.md), [PROBES.md](docs/PROBES.md), [GAUNTLET.md](docs/GAUNTLET.md), [BENCH.md](docs/BENCH.md) |
 | [deploy/](deploy/) | Azure VM, Caddy HTTPS, systemd |
 | [video/](video/) | Source for the demo film (Remotion) |
 
