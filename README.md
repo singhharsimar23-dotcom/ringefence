@@ -9,7 +9,7 @@ Airwallex Agentic Banking Hackathon, Kit 06. Runs on the Airwallex sandbox, with
 
 ## Security findings
 
-We built a payroll agent the way Airwallex's docs, SDK and MCP suggest, then tried to make it pay the wrong account. Five attacks worked, and Ringfence fixes all five. Screenshots, transfer IDs and scripts to reproduce each one are in **[FINDINGS.md](FINDINGS.md)**.
+We built a payroll agent the way Airwallex's docs, SDK and MCP suggest, then tried to make it pay the wrong account. We found five ways it pays the wrong account or pays twice, and Ringfence closes all five. Screenshots, transfer IDs and scripts to reproduce each one are in **[FINDINGS.md](FINDINGS.md)**.
 
 | # | Bug | Impact | Proven | Fix in Ringfence |
 |---|---|---|---|---|
@@ -158,17 +158,7 @@ Change any field and the result is `INVALID`.
 - **Recorded by Ringfence only:** the platform's fee credit, because the sandbox does not credit the platform account.
 - All of the simulated steps are labelled `[SIMULATED]` in the ledger.
 
-**Airwallex APIs used:**
-- Login per account with `x-login-as`.
-- `/balances/current`
-- `/beneficiaries` (create, get, validate)
-- `/global_accounts`
-- `/deposits`
-- `/fx/quotes/create` and `/fx/conversions/create`
-- `/transfers/create`
-- `/transfers` (get, list by `request_id`, cancel)
-- `/webhooks` (HMAC-signed)
-- `/simulation/*`
+**Airwallex APIs used:** login per account (`x-login-as`), `/balances/current`, `/beneficiaries` (create, get, validate), `/global_accounts`, `/deposits`, `/fx/quotes/create`, `/fx/conversions/create`, `/transfers/create`, `/transfers` (get, list by `request_id`, cancel), `/webhooks` and `/simulation/*`.
 
 ## Metal: on-chain funding mandates
 
@@ -191,7 +181,7 @@ Change any field and the result is `INVALID`.
 | A pull to a lookalike of the settlement wallet | refused, `mandate_payee_not_listed` | [0x598bb65d…c703](https://testnet.metalntwx.com/tx/0x598bb65db1c032762020dc6a6039af57a1b0a5382225b82ad0fa13146e4ec703) |
 | The server writes and binds its own mandate on Harbour's account | bind reverted | none |
 
-Code: [metal.py](ringfence/metal.py#L134). Tests: [test_metal.py](tests/test_metal.py), 14 tests. Because the testnet faucet is capped at about 100 USDZ, the demo treats 1 USDZ as USD 10. The pulled USDZ is sent back after each run. On the live demo, open Harbour's funding card and choose the Metal option.
+Code: [metal.py](ringfence/metal.py#L134). Tests: [test_metal.py](tests/test_metal.py) (14). The testnet faucet gives about 100 USDZ, so the demo counts 1 USDZ as USD 10. To try it on the live demo, choose the Metal option on Harbour's funding card.
 
 ## Testing
 
