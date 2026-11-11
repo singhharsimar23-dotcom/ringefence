@@ -30,6 +30,15 @@ Ringfence runs each employer's payroll on that employer's own Airwallex account.
      poller ──► PAID / RETURNED      verifier (no LLM) ──► signed certificate per employer
 ```
 
+### Employer accounts: separate accounts instead of connected accounts
+
+The proposal planned one platform account with a connected account per employer, reached with `x-on-behalf-of`. Connected-account onboarding is not enabled on our sandbox: Airwallex returns "This account cannot onboard business/individual accounts". So each employer is a separate Airwallex account in one organisation. One scoped API key is linked to all four accounts, and Ringfence logs in as one account at a time (`x-login-as`).
+
+This setup tests the same thing a platform with connected accounts needs, under the same conditions:
+- **Each employer is isolated at Airwallex.** It has its own balances, beneficiaries and global accounts, and Airwallex refuses cross-account calls (12 of 12 returned `401`). This is the same separation connected accounts have.
+- **One key reaches every employer.** This is the same risk as a platform key over connected accounts. So the isolation can't rest on the key. It rests on code: the harness binds each run to one employer's token, and the gate checks the employer on every line.
+- **Moving to connected accounts changes one function.** [`TenantClient._login`](ringfence/awx.py#L85) would log in as the platform and add `x-on-behalf-of: <employer account>`. The gate, mandate, executor, ledger and verifier work on the employer, not on how its token was obtained, so they stay as they are.
+
 ## Features
 
 ### Multi-employer and fund isolation
