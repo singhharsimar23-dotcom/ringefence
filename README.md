@@ -7,6 +7,20 @@ Airwallex Agentic Banking Hackathon, Kit 06. Runs on the Airwallex sandbox, with
 
 ![Three employers, one run each](docs/img/demo.png)
 
+## Security findings
+
+We built a payroll agent the way Airwallex's docs, SDK and MCP suggest, then tried to make it pay the wrong account. Five attacks worked, and Ringfence fixes all five. Screenshots, transfer IDs and scripts to reproduce each one are in **[FINDINGS.md](FINDINGS.md)**.
+
+| # | Bug | Impact | Proven | Fix in Ringfence |
+|---|---|---|---|---|
+| [F1](FINDINGS.md#f1-approval-swap) | The payee's bank account is edited after approval. The approved payment goes to the new account. | An approved payroll is paid to an attacker | Live, 3 of 3 | Bank details pinned, re-checked before release, sent inline |
+| [F2](FINDINGS.md#f2-bank-change-from-an-email) | The agent reads a fake invoice, changes the payee's bank account and pays it | A contractor's pay is redirected | Live, 5 of 5 | Bank changes held until a phone callback |
+| [F3](FINDINGS.md#f3-the-node-sdk-shares-one-login) | Node SDK clients share one login, the last one created | One employer's payroll is paid from another's account | SDK code | One token per employer, chosen by code |
+| [F4](FINDINGS.md#f4-a-retry-pays-twice) | A retry after a lost response, with a new request ID, pays again | A double payment that can't be cancelled | Live | Request ID fixed before the first try. A timeout triggers a lookup, never a resend. |
+| [F5](FINDINGS.md#f5-batch-payroll) | A batch pays each payee's bank account as it is at submit, and the API can't cancel it | A whole batch goes to a swapped account | Live, 4 of 4 | No batches. Bank details go in each transfer. |
+
+Airwallex's account isolation held: 12 of 12 cross-account calls were refused.
+
 ## Problem
 
 A payroll provider pays contractors for several employers. The hard part is not the arithmetic. Payments can't be undone, each employer's money must stay separate, and every run has a pay-day deadline. Most failures are operational: an employer funds too late, a retry pays twice, or bank details change just before a run. An AI agent adds a new failure: it can be talked into paying the wrong account.
@@ -30,14 +44,12 @@ Ringfence runs each employer's payroll on that employer's own Airwallex account.
      poller ──► PAID / RETURNED      verifier (no LLM) ──► signed certificate per employer
 ```
 
-### Employer accounts: separate accounts instead of connected accounts
+### Why separate accounts, not connected accounts
 
-The proposal planned one platform account with a connected account per employer, reached with `x-on-behalf-of`. Connected-account onboarding is not enabled on our sandbox: Airwallex returns "This account cannot onboard business/individual accounts". So each employer is a separate Airwallex account in one organisation. One scoped API key is linked to all four accounts, and Ringfence logs in as one account at a time (`x-login-as`).
-
-This setup tests the same thing a platform with connected accounts needs, under the same conditions:
-- **Each employer is isolated at Airwallex.** It has its own balances, beneficiaries and global accounts, and Airwallex refuses cross-account calls (12 of 12 returned `401`). This is the same separation connected accounts have.
-- **One key reaches every employer.** This is the same risk as a platform key over connected accounts. So the isolation can't rest on the key. It rests on code: the harness binds each run to one employer's token, and the gate checks the employer on every line.
-- **Moving to connected accounts changes one function.** [`TenantClient._login`](ringfence/awx.py#L85) would log in as the platform and add `x-on-behalf-of: <employer account>`. The gate, mandate, executor, ledger and verifier work on the employer, not on how its token was obtained, so they stay as they are.
+The proposal used one platform account with a connected account per employer (`x-on-behalf-of`). The sandbox blocks connected-account onboarding with the error "This account cannot onboard business/individual accounts". So each employer is its own Airwallex account in one organisation, reached by one scoped API key with `x-login-as`.
+- **Same isolation.** Each employer has its own balances, payees and global accounts, and Airwallex refuses cross-account calls.
+- **Same risk.** One key reaches every employer, just as a platform key does. So isolation rests on code: the harness binds the token, and the gate checks the employer on every line.
+- **Switching changes one function.** [`TenantClient._login`](ringfence/awx.py#L85) would log in as the platform and add `x-on-behalf-of`. Nothing else changes.
 
 ## Features
 
@@ -181,26 +193,12 @@ Change any field and the result is `INVALID`.
 
 Code: [metal.py](ringfence/metal.py#L134). Tests: [test_metal.py](tests/test_metal.py), 14 tests. Because the testnet faucet is capped at about 100 USDZ, the demo treats 1 USDZ as USD 10. The pulled USDZ is sent back after each run. On the live demo, open Harbour's funding card and choose the Metal option.
 
-## Security findings
-
-Before building, we built a reference agent the way Airwallex's docs, SDK and MCP suggest, and tried to make it pay the wrong account. Five issues can cost a company money. Each one is closed in Ringfence. **[FINDINGS.md](FINDINGS.md)** has the full report for each: a plain explanation, the impact, screenshots, transfer IDs, the API calls involved, and a script that reproduces it.
-
-| # | Issue | What happened | Ringfence |
-|---|---|---|---|
-| [F1](FINDINGS.md#f1-approval-swap) | Approval swap | The payee's bank account was changed after approval, and the approved payment went to the new account (live, 3 of 3) | Bank details pinned, re-read and sent inline. The run is held. |
-| [F2](FINDINGS.md#f2-bank-change-from-an-email) | Bank change from an email | The agent paid the account from a fake invoice (live, 5 of 5) | Quarantined until a phone callback |
-| [F3](FINDINGS.md#f3-the-node-sdk-shares-one-login) | The Node SDK shares one login | Client A's payment went out on client B's login | One token per employer, set by code |
-| [F4](FINDINGS.md#f4-a-retry-pays-twice) | A retry pays twice | A lost response plus a new request ID moved GBP 2 for GBP 1 owed (live) | Request ID fixed before the first try |
-| [F5](FINDINGS.md#f5-batch-payroll) | Batch payroll | The batch booked to a swapped account, and the API can't cancel it (live, 4 of 4) | No batches. Bank details travel in each payment. |
-
-Airwallex's own account isolation held: 12 of 12 cross-account calls were refused.
-
 ## Testing
 
 - **462 offline tests** against a fake Airwallex that mirrors recorded sandbox behaviour ([PROBES.md](docs/PROBES.md))
 - **500 random operation sequences**, with the money invariants checked after every step
 - **36 prompt-injection documents.** An agent that obeys every instruction attempted 28 attacks, and the gate blocked all 28. Claude followed none. ([GAUNTLET.md](docs/GAUNTLET.md))
-- **Live on the sandbox:** 20 parallel releases with 3 dropped responses made exactly one transfer per line, and 12 of 12 cross-employer calls were refused
+- **Live on the sandbox:** 20 parallel releases with 3 dropped responses made exactly one transfer per line
 - **Benchmark** against a reference agent with a human approving every write ([BENCH.md](docs/BENCH.md))
 
 ## Quick start
