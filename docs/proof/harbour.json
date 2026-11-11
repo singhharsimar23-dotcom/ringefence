@@ -1,0 +1,96 @@
+{
+  "body": {
+    "tenant": "harbour",
+    "run_id": "20261114-53jrfe",
+    "issued_at": "2026-11-11T01:40:39.964819+00:00",
+    "backend": "live",
+    "result": "PASS",
+    "debits": [
+      {
+        "transfer_id": "b0c08166-a751-4465-9651-e3e6a7818a4d",
+        "request_id": "fee-20261114-53jrfe-harbour-r1",
+        "beneficiary_id": "1fbb4688-46a3-44fe-8b2b-da04d387f00a",
+        "amount": "4.50",
+        "currency": "GBP",
+        "status": "PROCESSING"
+      },
+      {
+        "transfer_id": "1614a59d-8c4e-4ca4-86cf-e1d771b095f3",
+        "request_id": "rf-cpmnv74qpcbko3hdbleq5pwcdaedwg5jw4g2rs7asoayvwc",
+        "beneficiary_id": "84fde66e-47bb-40c5-8263-5554f04e29ef",
+        "amount": "60.17",
+        "currency": "AUD",
+        "status": "PAID"
+      },
+      {
+        "transfer_id": "88ead1ba-d583-4305-b285-f0007366e5b1",
+        "request_id": "rf-q4xejndp7f55iwu5aauwjsfo5oxnnuy66dk2pjroby457qb",
+        "beneficiary_id": "9168dcb0-38ce-4014-b4a1-cbc366f881cd",
+        "amount": "480.00",
+        "currency": "AUD",
+        "status": "PAID"
+      },
+      {
+        "transfer_id": "893fa7a1-a902-45ec-b531-bcd30813034d",
+        "request_id": "rf-nqpssya4hnqjtgqdvjc5n2jv4dbsmyqgy5nh6f7ica6p2aw",
+        "beneficiary_id": "8ae0ad9f-c4f3-43d6-81c7-70fd966aca12",
+        "amount": "700.00",
+        "currency": "AUD",
+        "status": "PAID"
+      }
+    ],
+    "payees": 3,
+    "totals_by_currency": {
+      "AUD": "1240.17"
+    },
+    "fee_gbp": "4.50",
+    "ledger_head": {
+      "seq": 138,
+      "hash": "ce454464470ffa636c8daed6d59e8f807a4a688ca424c0f6142fa672c6198ace"
+    },
+    "checks": [
+      {
+        "name": "Every transfer in this account has a ledger intent for this employer",
+        "ok": true
+      },
+      {
+        "name": "Every payee is one of this employer's own beneficiaries",
+        "ok": true
+      },
+      {
+        "name": "Every payment went to the bank account a human approved",
+        "ok": true
+      },
+      {
+        "name": "Amounts and currencies equal the approved lines",
+        "ok": true
+      },
+      {
+        "name": "The ledger still matches the head hash stamped on each transfer at Airwallex",
+        "ok": true
+      },
+      {
+        "name": "Each intent has exactly one transfer here",
+        "ok": true
+      },
+      {
+        "name": "No intent produced a transfer in another employer's account",
+        "ok": true
+      },
+      {
+        "name": "No contractor was paid twice",
+        "ok": true
+      },
+      {
+        "name": "Another employer's account is out of reach (live 401 from Airwallex)",
+        "ok": true
+      },
+      {
+        "name": "Ledger hash chain verifies",
+        "ok": true
+      }
+    ]
+  },
+  "signature": "fgy8ANRgCdGZ3Mqdlj/dNwKmGjWpPkSwxMMQh2OKB8BkXCxDjm520l4qaoDmc0VDhqbRnSITnNR3y/giW88lAw==",
+  "alg": "Ed25519"
+}

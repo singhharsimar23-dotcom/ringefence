@@ -1,0 +1,88 @@
+{
+  "body": {
+    "tenant": "kestrel",
+    "run_id": "20261114-53jrfe",
+    "issued_at": "2026-11-11T01:40:39.964609+00:00",
+    "backend": "live",
+    "result": "PASS",
+    "debits": [
+      {
+        "transfer_id": "7f9b745b-f449-46e1-a5d5-c00d7bd295ef",
+        "request_id": "fee-20261114-53jrfe-kestrel-r1",
+        "beneficiary_id": "bc57513d-1225-4536-b362-23f7eb1b1209",
+        "amount": "3.00",
+        "currency": "GBP",
+        "status": "PROCESSING"
+      },
+      {
+        "transfer_id": "e3534d8b-95b8-4e9b-bebb-7e00e9e6a4cf",
+        "request_id": "rf-fuqwoxfnk3ofzcxoxad5ek4olc6coaambbbcpndfn4kmwo2",
+        "beneficiary_id": "e701c209-75b9-4164-b7e1-dc0c0492a48b",
+        "amount": "500.00",
+        "currency": "USD",
+        "status": "PAID"
+      },
+      {
+        "transfer_id": "31c9e9df-cee6-4a10-80ab-403b228aa234",
+        "request_id": "rf-pgnigxvpfxtsod733zlvm4osbmug2f6ucyt3fe7h7zyvcoc",
+        "beneficiary_id": "0679bbd6-210e-4d90-b472-38ff1c72b887",
+        "amount": "550.00",
+        "currency": "USD",
+        "status": "PAID"
+      }
+    ],
+    "payees": 2,
+    "totals_by_currency": {
+      "USD": "1050.00"
+    },
+    "fee_gbp": "3.00",
+    "ledger_head": {
+      "seq": 138,
+      "hash": "ce454464470ffa636c8daed6d59e8f807a4a688ca424c0f6142fa672c6198ace"
+    },
+    "checks": [
+      {
+        "name": "Every transfer in this account has a ledger intent for this employer",
+        "ok": true
+      },
+      {
+        "name": "Every payee is one of this employer's own beneficiaries",
+        "ok": true
+      },
+      {
+        "name": "Every payment went to the bank account a human approved",
+        "ok": true
+      },
+      {
+        "name": "Amounts and currencies equal the approved lines",
+        "ok": true
+      },
+      {
+        "name": "The ledger still matches the head hash stamped on each transfer at Airwallex",
+        "ok": true
+      },
+      {
+        "name": "Each intent has exactly one transfer here",
+        "ok": true
+      },
+      {
+        "name": "No intent produced a transfer in another employer's account",
+        "ok": true
+      },
+      {
+        "name": "No contractor was paid twice",
+        "ok": true
+      },
+      {
+        "name": "Another employer's account is out of reach (live 401 from Airwallex)",
+        "ok": true
+      },
+      {
+        "name": "Ledger hash chain verifies",
+        "ok": true
+      }
+    ]
+  },
+  "signature": "UdLcsBkVt2p5PPR3v5u44wafK0HfjBXNVK8MwaZG94BFomRdclLpu+X3xrOof9Q3VWADJWX8+aukXzYjp13ZDA==",
+  "alg": "Ed25519"
+}

@@ -1,0 +1,98 @@
+{
+  "body": {
+    "tenant": "northwind",
+    "run_id": "20261114-53jrfe",
+    "issued_at": "2026-11-11T01:40:39.964353+00:00",
+    "backend": "live",
+    "result": "PASS",
+    "debits": [
+      {
+        "transfer_id": "5cd1d3a5-96f9-44ee-8250-b59bf003d37c",
+        "request_id": "fee-20261114-53jrfe-northwind-r1",
+        "beneficiary_id": "616a8486-0f74-45a1-ae32-f66272935cee",
+        "amount": "4.50",
+        "currency": "GBP",
+        "status": "PROCESSING"
+      },
+      {
+        "transfer_id": "fa7d28fb-14b4-43df-9a4a-8abbf14b7a4c",
+        "request_id": "rf-i4c3et6otqyr3xya4iahv3xrwa2u63ra6h4waxwxvqxhu7t",
+        "beneficiary_id": "e5e09df1-7f40-46cc-8ddb-89dfd6a7204e",
+        "amount": "300.00",
+        "currency": "AUD",
+        "status": "PAID"
+      },
+      {
+        "transfer_id": "5295001b-4cad-4c8f-a93e-cb5fe2730b42",
+        "request_id": "rf-iqu6a6yiux45f6uwu6gpmx2evkr5xyms4n6yzi3mvl7tkjx",
+        "beneficiary_id": "0ec92942-7144-4125-928d-facf3d4669c2",
+        "amount": "400.00",
+        "currency": "EUR",
+        "status": "PAID"
+      },
+      {
+        "transfer_id": "7730d4e5-50fe-4241-b702-25ee11556d45",
+        "request_id": "rf-5k6lh6a2vbuazfh2ijprkkfax6odtigwmqq3n3m4t2ebegj",
+        "beneficiary_id": "5f91c314-417f-4fd5-aae9-153daa4f7d66",
+        "amount": "450.00",
+        "currency": "GBP",
+        "status": "PAID"
+      }
+    ],
+    "payees": 3,
+    "totals_by_currency": {
+      "AUD": "300.00",
+      "EUR": "400.00",
+      "GBP": "450.00"
+    },
+    "fee_gbp": "4.50",
+    "ledger_head": {
+      "seq": 138,
+      "hash": "ce454464470ffa636c8daed6d59e8f807a4a688ca424c0f6142fa672c6198ace"
+    },
+    "checks": [
+      {
+        "name": "Every transfer in this account has a ledger intent for this employer",
+        "ok": true
+      },
+      {
+        "name": "Every payee is one of this employer's own beneficiaries",
+        "ok": true
+      },
+      {
+        "name": "Every payment went to the bank account a human approved",
+        "ok": true
+      },
+      {
+        "name": "Amounts and currencies equal the approved lines",
+        "ok": true
+      },
+      {
+        "name": "The ledger still matches the head hash stamped on each transfer at Airwallex",
+        "ok": true
+      },
+      {
+        "name": "Each intent has exactly one transfer here",
+        "ok": true
+      },
+      {
+        "name": "No intent produced a transfer in another employer's account",
+        "ok": true
+      },
+      {
+        "name": "No contractor was paid twice",
+        "ok": true
+      },
+      {
+        "name": "Another employer's account is out of reach (live 401 from Airwallex)",
+        "ok": true
+      },
+      {
+        "name": "Ledger hash chain verifies",
+        "ok": true
+      }
+    ]
+  },
+  "signature": "w1asv3oJJo+vhb9zXotIYvRq0kt/x0FWkxRq4bIxcMQc+OQucn1Lv5lQHPLdfQVrmju6/JLvYh5qaCCA+9ZkCg==",
+  "alg": "Ed25519"
+}
