@@ -3,7 +3,7 @@
 **Multi-Employer Payroll Executor: deadline-aware, fund-isolated payroll runs on Airwallex.**
 Airwallex Agentic Banking Hackathon, Kit 06. Runs on the Airwallex sandbox, with optional on-chain funding on the Metal testnet.
 
-[Live demo](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) · [Video: the product](https://drive.google.com/file/d/12EMcRB7AoGwF9cdbaqS5QGDKp-xv-E7r/view?usp=sharing) · [Video: the security findings](https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing) · [Live run proof](#proof-a-live-run-on-airwallex) · [Findings report](FINDINGS.md)
+[Live demo](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) · [Video: the security findings](https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing) · [Live run proof](#proof-a-live-run-on-airwallex) · [Findings report](FINDINGS.md)
 
 ![Three employers, one run each](docs/img/demo.png)
 

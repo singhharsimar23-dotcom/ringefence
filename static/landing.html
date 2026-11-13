@@ -21,7 +21,7 @@
       <a href="#how">How it works</a>
       <a href="#metal">Metal</a>
       <a href="#real">What's real</a>
-      <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/docs/VIDEO.md" data-video hidden>Video</a>
+      <a href="https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing" target="_blank" rel="noopener">Video</a>
       <a href="https://github.com/singhharsimar23-dotcom/ringefence">GitHub</a>
       <a class="btn sm primary" href="/app#/try">Live demo</a>
     </nav>
@@ -38,7 +38,7 @@
     <div class="btns">
       <a class="btn primary lg" href="/app#/try">Open the live demo <span class="arr" aria-hidden="true">→</span></a>
       <a class="btn lg" href="/app#/demo">Three-employer demo <span class="arr" aria-hidden="true">→</span></a>
-      <a class="btn lg" href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/docs/VIDEO.md" data-video hidden>Watch the video</a>
+      <a class="btn lg" href="https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing" target="_blank" rel="noopener">Watch the video</a>
     </div>
     <div class="emps" id="emps">
       <div class="emp" data-t="northwind" style="--c:var(--nw)">
@@ -153,10 +153,10 @@
     <p class="punch fade">The approval checks a label. The money follows wherever that label points.</p>
     <p class="lead fade">Plus two plain software bugs, both reproduced live.</p>
     <ul class="ids mono small fade">
-      <li>The transfer list ignores the page number. Following the guide we saw 100 of 215 transfers, so 115 paid people looked unpaid.</li>
-      <li>The SDK's retry drops the filter. Asking "did this payment land?" returned all 215 transfers instead of none, so a payment that never happened looked paid.</li>
+      <li>The transfer list ignores <code>page_num</code>. Pages 0, 1 and 2 returned the same 100 transfers, so anyone paid after the first 100 looked unpaid. <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/bench/probes/transfers-pagination-page-num-ignored.out.txt">output</a></li>
+      <li>The SDK's retry drops the filter. Asking "did this payment land?" for a request id never used returned 201 transfers instead of none, so a payment that never happened looked paid. <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/bench/probes/node-sdk-retry-reconcile.out.txt">output</a></li>
     </ul>
-    <p class="small muted fade">Airwallex sandbox, 4–9 Nov 2026, our own test accounts, GBP 1–2 per payment, every transfer cancelled. Separation between employers held every time. <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/docs/AIRWALLEX_GAPS.md">All findings and receipts</a> · <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/docs/BENCH.md">The bench</a></p>
+    <p class="small muted fade">Airwallex sandbox, 4–9 Nov 2026, our own test accounts, GBP 1–2 per payment, every transfer cancelled. Separation between employers held every time. <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/FINDINGS.md">All five findings, with receipts</a> · <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/docs/BENCH.md">The bench</a></p>
   </div>
 </section>
 
@@ -422,7 +422,7 @@ call   x-on-behalf-of: acct_…  another one</pre>
   <div class="wrap cols3">
     <div><p class="brand"><span class="mark" aria-hidden="true"></span>Ringfence</p><p class="small">Built by Harsimar Singh for the Airwallex Agentic Banking Hackathon, Kit 06.</p></div>
     <div><p class="k mono">Look around</p><ul class="small links"><li><a href="/app#/try">Live demo</a></li><li><a href="/app#/demo">Three employers</a></li><li><a href="/app#/proof">Proof</a></li><li><a href="/gauntlet.md">Gauntlet report</a></li></ul></div>
-    <div><p class="k mono">Build</p><p class="mono small muted"><a href="https://github.com/singhharsimar23-dotcom/ringefence">Repo</a> · <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/docs/VIDEO.md" data-video hidden>Video</a> <span data-video hidden>·</span> <span id="f-tests">tests</span> · <span id="f-sha">commit</span></p></div>
+    <div><p class="k mono">Build</p><p class="mono small muted"><a href="https://github.com/singhharsimar23-dotcom/ringefence">Repo</a> · <a href="https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing" target="_blank" rel="noopener">Video</a> <span>·</span> <span id="f-tests">tests</span> · <span id="f-sha">commit</span></p></div>
   </div>
 </footer>
 
