@@ -134,4 +134,4 @@ Each employer's token is locked to its own account. We made 12 cross-account cal
 
 ## Reproduce
 
-Set the sandbox environment variables (see the [README](README.md#quick-start)), then run `uv run python scripts/breakit.py`. With no argument it runs every live test, or you can name one: `approval`, `batch` or `retry`. It writes only to two employer accounts, at GBP 2 or less, then cancels or reverses every transfer and deletes every payee it created.
+Set the sandbox environment variables (see the [README](README.md#run-it)), then run `uv run python scripts/breakit.py`. With no argument it runs every live test, or you can name one: `approval`, `batch` or `retry`. It writes only to two employer accounts, at GBP 2 or less, then cancels or reverses every transfer and deletes every payee it created.
