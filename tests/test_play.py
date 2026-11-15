@@ -729,7 +729,7 @@ def test_a_closed_tab_mid_payout_keeps_its_slot(rig):
 
 
 def test_a_full_live_sandbox_runs_on_the_simulated_bank_instead_of_waiting(rig):
-    ws = [rig.m.create(spec(name=f"L{i} Co"), "live", "1.1.1.1") for i in range(3)]
-    assert [w.backend for w in ws] == ["live", "live", "fake"]
-    assert rig.m.view(ws[2].wid)["fallback"] is True and ws[2].status == "starting"
+    ws = [rig.m.create(spec(name=f"L{i} Co"), "live", "1.1.1.1") for i in range(2)]
+    assert [w.backend for w in ws] == ["live", "fake"]  # live stays one at a time: the proof reads the shared account
+    assert rig.m.view(ws[1].wid)["fallback"] is True and ws[1].status == "starting"
     assert rig.m.view(ws[0].wid)["fallback"] is False

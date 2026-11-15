@@ -403,7 +403,8 @@ class Manager:
         shutil.rmtree(self.root, ignore_errors=True)  # a crashed process leaves worlds nobody can reach
         self.root.mkdir(parents=True, exist_ok=True)
         i = lambda k, d: int(os.environ.get(k) or d)
-        self.live_max, self.fake_max, self.queue_max = i("RF_PLAY_LIVE_MAX", 2), i("RF_PLAY_FAKE_MAX", 2), i("RF_PLAY_QUEUE", 4)
+        # live is one at a time: verify.py reads every transfer on the shared account since the world's RUN_CREATED
+        self.live_max, self.fake_max, self.queue_max = i("RF_PLAY_LIVE_MAX", 1), i("RF_PLAY_FAKE_MAX", 2), i("RF_PLAY_QUEUE", 4)
         self.daily, self.drafts, self.tick_cap = i("RF_PLAY_DAILY", 40), i("RF_PLAY_DRAFTS", 120), i("RF_PLAY_TICK_CAP", 12)
         self.ip_daily = i("RF_PLAY_IP_DAILY", 8)  # worlds one connection may open per day
         self.idle_s, self.total_s = i("RF_PLAY_IDLE_S", 3 * 60), i("RF_PLAY_TOTAL_S", 30 * 60)
