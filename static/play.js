@@ -384,22 +384,43 @@ const Play = (() => {
     try { spec = JSON.parse(sessionStorage.getItem(`rf_spec_${wid}`) || "null"); attack = JSON.parse(sessionStorage.getItem(`rf_attack_${wid}`) || "null"); } catch (_) { /* none */ }
     R = { wid, spec, attack, dec: [], view: null, S: null, TL: [], calls: [], proof: null, proofHead: -1, ended: false, gone: false, es: null, timers: [], last: 0, open: new Set(), seen: new Set(),
       baseline: {}, disp: {}, html: {}, rows: {}, rechecks: {}, started: !!sessionStorage.getItem(`rf_started_${wid}`), pulling: false, lastVer: null, shared: false,
-      pending: new Set(), errShown: false, rstate: {}, sel: null, live: "inbox", inbox: {} };
+      pending: new Set(), errShown: false, rstate: {}, sel: null, live: "inbox", inbox: {},
+      cam: { x: 0, y: 0, z: 1, w: 0, h: 0, user: false }, rp: { on: false, k: 0, timer: null } };
     document.title = "Ringfence run";
     root().className = "play run";
     root().innerHTML = `<div class="rv-top" id="rv-top"></div><p class="small muted" id="rv-note" role="status"></p>
       <section id="rv-pre" aria-live="polite"></section>
       <div id="rv-main" hidden>
-        <section class="rflow" id="rv-flow" aria-label="${esc(T.flow.title)}"></section>
+        <section class="rflow" id="rv-flow" aria-label="${esc(T.flow.title)}">
+          <div class="fbar" id="rv-fbar"></div>
+          <div class="gw" id="gw">
+            <div class="gw-tools"><span class="small muted hint">${esc(T.flow.hint)}</span>
+              <button type="button" class="quiet icon" data-cam="out" aria-label="${esc(T.flow.zoomOut)}" title="${esc(T.flow.zoomOut)}">−</button>
+              <button type="button" class="quiet icon" data-cam="in" aria-label="${esc(T.flow.zoomIn)}" title="${esc(T.flow.zoomIn)}">+</button>
+              <button type="button" class="quiet" data-cam="fit">${esc(T.flow.fit)}</button></div>
+            <div class="gw-vp" id="gw-vp"><div class="gw-c" id="gw-c"></div></div>
+          </div>
+          <div class="gw-rp" id="gw-rp">
+            <button type="button" class="quiet" data-rp="play" id="rp-play">${esc(T.flow.replay)}</button>
+            <button type="button" class="quiet icon" data-rp="prev" aria-label="${esc(T.flow.prev)}" title="${esc(T.flow.prev)}">‹</button>
+            <button type="button" class="quiet icon" data-rp="next" aria-label="${esc(T.flow.next)}" title="${esc(T.flow.next)}">›</button>
+            <input type="range" id="rp-scrub" min="0" max="0" value="0" step="1" aria-label="${esc(T.flow.scrub)}">
+            <span class="small muted num" id="rp-pos"></span>
+            <button type="button" class="link" data-rp="live" id="rp-live" hidden>${esc(T.flow.backLive)}</button>
+            <p class="rpc" id="rp-cap" aria-live="polite"></p>
+          </div>
+          <div id="rv-list"></div>
+        </section>
         <section class="insp" id="rv-insp" aria-live="polite"></section>
         <details class="rawlog"><summary>${esc(T.flow.raw)}</summary><p class="small muted">${esc(T.flow.rawNote)}</p><section class="trace" id="rv-trace" aria-label="${esc(T.trace)}"></section></details>
       </div>`;
     renderHead();
+    camEvents();
     pollView();
   }
   function stopRun() {
     if (!R) return;
-    R.timers.forEach(clearTimeout); clearInterval(R.fallback);
+    R.timers.forEach(clearTimeout); clearInterval(R.fallback); clearInterval(R.rp.timer);
     if (R.es) R.es.close();
     R = null;
   }
@@ -685,7 +706,7 @@ const Play = (() => {
   function loadInbox(t) {
     R.inbox[t] = null;
     api(`${base()}/inbox/${encodeURIComponent(t)}`).then((d) => { R.inbox[t] = Array.isArray(d) ? d : []; }).catch(() => { R.inbox[t] = []; })
-      .finally(() => { if (R && R.S) { R.html.insp = null; renderInsp(); } });
+      .finally(() => { if (R && R.S) { R.html.insp = null; renderRun(); } });
   }
   function inboxBody(t) {
     const docs = R.inbox[t];
@@ -840,6 +861,89 @@ const Play = (() => {
     });
   }
 
+  /* ---------- the graph workspace: documents, boxes per employer, payees, camera, replay ---------- */
+  const boxSub = () => (R.S.backend === "live" ? `${T.flow.boxLive}${R.S.world && R.S.world.account_suffix ? ` · acct_…${R.S.world.account_suffix}` : ""}` : T.flow.boxSim);
+  function docsOf(t) {
+    const d = R.inbox[t];
+    if (d === undefined) loadInbox(t);
+    if (!d) return [];
+    const flagged = (R.dec || []).some((x) => x.tenant === t && x.from_email && x.tone !== "ok") || R.TL.some((r) => r.tenant === t && r.kind === "BENEFICIARY_QUARANTINED");
+    return d.slice(0, 5).map((x) => {
+      if (x.source !== "email") return { label: T.flow.docTs, sub: T.flow.docTsSub };
+      const from = (/^from:\s*(.+)$/im.exec(x.text) || [])[1];
+      return { label: from ? from.trim().slice(0, 24) : T.flow.docEmail, sub: T.flow.docEmailSub, flag: flagged };
+    });
+  }
+  function replayOf(t) {
+    if (!R.rp.on) return null;
+    const k = R.rp.k, row = R.TL[k];
+    const r = Flow.reach(R.TL.slice(0, k + 1).filter((x) => x.tenant === t), row && row.tenant === t ? row : null);
+    if (k >= R.TL.length - 1 && R.proof) r.ids.add("proof");
+    return r;
+  }
+  function renderReplay() {
+    const n = R.TL.length, on = R.rp.on, k = on ? Math.min(R.rp.k, n - 1) : n - 1, row = R.TL[k], multi = tenants().length > 1;
+    const sc = $("#rp-scrub");
+    sc.max = String(Math.max(0, n - 1)); if (document.activeElement !== sc || !on) sc.value = String(Math.max(0, k)); sc.disabled = n < 2;
+    $("#rp-pos").textContent = n ? fmt(T.flow.stepOf, { k: k + 1, n }) : "";
+    $("#rp-play").textContent = R.rp.timer ? T.flow.pause : T.flow.replay; $("#rp-play").disabled = n < 2;
+    $("#rp-live").hidden = !on;
+    const cap = row ? `<span class="mono muted">${esc(clockSec(row.ts))}</span> <span class="small muted">${esc(on ? "" : T.flow.latest)}</span> ${multi && row.tenant ? `<strong>${esc(ename(row.tenant))}:</strong> ` : ""}${esc(row.text)} ${realChip(row.reality)}` : esc(T.flow.noEvents);
+    setHtml("rpcap", $("#rp-cap"), cap);
+  }
+  function replayTo(k, keepPlaying) {
+    const n = R.TL.length;
+    if (!n) return;
+    if (!keepPlaying) { clearInterval(R.rp.timer); R.rp.timer = null; }
+    R.rp.on = true; R.rp.k = Math.max(0, Math.min(n - 1, k));
+    R.sel = Flow.nodeOf(R.TL[R.rp.k]) || R.sel;
+    renderRun();
+  }
+  function replayLive() { clearInterval(R.rp.timer); R.rp.timer = null; R.rp.on = false; R.sel = null; renderRun(); }
+  function replayPlay() {
+    if (R.rp.timer) { clearInterval(R.rp.timer); R.rp.timer = null; renderReplay(); return; }
+    const mine = R, start = !R.rp.on || R.rp.k >= R.TL.length - 1 ? 0 : R.rp.k;
+    R.rp.timer = setInterval(() => {
+      if (R !== mine) return;
+      if (R.rp.k >= R.TL.length - 1) { clearInterval(R.rp.timer); R.rp.timer = null; renderReplay(); return; }
+      replayTo(R.rp.k + 1, true);
+    }, 1100);
+    replayTo(start, true);
+  }
+
+  function applyCam() { const c = R.cam, el = $("#gw-c"); if (el) el.style.transform = `translate(${Math.round(c.x)}px,${Math.round(c.y)}px) scale(${c.z})`; }
+  function fit() {
+    const vp = $("#gw-vp"), c = R.cam;
+    if (!vp || !c.w || !vp.clientWidth) return;
+    const vw = vp.clientWidth, maxH = Math.max(320, Math.round(innerHeight * 0.7));
+    let z = Math.min(1, (vw - 32) / c.w);
+    if (c.h * z + 40 > maxH) z = Math.max(0.3, (maxH - 40) / c.h);
+    vp.style.height = `${Math.round(c.h * z + 40)}px`;
+    c.z = z; c.x = (vw - c.w * z) / 2; c.y = 20; c.user = false; applyCam();
+  }
+  function zoomAt(f, px, py) {
+    const c = R.cam, z = Math.max(0.3, Math.min(1.6, c.z * f));
+    c.x = px - ((px - c.x) * z) / c.z; c.y = py - ((py - c.y) * z) / c.z; c.z = z; c.user = true; applyCam();
+  }
+  function camEvents() {
+    const vp = $("#gw-vp");
+    let drag = null;
+    vp.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || e.target.closest("button")) return;
+      drag = { x: e.clientX, y: e.clientY, cx: R.cam.x, cy: R.cam.y }; vp.setPointerCapture(e.pointerId); vp.classList.add("grab");
+    });
+    vp.addEventListener("pointermove", (e) => { if (!drag) return; R.cam.x = drag.cx + e.clientX - drag.x; R.cam.y = drag.cy + e.clientY - drag.y; R.cam.user = true; applyCam(); });
+    const end = () => { drag = null; vp.classList.remove("grab"); };
+    vp.addEventListener("pointerup", end); vp.addEventListener("pointercancel", end);
+    vp.addEventListener("wheel", (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;  // a plain scroll still scrolls the page
+      e.preventDefault();
+      const r = vp.getBoundingClientRect();
+      zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
+  }
+  addEventListener("resize", () => { if (R && R.S && !R.cam.user) fit(); });
+
   function renderRun() {
     renderHead();
     $("#rv-main").hidden = false; setHtml("pre", $("#rv-pre"), "");
@@ -849,8 +953,13 @@ const Play = (() => {
     const sel = R.sel || R.live;
     const tested = new Set(R.S.scenarios.filter((s) => s.last && TESTED_ON[s.id]).map((s) => TESTED_ON[s.id]));
     const lanes = R.S.lanes, unpaid = R.ended && !Object.values(lanes).every((l) => l.state === "DONE");
-    const bar = `<div class="fbar"><h2>${esc(T.flow.title)}</h2><span class="grow"></span>${unpaid ? `<span class="small muted">${esc(T.endedUnpaid)}</span>` : R.sel && R.sel !== R.live ? `<button type="button" class="link" data-pl="follow">${esc(T.flow.follow)}</button>` : `<span class="small muted">${esc(T.flow.following)}</span>`}</div>`;
-    setHtml("flow", $("#rv-flow"), `${bar}${Flow.html(all.map(([t, nodes]) => ({ name: ename(t), nodes })), sel, tested)}`);
+    const bar = `<h2>${esc(T.flow.title)}</h2><span class="grow"></span>${unpaid ? `<span class="small muted">${esc(T.endedUnpaid)}</span>` : R.sel && R.sel !== R.live && !R.rp.on ? `<button type="button" class="link" data-pl="follow">${esc(T.flow.follow)}</button>` : R.rp.on ? "" : `<span class="small muted">${esc(T.flow.following)}</span>`}`;
+    setHtml("fbar", $("#rv-fbar"), bar);
+    const g = Flow.graph(all.map(([t, nodes]) => ({ t, name: ename(t), sub: boxSub(), nodes, docs: docsOf(t), replay: replayOf(t),
+      payees: ((R.S.lanes[t] || {}).lines || []).map((ln) => ({ name: ln.name, amount: money(ln.currency, ln.amount), pill: ln.pill })) })), sel, tested);
+    if (setHtml("graph", $("#gw-c"), g.html) && (g.w !== R.cam.w || g.h !== R.cam.h)) { R.cam.w = g.w; R.cam.h = g.h; if (!R.cam.user) fit(); }
+    setHtml("flow", $("#rv-list"), Flow.html(all.map(([t, nodes]) => ({ name: ename(t), nodes })), sel, tested));
+    renderReplay();
     renderInsp();
     renderTrace();
     document.title = `${names().join(" · ")} · Ringfence`;
@@ -878,7 +987,27 @@ const Play = (() => {
 
   document.addEventListener("click", (ev) => {
     const fl = ev.target.closest("[data-fl]");
-    if (fl && R && R.S && root().contains(fl)) { R.sel = fl.dataset.fl; renderRun(); const b = root().querySelector(`[data-fl="${R.sel}"]`); if (b) b.focus(); return; }
+    if (fl && R && R.S && root().contains(fl)) {
+      if (R.rp.on) { clearInterval(R.rp.timer); R.rp.timer = null; R.rp.on = false; }
+      R.sel = fl.dataset.fl; renderRun();
+      const b = root().querySelector(`[data-fl="${R.sel}"]`); if (b) b.focus({ preventScroll: true });
+      const ins = $("#rv-insp"), r = ins.getBoundingClientRect();
+      if (r.top > innerHeight - 120) ins.scrollIntoView({ block: "nearest", behavior: reduced() ? "auto" : "smooth" });
+      return;
+    }
+    const cam = ev.target.closest("[data-cam]");
+    if (cam && R && R.S) {
+      const vp = $("#gw-vp"), k = cam.dataset.cam;
+      if (k === "fit") fit(); else zoomAt(k === "in" ? 1.2 : 1 / 1.2, vp.clientWidth / 2, vp.clientHeight / 2);
+      return;
+    }
+    const rpb = ev.target.closest("[data-rp]");
+    if (rpb && R && R.S) {
+      const k = rpb.dataset.rp;
+      if (k === "play") replayPlay(); else if (k === "live") replayLive();
+      else replayTo((R.rp.on ? R.rp.k : R.TL.length - 1) + (k === "next" ? 1 : -1));
+      return;
+    }
     const el = ev.target.closest("[data-pl]");
     if (!el || !root().contains(el)) return;
     const a = el.dataset.pl;
@@ -935,6 +1064,7 @@ const Play = (() => {
     if (/\.(pays_from)$/.test(f)) paint(); else paint();
   };
   document.addEventListener("input", onEdit);
+  document.addEventListener("input", (e) => { if (e.target.id === "rp-scrub" && R && R.S) replayTo(Number(e.target.value)); });
   document.addEventListener("change", onEdit);
 
   /* keyboard: Ctrl or Cmd + Enter, j and k between trace rows, ? for the list */

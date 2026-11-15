@@ -206,3 +206,54 @@ button.link{justify-self:start}
 @media (max-width:760px){.examples .exs{grid-template-columns:1fr}.steps{gap:var(--s3)}}
 #pl-attnote{text-align:center;margin:var(--s1) 0 0}
 .ok-line:empty{display:none}
+
+/* graph workspace: pan and zoom canvas, one dashed boundary per employer, payees outside it */
+.fbar{min-height:28px}
+.gw{position:relative;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--sunken);overflow:hidden}
+.gw-tools{display:flex;justify-content:flex-end;align-items:center;gap:var(--s1);padding:var(--s1) var(--s2);border-bottom:1px solid var(--line);background:var(--surface)}
+.gw-tools button{height:28px;min-width:28px;padding:0 var(--s2)}
+.gw-tools .hint{padding:0 var(--s2)}
+.gw-vp{position:relative;height:420px;overflow:hidden;cursor:grab;touch-action:none;user-select:none}
+.gw-vp.grab{cursor:grabbing}
+.gw-c{position:absolute;left:0;top:0;transform-origin:0 0}
+.g{position:relative}
+.ge{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.ge path{fill:none;stroke:var(--line-strong);stroke-width:1.5}
+.ge path.done{stroke:var(--ink)}
+.ge path.live{stroke:var(--ink);stroke-dasharray:5 5;animation:flowdash .8s linear infinite}
+.ge path.blocked{stroke:var(--red);stroke-dasharray:3 4}
+.ge path.dim{opacity:.2}
+.ge marker path{stroke:none;fill:var(--line-strong)}
+.ge marker.done path,.ge marker.live path{fill:var(--ink)}
+.ge marker.blocked path{fill:var(--red)}
+@keyframes flowdash{to{stroke-dashoffset:-10}}
+.gbd{position:absolute;border:1px dashed var(--line-strong);border-radius:var(--r-lg);pointer-events:none}
+.gbh{display:flex;align-items:baseline;gap:var(--s3);padding:var(--s3) var(--s4);font-size:13px}
+.gbh span{color:var(--muted);font-size:12px}
+.gpl{position:absolute;margin:0;font-size:11px;line-height:20px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+.gn{position:absolute;display:grid;align-content:center;justify-items:start;gap:2px;padding:var(--s2) var(--s3);border:1px solid var(--line-strong);border-radius:12px;background:var(--surface-solid);color:var(--ink);text-align:left;white-space:nowrap;cursor:pointer;height:auto;font:inherit;transition:border-color .2s,opacity .2s,box-shadow .2s}
+.gn:hover{border-color:oklch(100% 0 0/.35)}
+.gn.sel{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.gn.you{border-color:var(--amber);box-shadow:0 0 0 3px var(--amber-bg)}
+.gn.blocked{border-color:var(--red)}
+.gn.run{border-color:var(--ink)}
+.gn.dim{opacity:.3}
+.gn.cur{outline:2px solid var(--accent);outline-offset:3px}
+.gn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.gr{font-size:10px;line-height:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.gt{display:flex;align-items:center;gap:var(--s2);font-weight:600;font-size:13px;line-height:18px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.gs{display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.gn.you .gs{color:var(--amber)}.gn.blocked .gs{color:var(--red)}
+.gd{border-style:dashed}
+.gd.flag{border-color:var(--amber)}
+.gx{color:var(--amber)}
+.gp .gt{width:100%;justify-content:space-between;font-weight:500}
+.gp .gt .nm{overflow:hidden;text-overflow:ellipsis}
+.gw-rp{display:grid;grid-template-columns:auto auto auto minmax(80px,1fr) auto auto;align-items:center;gap:var(--s2) var(--s3);padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.gw-rp button{height:30px}
+.gw-rp .icon{min-width:30px;padding:0 var(--s2)}
+#rp-scrub{width:100%;accent-color:var(--ink)}
+.rpc{grid-column:1/-1;margin:0;font-size:13px;line-height:20px;min-height:20px;overflow-wrap:anywhere}
+#rv-list{display:none}
+@media (max-width:899px){.gw{display:none}#rv-list{display:block}.gw-rp{grid-template-columns:auto auto auto minmax(60px,1fr) auto}.gw-rp #rp-live{grid-column:1/-1;justify-self:start}}
+@media (prefers-reduced-motion:reduce){.ge path.live{animation:none}.gn{transition:none}}

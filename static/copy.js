@@ -220,6 +220,13 @@ T.flow = {
   raw: "Raw log", rawNote: "Every call and ledger row, in order.",
   untrusted: "Untrusted", noCalls: "No calls yet.", callsTitle: "Calls", approvedLine: "Approved. The approval is bound to this exact batch.",
   proofWait: "Proof is issued once every employer is paid.",
+  role: { inbox: "Text", agent: "AI agent", rules: "Code", funds: "Code", approve: "Person", pay: "Bank", proof: "Code" },
+  payees: "Verified payees", flagged: "Flagged", refusedName: "Refused", refusedNone: "Nothing refused",
+  boxLive: "Own Airwallex account", boxSim: "Own account, simulated bank",
+  docTs: "Timesheet", docEmail: "Email", docTsSub: "Read by code", docEmailSub: "Untrusted text",
+  zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit to screen", hint: "Click a box for details · drag to move",
+  replay: "Replay", pause: "Pause", backLive: "Back to live", prev: "Previous step", next: "Next step", scrub: "Replay position",
+  stepOf: "Step {k} of {n}", latest: "Latest", noEvents: "Waiting for the first step.",
   needPaid: "Available once a payment has been paid.", needSent: "Available once the payment is sent.", agentQuote: "The agent said",
 };
 T.demo = {
@@ -268,7 +275,8 @@ T.guide = {
     { at: ".metal-card", h: "Blockchain, on Metal", p: "Harbour Foods tops up from a crypto wallet on the Metal test network. The cap is enforced on chain, and scam wallets are refused." },
   ],
   run: [
-    { at: ".flowbox", h: "Your payroll, step by step", p: "Seven steps run in order: the agent reads the inbox, code checks every line, a person approves, Airwallex pays, and a signed record is kept. The step that needs you is outlined." },
+    { at: "#rv-flow", h: "Your payroll as a map", p: "Documents come in on the left. The AI agent reads them, code checks every line, a person approves, and Airwallex pays the people on the right. The dashed box is one employer's own account; money never leaves it for another employer. Click any box to see what happened there. Drag to move, use + and − to zoom." },
+    { at: "#gw-rp", h: "Replay the run", p: "Press Replay or drag the slider to step through every recorded event. The map lights up as each step happened. Back to live returns to now." },
     { at: "#rv-insp", h: "What is happening in a step", p: "This panel shows the selected step. It follows the live step until you click another. Follow live brings it back." },
     { at: "[data-hold]", h: "You approve", p: "Hold the button to approve the exact batch. If anything changes afterwards, the approval no longer counts." },
     { at: "[data-pl=sc]", h: "Try to break this step", p: "These buttons attack the step you are looking at, such as a fake bank change or a double click. The result shows on that step. Anything marked [SIMULATED] is scripted by us." },
