@@ -178,14 +178,16 @@ def test_world_lifecycle(rig):
     assert rig.m.view(w.wid)["status"] == "starting"
     rig.ready(w)
     assert w.status == "ready"
-    rig.t += 19 * 60 + 59
+    rig.t += 2 * 60 + 59
     rig.m.reap()
     assert w.status == "ready"
-    rig.m.touch(w.wid)  # activity pushes the idle clock, not the 30 minute ceiling
-    rig.t += 5 * 60
-    rig.m.reap()
+    for _ in range(9):  # an open page keeps touching: activity pushes the idle clock, not the 30 minute ceiling
+        rig.m.touch(w.wid)
+        rig.t += 2 * 60
+        rig.m.reap()
     assert w.status == "ready"
-    rig.t += 6 * 60
+    rig.m.touch(w.wid)
+    rig.t += 12 * 60
     rig.m.reap()
     assert w.status == "expired" and not w.dir.exists() and rig.procs[w.wid].alive is False
     with pytest.raises(P.PlayError) as ei:
@@ -252,10 +254,14 @@ def test_live_world_waits_for_setup_and_reports_its_error(rig):
 
 def test_queue_and_caps(tmp_path, monkeypatch):
     monkeypatch.setenv("RF_PLAY_DAILY", "7")
+    monkeypatch.setenv("RF_PLAY_LIVE_MAX", "1")
+    monkeypatch.setenv("RF_PLAY_FAKE_MAX", "0")  # no simulated slot to fall back to: live has to queue
     r = Rig(tmp_path)
     live = r.m.create(spec(), "live", "9.9.9.9")
     assert live.status == "starting"
     queued = [r.m.create(spec(name=f"Q{i} Co"), "live", "9.9.9.9") for i in range(4)]
+    for w in queued:
+        r.m.touch(w.wid)
     assert [w.status for w in queued] == ["queued"] * 4
     assert [r.m.view(w.wid)["position"] for w in queued] == [1, 2, 3, 4]
     with pytest.raises(P.PlayError) as ei:
@@ -266,6 +272,7 @@ def test_queue_and_caps(tmp_path, monkeypatch):
     r.m.reap()
     assert queued[0].status == "starting" and queued[1].status == "queued"  # FIFO
     # a fake world is not blocked by a live queue
+    r.m.fake_max = 2
     assert r.m.create(spec(name="Fake One"), "fake", "9.9.9.9").status == "starting"
     # the daily cap: 6 worlds so far, 7th is the last
     assert r.m.create(spec(name="Fake Two"), "fake", "9.9.9.9").status == "starting"
@@ -696,3 +703,33 @@ def test_decisions_pair_each_proposal_with_what_the_rules_decided(pc, E):
     quarantined = [r for r in rows if r["decided"] == "Held in quarantine"]
     assert quarantined and quarantined[0]["from_email"] and "ending 9901" in quarantined[0]["proposed"]
     assert any(r["decided"].startswith("Priced at") for r in rows)
+
+
+def test_a_closed_tab_gives_its_slot_to_the_next_visitor(rig):
+    a = rig.m.create(spec(), "fake", "1.1.1.1")
+    b = rig.m.create(spec(name="B Co"), "fake", "1.1.1.1")
+    rig.ready(a), rig.ready(b)
+    rig.t += 30
+    rig.m.touch(b.wid)  # b's page is open; a's tab was closed
+    rig.t += 61
+    rig.m.touch(b.wid)
+    c = rig.m.create(spec(name="C Co"), "fake", "2.2.2.2")
+    assert c.status == "starting" and a.status == "expired" and b.status == "ready"
+
+
+def test_a_closed_tab_mid_payout_keeps_its_slot(rig):
+    a = rig.m.create(spec(), "fake", "1.1.1.1")
+    b = rig.m.create(spec(name="B Co"), "fake", "1.1.1.1")
+    rig.ready(a), rig.ready(b)
+    rig.state[a.wid]["lanes"] = rig.state[b.wid]["lanes"] = {"northwind": {"state": "RELEASING"}}
+    rig.t += 120
+    c = rig.m.create(spec(name="C Co"), "fake", "2.2.2.2")
+    assert c.status == "queued" and a.status == b.status == "ready"
+    assert 30 <= rig.m.view(c.wid)["eta_s"] <= 90  # honest: the soonest slot, not a guess per position
+
+
+def test_a_full_live_sandbox_runs_on_the_simulated_bank_instead_of_waiting(rig):
+    ws = [rig.m.create(spec(name=f"L{i} Co"), "live", "1.1.1.1") for i in range(3)]
+    assert [w.backend for w in ws] == ["live", "live", "fake"]
+    assert rig.m.view(ws[2].wid)["fallback"] is True and ws[2].status == "starting"
+    assert rig.m.view(ws[0].wid)["fallback"] is False

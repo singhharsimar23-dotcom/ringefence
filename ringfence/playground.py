@@ -375,6 +375,7 @@ class World:
     extra: float = 0.0  # seconds added while a payout was in flight
     spec: Spec | None = field(default=None, repr=False)
     ended: float = 0.0
+    fell_back: bool = False  # asked for live, got the simulated bank because live was full
 
 
 def _free_port() -> int:
@@ -402,10 +403,11 @@ class Manager:
         shutil.rmtree(self.root, ignore_errors=True)  # a crashed process leaves worlds nobody can reach
         self.root.mkdir(parents=True, exist_ok=True)
         i = lambda k, d: int(os.environ.get(k) or d)
-        self.live_max, self.fake_max, self.queue_max = i("RF_PLAY_LIVE_MAX", 1), i("RF_PLAY_FAKE_MAX", 2), i("RF_PLAY_QUEUE", 4)
+        self.live_max, self.fake_max, self.queue_max = i("RF_PLAY_LIVE_MAX", 2), i("RF_PLAY_FAKE_MAX", 2), i("RF_PLAY_QUEUE", 4)
         self.daily, self.drafts, self.tick_cap = i("RF_PLAY_DAILY", 40), i("RF_PLAY_DRAFTS", 120), i("RF_PLAY_TICK_CAP", 12)
         self.ip_daily = i("RF_PLAY_IP_DAILY", 8)  # worlds one connection may open per day
-        self.idle_s, self.total_s = i("RF_PLAY_IDLE_S", 20 * 60), i("RF_PLAY_TOTAL_S", 30 * 60)
+        self.idle_s, self.total_s = i("RF_PLAY_IDLE_S", 3 * 60), i("RF_PLAY_TOTAL_S", 30 * 60)
+        self.stale_s = i("RF_PLAY_STALE_S", 90)  # an open run page touches its world every 4 s; this long silent = tab gone
         self.ready_live_s, self.ready_fake_s = i("RF_PLAY_READY_LIVE_S", 90), i("RF_PLAY_READY_FAKE_S", 20)
         self.spawn, self.probe, self.now = spawn or self._spawn, probe or _probe_state, now
         self.tick_s, self.reap_s = tick_s, reap_s
@@ -456,6 +458,9 @@ class Manager:
     def create(self, spec: Spec, backend: str, ip: str) -> World:
         spec.for_backend(backend)
         key = hashlib.sha256(f"{backend}|{ip}|{spec.model_dump_json(by_alias=True)}".encode()).hexdigest()
+        self._reclaim(backend)
+        if backend == "live":
+            self._reclaim("fake")
         with self.lock:
             self._roll_day()
             t = self.now()
@@ -466,11 +471,13 @@ class Manager:
                 raise PlayError(429, copy.PLAY_DAILY)
             if self.ip_worlds.get(ip, 0) >= self.ip_daily:
                 raise PlayError(429, copy.PLAY_IP_DAILY)
-            if self._free(backend) and not any(self.worlds[x].backend == backend for x in self.queue):
-                pass
-            elif len(self.queue) >= self.queue_max:
+            free = lambda b: self._free(b) and not any(self.worlds[x].backend == b for x in self.queue)
+            fell_back = backend == "live" and not free("live") and free("fake")
+            if fell_back:
+                backend = "fake"  # nobody waits: a busy live sandbox means the same run on the simulated bank, now
+            elif not free(backend) and len(self.queue) >= self.queue_max:
                 raise PlayError(429, copy.PLAY_FULL)
-            w = World(secrets.token_urlsafe(9), backend, ip, key, t, t, spec=spec)
+            w = World(secrets.token_urlsafe(9), backend, ip, key, t, t, spec=spec, fell_back=fell_back)
             self.worlds[w.wid] = w
             self.queue.append(w.wid)
             self.n_worlds += 1
@@ -495,8 +502,11 @@ class Manager:
         with self.lock:
             pos = self.queue.index(wid) + 1 if wid in self.queue else 0
             left = max(0.0, min(w.last_seen + self.idle_s, w.created + self.total_s) + w.extra - self.now())
+            dues = [min(x.last_seen + self.stale_s, min(x.last_seen + self.idle_s, x.created + self.total_s) + x.extra)
+                    for x in self.worlds.values() if x.backend == w.backend and x.status in ("starting", "ready")]
+            soon = max(30.0, min(dues) - self.now()) if dues else 30.0  # a slot held mid-payout frees when it lands
             return {"wid": wid, "status": w.status, "position": pos, "backend": w.backend, "error": w.error,
-                    "eta_s": pos * (60 if w.backend == "live" else 15) if pos else 0,
+                    "fallback": w.fell_back, "eta_s": int(soon + (pos - 1) * 60) if pos else 0,
                     "expires_at": (datetime.now(UTC) + timedelta(seconds=left)).isoformat(timespec="seconds")}
 
     def shutdown(self) -> None:
@@ -526,8 +536,24 @@ class Manager:
                 self.queue.remove(wid)
                 self._start(w)
 
+    def _reclaim(self, backend: str) -> None:
+        """When every slot is taken, free the one whose page has been closed longest, unless it is mid-payout."""
+        with self.lock:
+            if self._free(backend):
+                return
+            gone = sorted((w for w in self.worlds.values() if w.backend == backend and w.status in ("starting", "ready")
+                           and self.now() - w.last_seen >= self.stale_s), key=lambda w: w.last_seen)
+        for w in gone:
+            st = self.probe(w) if w.status == "ready" else None
+            if st and any((ln or {}).get("state") == "RELEASING" for ln in (st.get("lanes") or {}).values()):
+                continue
+            with self.lock:
+                if w.status in ("starting", "ready") and self.now() - w.last_seen >= self.stale_s:
+                    self._expire(w)
+                    return
+
     def _start(self, w: World) -> None:
-        w.dir, w.started, w.status = self.root / w.wid, self.now(), "starting"
+        w.dir, w.started, w.status, w.last_seen = self.root / w.wid, self.now(), "starting", self.now()
         try:
             write_world_files(w.dir, w.spec)
             w.port = _free_port()

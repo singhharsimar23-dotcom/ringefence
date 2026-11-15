@@ -1,3 +1,4 @@
+import re
 import threading
 from concurrent.futures import Future
 
@@ -283,3 +284,11 @@ def test_ledger_rows_carry_run_id_and_proof_says_when(c, E):
     start(c, E)
     assert all("run_id" in r for r in c.get("/api/ledger", params={"seqs": "1,2"}).json())
     assert c.get("/api/proof").json()["at"].startswith("20")
+
+
+def test_pages_and_assets_are_revalidated_and_versioned(c):
+    app = c.get("/app")
+    assert app.headers["cache-control"] == "no-cache"
+    assert re.search(r'src="/static/play\.js\?v=[0-9a-f]+"', app.text) and 'href="/static/fonts/inter.woff2"' in app.text
+    assert c.get("/static/play.js").headers["cache-control"] == "no-cache"
+    assert re.search(r'src="/static/landing\.js\?v=[0-9a-f]+"', c.get("/").text)

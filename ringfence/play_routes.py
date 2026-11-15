@@ -142,6 +142,7 @@ def register(app: FastAPI, mgr: Manager, llm_factory=None, writer_factory=None) 
     @app.get("/api/play/worlds/{wid}")
     async def world_view(wid: str):
         try:
+            mgr.touch(wid)  # the waiting page counts as someone watching
             v = mgr.view(wid)
         except PlayError as e:
             raise HTTPException(e.status, e.detail) from None

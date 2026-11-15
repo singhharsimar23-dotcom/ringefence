@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from sse_starlette.sse import EventSourceResponse
@@ -419,6 +419,20 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
     metal_busy = threading.Lock()
 
     app.add_middleware(BodyLimit)
+    # every deploy changes this, so a browser never runs last deploy's JS against this deploy's HTML
+    asset_v = format(int(max(f.stat().st_mtime for f in STATIC.rglob("*") if f.is_file())), "x")
+
+    def page(name: str) -> HTMLResponse:
+        html = (STATIC / name).read_text(encoding="utf-8")
+        return HTMLResponse(re.sub(r'(/static/[\w./-]+\.(?:js|css))"', rf'\1?v={asset_v}"', html))
+
+    @app.middleware("http")
+    async def revalidate(request: Request, call_next):
+        r = await call_next(request)
+        p = request.url.path
+        if p in ("/", "/app") or p.startswith("/static/"):
+            r.headers["Cache-Control"] = "no-cache"  # always ask; the ETag makes an unchanged file a cheap 304
+        return r
 
     @app.middleware("http")
     async def shared_demo_throttle(request: Request, call_next):
@@ -458,11 +472,11 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
 
     @app.get("/")
     def landing():
-        return FileResponse(STATIC / "landing.html")
+        return page("landing.html")
 
     @app.get("/app")
     def index():
-        return FileResponse(STATIC / "index.html")
+        return page("index.html")
 
     @app.get("/api/gauntlet")
     def gauntlet():

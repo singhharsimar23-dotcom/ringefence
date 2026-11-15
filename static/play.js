@@ -498,6 +498,7 @@ const Play = (() => {
         <button type="button" class="quiet" data-pl="share">${esc(R.shared ? T.shareCopied : T.share)}</button></div>`;
     setHtml("top", $("#rv-top"), html);
     if (s && s.agent_capped) $("#rv-note").textContent = T.claudeCap;
+    else if (v && v.fallback) $("#rv-note").textContent = T.liveFell;
     if (R.timers.length < 50 && !R.tick) R.tick = setInterval(() => { if (R && !R.ended) renderHead(); }, 15000);
   }
   function setHtml(key, el, html) { if (R.html[key] === html) return false; R.html[key] = html; el.innerHTML = html; return true; }
@@ -521,7 +522,7 @@ const Play = (() => {
       const ahead = v.position === 1 ? T.aheadOne : fmt(T.aheadMany, { n: v.position });
       const m = Math.max(1, Math.round((v.eta_s || 0) / 60));
       const eta = !v.eta_s || v.eta_s < 60 ? T.etaLess : m === 1 ? T.etaOne : fmt(T.etaMany, { n: m });
-      setHtml("pre", tr, `<div class="card state"><p>${esc(ahead)} ${esc(eta)}</p><p class="muted small">${esc(T.runStarting)}</p></div>`);
+      setHtml("pre", tr, `<div class="card state"><p>${esc(ahead)} ${esc(eta)}</p><p class="muted small">${esc(T.runStarting)}</p>${R.spec ? `<button type="button" class="primary" data-pl="retryfake">${esc(T.queueSim)}</button>` : ""}</div>`);
       return;
     }
     const calls = (v.calls || []).map((c, i) => callItem(c, i, 0));

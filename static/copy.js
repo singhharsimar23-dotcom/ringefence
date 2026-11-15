@@ -185,7 +185,7 @@ Object.assign(T, {
   asOf: "Fetched", status: "Status", closeX: "Close", sceneRun: "Run this", sceneRan: "Ran", keysHint: "Press ? for keyboard shortcuts",
   resultNone: "Nothing to show yet.", batch: "Batch", people1: "person", peopleN: "people", paidOf: "Paid", sending: "Sending",
   lineTotal: "Total", approverNote: "Only {name}'s finance role can approve this batch.", approving: "Approving",
-  useSim: "Run it on the simulated bank instead", spec: "Spec", ledgerRows: "Ledger rows", noRows: "No rows.",
+  useSim: "Run it on the simulated bank instead", liveFell: "The live sandbox was busy with other runs, so this one uses the simulated bank. Same agent, same rules.", queueSim: "Start now on the simulated bank", spec: "Spec", ledgerRows: "Ledger rows", noRows: "No rows.",
 });
 Object.assign(T, {
   redteam: "Red-team me", redteamBusy: "Writing", redteamFail: "Could not write a test email. Try again.",
