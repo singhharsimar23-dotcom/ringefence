@@ -4,7 +4,7 @@
    and a "How this works" button brings it back. Steps whose control is not on the page (Metal off) are skipped. */
 (() => {
   const G = T.guide, $ = (s) => document.querySelector(s);
-  const page = () => (location.hash.startsWith("#/demo") ? "demo" : /^#\/(proof|rules)/.test(location.hash) ? null : "try");
+  const page = () => (location.hash.startsWith("#/demo") ? "demo" : /^#\/(proof|rules)/.test(location.hash) ? null : /^#\/try\/[\w-]{6,40}$/.test(location.hash) ? "run" : "try");
   const seen = (p) => { try { return localStorage.getItem(`rf_guide_${p}`) === "1"; } catch (_) { return false; } };
   const remember = (p) => { try { localStorage.setItem(`rf_guide_${p}`, "1"); } catch (_) { /* private mode */ } };
   const shown = (el) => !!el && el.getClientRects().length > 0 && !el.closest("[hidden]");

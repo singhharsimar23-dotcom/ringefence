@@ -127,7 +127,6 @@ Object.assign(T, {
   twoEmployers: "Two employers need two bank accounts; the live sandbox has one spare.",
   liveNote: "Real Airwallex sandbox. Test money.", simNote: "Built-in bank. No network calls.",
   retention: "Runs are deleted after 30 minutes.",
-  how: ["You describe", "Agent proposes", "Rules decide", "Airwallex pays", "You get proof"],
   understood: "What I understood", fromText: "from your text", fromTable: "from your table", editText: "Edit text",
   employer: "Employer", people: "People", emailsTitle: "Emails the agent will read (untrusted)",
   fName: "Name", fPays: "Pays from", fApproval: "Approval", fLine: "Limit per person", fRun: "Limit per run",
@@ -217,12 +216,15 @@ T.flow = {
     proof: "A signed certificate lists every payment. Check it again later and edits to the record show.",
   },
   tryHere: "Try to break this step",
-  sentBank: "A contractor emails new bank details", sentHidden: "An email hides an instruction",
-  nothingYet: "Nothing here yet.", inboxEmpty: "No emails in this inbox. The timesheet is below.",
+  nothingYet: "Nothing here yet.",
   raw: "Raw log", rawNote: "Every call and ledger row, in order.",
   untrusted: "Untrusted", noCalls: "No calls yet.", callsTitle: "Calls", approvedLine: "Approved. The approval is bound to this exact batch.",
   proofWait: "Proof is issued once every employer is paid.",
   needPaid: "Available once a payment has been paid.", needSent: "Available once the payment is sent.", agentQuote: "The agent said",
+};
+T.demo = {
+  explain: "A scripted run of three employers on the simulated bank. Each one goes through the same seven steps, in its own account.",
+  just: "Just now:",
 };
 T.pay = {
   steps: ["Describe", "Review", "Run and prove"],
@@ -264,6 +266,13 @@ T.guide = {
     { at: "#pl-read", h: "Read it", p: "Claude reads your text and proposes payments. Code checks every line against fixed rules before any money moves. You approve." },
     { at: ".exs", h: "Or start from an example", p: "Each one shows a real payroll risk. Anything marked [SIMULATED] is scripted by us." },
     { at: ".metal-card", h: "Blockchain, on Metal", p: "Harbour Foods tops up from a crypto wallet on the Metal test network. The cap is enforced on chain, and scam wallets are refused." },
+  ],
+  run: [
+    { at: ".flowbox", h: "Your payroll, step by step", p: "Seven steps run in order: the agent reads the inbox, code checks every line, a person approves, Airwallex pays, and a signed record is kept. The step that needs you is outlined." },
+    { at: "#rv-insp", h: "What is happening in a step", p: "This panel shows the selected step. It follows the live step until you click another. Follow live brings it back." },
+    { at: "[data-hold]", h: "You approve", p: "Hold the button to approve the exact batch. If anything changes afterwards, the approval no longer counts." },
+    { at: "[data-pl=sc]", h: "Try to break this step", p: "These buttons attack the step you are looking at, such as a fake bank change or a double click. The result shows on that step. Anything marked [SIMULATED] is scripted by us." },
+    { at: ".rawlog", h: "Raw log", p: "Every call and ledger row, in order, for engineers." },
   ],
   demo: [
     { at: "#lanes", h: "Three employers, three accounts", p: "Each window is a separate Airwallex sandbox account with its own token. One employer's money cannot pay another's people." },

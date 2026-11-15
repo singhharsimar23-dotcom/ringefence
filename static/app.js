@@ -97,7 +97,7 @@ function render() {
   }
   renderTop();
   if (view === "rules") renderRules();
-  renderBanners(); renderIntro(); renderRail(); renderNaive(); renderLanes(); renderCards(); renderTimeline();
+  renderBanners(); renderIntro(); renderRail(); renderJust(); renderNaive(); renderLanes(); renderCards(); renderTimeline();
 }
 function renderStatic() {
   $("#kill").textContent = T.stopAll;
@@ -182,6 +182,12 @@ function renderRail() {
     ? `<span class="status-text" aria-live="polite">${S.agent_busy ? '<span class="dot busy"></span>' : ""}${esc(n.text)}</span>`
     : `${n.again ? `<button data-act="rerun" ${busy ? "disabled" : ""}>${T.rerun}</button>` : ""}<button class="primary" ${n.copy ? `data-copy="${esc(n.copy)}"` : `data-act="${n.act}" ${n.t ? `data-t="${n.t}"` : ""}`} ${busy ? "disabled" : ""}>${esc(n.label)}</button>`;
 }
+/* the demo in one sentence, and the latest thing that happened, with who did it and whether it is real */
+function renderJust() {
+  $("#explain").textContent = T.demo.explain;
+  const r = TL.length ? TL[TL.length - 1] : null;
+  $("#just").innerHTML = r ? `<span class="muted">${esc(T.demo.just)}</span> <strong>${esc(r.tenant ? nm(r.tenant) : "")}</strong> ${esc(r.text)} ${realChip(r.reality)}` : "";
+}
 function renderNaive() {
   const el = $("#naive"), n = S.naive;
   el.hidden = !n || !S.lanes.harbour.funding;
@@ -233,6 +239,7 @@ function laneHtml(t) {
   return `<article class="lane" data-t="${t}" aria-label="${esc(l.name)}">
     <div class="lane-head"><div class="row"><h2>${esc(l.name)}</h2><span class="mono muted" title="${esc(l.account)}">${esc(mid(l.account))}</span></div>
       <div class="meta">${ICON.lock}<span>${T.about[t] || ""} · ${T.walled}</span><span class="grow"></span><button class="link small" data-act="inbox" data-t="${t}">${T.inboxBtn}</button></div></div>
+    ${Flow.mini(Flow.model({ lane: l, rows: TL.filter((r) => r.tenant === t), busy: S.agent_busy === t, proof: TENANTS.every((u) => S.lanes[u].state === "DONE") ? PROOF : null }))}
     <div class="status"><span class="pill ${tone}">${ICON[TONE_ICON[x.tone]] || ICON.clock}${esc(l.state ? RUN_LABEL[l.state] : "No run")}</span><span class="txt">${esc(x.status)}</span></div>
     ${x.next ? `<p class="muted small">${esc(x.next)}</p>` : ""}
     <div class="lane-body"><div class="col">${noteHtml(t, l)}${amount}${wallet}</div><div class="col">${fundingHtml(f, t)}${rows}</div></div>

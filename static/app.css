@@ -367,10 +367,15 @@ details summary{cursor:pointer;color:var(--muted)}
 .mini{list-style:none;padding:0;margin:0;display:flex;align-items:center;gap:0;min-height:20px}
 .mini li{display:flex;align-items:center;gap:6px;font-size:11px;line-height:16px;color:var(--faint)}
 .mini li+li::before{content:"";width:10px;height:1px;background:var(--line-strong);margin:0 2px}
-.mini li span{display:none}.mini li.cur span{display:inline;color:var(--ink);margin-right:4px}
+.mini li span:not(.fd){display:none}.mini li.cur span:not(.fd){display:inline;color:var(--ink);margin-right:4px}
 @media (max-width:899px){
  .flow{flex-direction:column}
  .fa{flex:0 0 18px}.fe{transform:rotate(90deg)}
  .fn>button{min-height:0}
 }
 @media (prefers-reduced-motion:reduce){.fe.go line{animation:none}}
+
+/* three employers: one-line explainer, latest event, per-lane step strip */
+#explain{margin:0 0 var(--s3)}
+.just{margin:var(--s2) 0 var(--s3);min-height:1.4em}
+.mini{margin:var(--s2) 0}.mini .you.cur span{color:var(--amber)}.mini .blocked.cur span{color:var(--red)}
