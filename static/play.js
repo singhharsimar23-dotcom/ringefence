@@ -56,13 +56,17 @@ const Play = (() => {
     document.title = "Ringfence";
     if (!R && !H.touchedBackend) H.backend = info.live ? "live" : "fake";
     root().className = "play home";
-    root().innerHTML = H.phase === "review" && H.form ? reviewHtml() : composeHtml();
+    const rv = H.phase === "review" && H.form;
+    root().innerHTML = stepsHtml(rv ? 1 : 0) + (rv ? reviewHtml() : composeHtml());
     wireHome();
     paintBadge();
   }
 
+  const stepsHtml = (at) => `<ol class="steps" aria-label="${esc(T.pay.sumTitle)}">${T.pay.steps.map((t, i) => `<li class="${i === at ? "cur" : i < at ? "past" : ""}" ${i === at ? 'aria-current="step"' : ""}><span class="sn num">${i + 1}</span>${esc(t)}</li>`).join("")}</ol>`;
+
   function composeHtml() {
-    const ex = T.presets.map((p, i) => `<button type="button" class="ex" data-pl="ex" data-i="${i}">${esc(p.label)}${p.sim ? ` <span class="chip sim">${esc(T.simulated)}</span>` : ""}</button>`).join("");
+    const ex = T.presets.map((p, i) => `<button type="button" class="ex" data-pl="ex" data-i="${i}"><span class="exl">${esc(p.label)}${p.sim ? ` <span class="chip sim">${esc(T.simulated)}</span>` : ""}</span><span class="exd">${esc(p.d || "")}</span></button>`).join("");
+    const idle = Flow.html([{ name: "", nodes: Flow.model({ lane: null }) }], null, null);
     return `<div class="hero"><h1><span>${esc(T.h1a)}</span> <span>${esc(T.h1b)}</span></h1>
       <p class="lede">${esc(T.lede)}</p>${info.metal ? `<a class="metal-pill" href="#/demo"><span class="dot"></span>${esc(T.metalHome)}<span class="go">${esc(T.metalTry)} &rarr;</span></a>` : ""}</div>
     <div class="composer" id="pl-comp">
@@ -79,10 +83,14 @@ const Play = (() => {
       </div>
     </div>
     <p class="small muted pl-segnote" id="pl-segnote">${esc(segNote())}</p>
+    <p class="small muted" id="pl-attnote">${esc(T.pay.attachNote)}</p>
+    <p class="small ok-line" id="pl-file-chip" role="status"></p>
     <p class="small ferr" id="pl-ferr" role="alert">${esc(H.ferr)}</p>
     <p class="small attack" id="pl-attack" role="status">${attackHtml()}</p>
     <div class="pl-notes" id="pl-notes" role="status">${H.note.map((n) => `<p>${esc(n)}</p>`).join("")}</div>
-    <div class="examples"><div class="exs">${ex}</div></div>
+    <aside class="secline"><span class="k">${esc(T.pay.secTitle)}</span><span>${esc(T.pay.sec)}</span></aside>
+    <section class="examples"><h2 class="sec-h">${esc(T.pay.startTitle)}</h2><p class="small muted">${esc(T.pay.startNote)}</p><div class="exs">${ex}</div></section>
+    <section class="preview"><h2 class="sec-h">${esc(T.pay.previewTitle)}</h2><p class="small muted">${esc(T.pay.previewNote)}</p><div inert>${idle}</div></section>
     ${info.metal ? metalCard() : ""}
     <p class="small faint">${esc(T.retention)}</p>`;
   }
@@ -156,6 +164,8 @@ const Play = (() => {
       const ta = $("#pl-text");
       if (!ta) return;
       H.ferr = ""; $("#pl-ferr").textContent = "";
+      const chip = $("#pl-file-chip");
+      if (chip) chip.textContent = `${f.name} · ${Math.max(1, Math.round(f.size / 1024))} KB · ${T.pay.attached}`;
       ta.value = ta.value.trim() ? `${ta.value.trimEnd()}\n\n${t}` : t;
       H.text = ta.value; paintRead(); ta.focus();
     } catch (_) { bad(T.fileRead); }
@@ -261,6 +271,7 @@ const Play = (() => {
       <div class="people">${people}</div>
       <span class="err" data-err="${p}.people"></span>
       <p class="small over" data-over="${i}" role="status"></p>
+      <div class="sum" data-sum="${i}" role="status"></div>
       ${m.people.length < 6 ? `<button type="button" class="link" data-pl="addp" data-e="${i}">+ ${esc(T.addPerson)}</button>` : ""}
       <h3>${esc(T.emailsTitle)}</h3>
       <div class="emails">${mails}</div>
@@ -276,12 +287,33 @@ const Play = (() => {
       ${H.notes.length ? `<ul class="pl-notes" role="status">${H.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
       ${H.form.employers.map(empHtml).join("")}
       <p class="small muted">${esc(T.bankLine)}</p>
-      <p class="small muted">${esc(T.calcNote)}</p>
+      <p class="small muted">${esc(T.calcNote)} ${esc(T.pay.sumNext)}</p>
       <div class="runrow"><span id="pl-seg2">${segHtml()}</span><button type="button" class="primary" id="pl-run" data-pl="run"></button></div>
       <p class="small muted" id="pl-segnote2">${esc(segNote())}</p>
       <p class="small ferr" id="pl-fix" role="status"></p>
       <div class="small ferr" id="pl-rerr" role="alert"></div>
     </div>`;
+  }
+
+  /* One employer's pay run in plain words: totals per currency, where the money comes from, which controls apply. Display only; the server recalculates. */
+  function sumHtml(m) {
+    const tot = {};
+    m.people.forEach((x) => {
+      if (!NUM_RE.test(x.hours.trim()) || !NUM_RE.test(x.rate.trim())) return;
+      const c = ccyOf(x.country);
+      tot[c] = (tot[c] || 0n) + lineCents(x.hours.trim(), x.rate.trim());
+    });
+    const ccys = Object.keys(tot);
+    if (!ccys.length) return `<p class="muted">${esc(T.pay.sumEmpty)}</p>`;
+    const amounts = ccys.map((c) => `${c} ${groupC(tot[c])}`).join(" + ");
+    const fx = ccys.filter((c) => c !== m.pays_from);
+    const rows = [
+      `<p class="strong">${esc(fmt(T.pay.sumPays, { name: m.name.trim() || T.employer, amounts }))} <span class="muted">${esc(fmt(T.pay.sumFrom, { ccy: m.pays_from }))}</span></p>`,
+      `<p>${esc(m.local_only ? T.pay.sumLocal : fx.length ? fmt(T.pay.sumFx, { from: m.pays_from, list: fx.join(", ") }) : T.pay.sumNoFx)}</p>`,
+      `<p>${esc(m.approval === "finance" ? T.pay.sumFinance : T.pay.sumAuto)}</p>`,
+    ];
+    if (NUM_RE.test(m.per_line_cap.trim()) && NUM_RE.test(m.per_run_cap.trim())) rows.push(`<p>${esc(fmt(T.pay.sumCaps, { line: groupC(cents(m.per_line_cap)), run: groupC(cents(m.per_run_cap)) }))}</p>`);
+    return `<h4>${esc(T.pay.sumTitle)}</h4>${rows.join("")}`;
   }
 
   /* repaint the live parts of the form: errors, calculated amounts, the run button. Inputs themselves are never replaced. */
@@ -303,6 +335,8 @@ const Play = (() => {
       });
       const o = root().querySelector(`[data-over="${i}"]`);
       if (o) o.textContent = over ? T.overLine : "";
+      const sm = root().querySelector(`[data-sum="${i}"]`);
+      if (sm) sm.innerHTML = sumHtml(m);
     });
     const extra = Object.keys(errs).filter((k) => !els.some((el) => el.dataset.err === k)).map((k) => errs[k]);
     const bad = Object.keys(errs).length;

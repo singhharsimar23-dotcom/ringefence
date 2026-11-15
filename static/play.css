@@ -184,3 +184,25 @@ button.link{justify-self:start}
 .rawlog{border:1px solid var(--line);border-radius:var(--r);padding:var(--s2) var(--s4)}
 .rawlog>summary{cursor:pointer;min-height:32px;display:flex;align-items:center;font-weight:600}
 .rawlog[open]>summary{margin-bottom:var(--s2)}
+
+/* onboarding: stepper, security line, example cards, idle preview, pay-run summary */
+.steps{display:flex;justify-content:center;gap:var(--s5);list-style:none;margin:0 0 var(--s5);padding:0;font-size:13px;color:var(--faint)}
+.steps li{display:flex;align-items:center;gap:var(--s2)}
+.steps .sn{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--line-strong);font-size:11px}
+.steps .cur{color:var(--ink);font-weight:600}.steps .cur .sn{background:var(--ink);color:var(--bg,#000);border-color:var(--ink)}
+.steps .past{color:var(--muted)}
+.secline{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s3);align-items:baseline;margin:var(--s4) 0;padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r2,12px);font-size:13px;color:var(--muted)}
+.secline .k{color:var(--ink);font-weight:600}
+.sec-h{font-size:15px;font-weight:600;margin:0;text-align:left}
+.examples .exs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3);justify-content:stretch;margin-top:var(--s2)}
+.ex{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:var(--s1);height:auto;padding:var(--s3) var(--s4);border-radius:var(--r2,12px);text-align:left;color:var(--ink)}
+.ex .exl{font-weight:600}.ex .exd{font-weight:400;font-size:12px;color:var(--muted);white-space:normal}
+.preview{margin-top:var(--s6);display:grid;gap:var(--s2)}
+.preview .flowbox{margin-top:var(--s2)}
+.ok-line{min-height:1em;color:var(--muted)}
+.sum{margin-top:var(--s3);padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r2,12px);display:grid;gap:var(--s1);font-size:13px;color:var(--muted)}
+.sum h4{margin:0 0 var(--s1);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+.sum p{margin:0}.sum .strong{color:var(--ink);font-weight:600}
+@media (max-width:760px){.examples .exs{grid-template-columns:1fr}.steps{gap:var(--s3)}}
+#pl-attnote{text-align:center;margin:var(--s1) 0 0}
+.ok-line:empty{display:none}
