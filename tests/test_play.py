@@ -321,13 +321,13 @@ def test_live_availability_needs_the_account_and_a_good_login(tmp_path, monkeypa
 # -- the proxy whitelist ----------------------------------------------------------------------------------------------
 @pytest.mark.parametrize("method,path,want", [
     ("GET", "state", True), ("GET", "timeline", True), ("GET", "ledger", True), ("GET", "proof", True),
-    ("GET", "calls", True), ("GET", "cert/northwind", True), ("GET", "recheck/tr_abc12345", True),
+    ("GET", "calls", True), ("GET", "cert/northwind", True), ("GET", "inbox/northwind", True), ("GET", "recheck/tr_abc12345", True),
     ("POST", "start", True), ("POST", "approve", True), ("POST", "hold", True), ("POST", "resume", True),
     ("POST", "scenario/injection", True),
     ("POST", "state", False), ("GET", "start", False), ("PUT", "start", False), ("DELETE", "state", False),
     ("POST", "reset", None), ("POST", "kill", None), ("POST", "autosettle", None), ("POST", "rules/sign", None),
     ("POST", "rules/draft", None), ("POST", "confirm_bank", None), ("GET", "webhooks", None),
-    ("GET", "cert/platform", None), ("GET", "cert/northwind/../../x", None), ("GET", "recheck/../../etc", None),
+    ("GET", "cert/platform", None), ("GET", "inbox/platform", None), ("GET", "inbox/northwind/../x", None), ("GET", "cert/northwind/../../x", None), ("GET", "recheck/../../etc", None),
     ("GET", "state/", None), ("GET", "../events", None), ("POST", "scenario/tamper_ledger", None),
     ("POST", "scenario/../reset", None),
 ])

@@ -336,3 +336,41 @@ details summary{cursor:pointer;color:var(--muted)}
 @media (max-width:760px){.blocks{grid-template-columns:1fr;gap:var(--s3)}.block:not(:last-child)::after{display:none}}
 .chain-foot .grow{flex:1}
 .lane-head .meta .grow{flex:1}
+
+/* the payroll pipeline (static/flow.js): one row of connected nodes; only the arrow out of a working node moves */
+.flowbox{display:grid;gap:var(--s3);min-width:0}
+.fl{font-size:12px;line-height:16px;color:var(--muted);font-weight:600;margin:var(--s2) 0 0}
+.flow{list-style:none;padding:0;margin:0;display:flex;align-items:stretch}
+.fn{flex:1 1 0;min-width:0}
+.fn>button{width:100%;height:100%;min-height:96px;display:grid;gap:2px;align-content:start;justify-items:start;text-align:left;padding:var(--s3);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm)}
+.fn.sel>button{border-color:var(--ink)}
+.fn.you>button{border-color:var(--amber)}
+.fn.blocked>button{border-color:var(--red)}
+.fh{display:flex;align-items:center;gap:var(--s2)}
+.fh .nm{font-weight:600}
+.fk{font-size:11px;line-height:16px;color:var(--faint)}
+.fs{font-size:12px;line-height:16px;color:var(--muted)}
+.fn.you .fs{color:var(--amber)}.fn.blocked .fs{color:var(--red)}.fn.done .fs,.fn.run .fs{color:var(--ink)}
+.fd{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--faint);flex:none;display:inline-grid;place-items:center;font-size:10px;line-height:1;color:var(--red)}
+.fd.done{background:var(--ink);border-color:var(--ink)}
+.fd.run{border-color:var(--ink)}
+.fd.you{border-color:var(--amber);box-shadow:0 0 0 3px var(--amber-bg)}
+.fd.blocked{border-color:var(--red);width:12px;height:12px}
+.fb{font-size:11px;line-height:16px;padding:0 6px;border-radius:999px;background:var(--red-bg);color:var(--red)}
+.ft{font-size:11px;line-height:16px;padding:0 6px;border-radius:999px;background:oklch(100% 0 0/.07);color:var(--muted)}
+.fa{flex:0 0 28px;display:grid;place-items:center}
+.fe{width:28px;height:8px;overflow:visible;fill:none;stroke:var(--line-strong);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.fe.on{stroke:var(--ink)}
+.fe.go line{stroke:var(--ink);stroke-dasharray:4 4;animation:flowdash .8s linear infinite}
+@keyframes flowdash{to{stroke-dashoffset:-8}}
+.fnote{margin:0}
+.mini{list-style:none;padding:0;margin:0;display:flex;align-items:center;gap:0;min-height:20px}
+.mini li{display:flex;align-items:center;gap:6px;font-size:11px;line-height:16px;color:var(--faint)}
+.mini li+li::before{content:"";width:10px;height:1px;background:var(--line-strong);margin:0 2px}
+.mini li span{display:none}.mini li.cur span{display:inline;color:var(--ink);margin-right:4px}
+@media (max-width:899px){
+ .flow{flex-direction:column}
+ .fa{flex:0 0 18px}.fe{transform:rotate(90deg)}
+ .fn>button{min-height:0}
+}
+@media (prefers-reduced-motion:reduce){.fe.go line{animation:none}}

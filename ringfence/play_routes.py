@@ -18,7 +18,7 @@ from starlette.background import BackgroundTask
 from . import attacks, copy, metal
 from .playground import Manager, PlayError, Spec, World, default_draft_llm, draft, errors_of
 
-_GET = [re.compile(p) for p in (r"state", r"decisions", r"timeline", r"ledger", r"proof", r"calls", r"cert/(northwind|kestrel|harbour)",
+_GET = [re.compile(p) for p in (r"state", r"decisions", r"timeline", r"ledger", r"proof", r"calls", r"cert/(northwind|kestrel|harbour)", r"inbox/(northwind|kestrel|harbour)",
                                 r"recheck/[A-Za-z0-9_-]{8,64}")]
 _POST = [re.compile(p) for p in (r"start", r"approve", r"hold", r"resume",
                                  r"scenario/(topup|late_return|bank_change_email|injection|double_click|cross_tenant_call)")]

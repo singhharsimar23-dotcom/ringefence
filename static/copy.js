@@ -194,6 +194,36 @@ Object.assign(T, {
   decTitle: "Proposed vs decided", decNone: "Nothing proposed yet.", decProposed: "The agent proposed", decDecided: "The rules decided",
   decWhy: "Why", decLedger: "Ledger", decWanted: "The attack wanted", decEmail: "From an email",
 });
+/* the pipeline canvas (static/flow.js) and the run view built on it */
+T.flow = {
+  title: "How this payroll runs",
+  state: { idle: "Waiting", run: "Working", done: "Done", you: "Needs you", blocked: "Stopped" },
+  nodes: {
+    inbox: { name: "Inbox", kind: "Untrusted text" }, agent: { name: "Agent", kind: "Claude proposes" },
+    rules: { name: "Rules", kind: "Code decides" }, funds: { name: "Funds", kind: "Own wallet only" },
+    approve: { name: "Approve", kind: "A person signs" }, pay: { name: "Airwallex", kind: "Money moves" },
+    proof: { name: "Proof", kind: "Signed record" },
+  },
+  metric: { inbox: "{n} people", agent: "{n} calls", rules: "{n} allowed", funds: "{n}", approve: "{n}", pay: "{n} paid", proof: "{n}" },
+  blocked: "{n} refused", tested: "Tested", separate: "Each employer pays from its own account. Money never crosses between rows.",
+  follow: "Follow live", following: "Following the run",
+  what: {
+    inbox: "What the agent was given. Anyone can write this, so it is treated as text and never as instructions.",
+    agent: "Claude reads the inbox and proposes payments. It cannot move money or change a limit.",
+    rules: "Fixed code checks every proposal against the employer's limits and the bank details a person approved.",
+    funds: "Each employer pays from its own balance. Another employer's money is never used.",
+    approve: "A person approves the exact batch. Changing it afterwards voids the approval.",
+    pay: "Payments go out on Airwallex. Each has one key, so a repeat click cannot pay twice.",
+    proof: "A signed certificate lists every payment. Check it again later and edits to the record show.",
+  },
+  tryHere: "Try to break this step",
+  sentBank: "A contractor emails new bank details", sentHidden: "An email hides an instruction",
+  nothingYet: "Nothing here yet.", inboxEmpty: "No emails in this inbox. The timesheet is below.",
+  raw: "Raw log", rawNote: "Every call and ledger row, in order.",
+  untrusted: "Untrusted", noCalls: "No calls yet.", callsTitle: "Calls", approvedLine: "Approved. The approval is bound to this exact batch.",
+  proofWait: "Proof is issued once every employer is paid.",
+  needPaid: "Available once a payment has been paid.", needSent: "Available once the payment is sent.", agentQuote: "The agent said",
+};
 T.presets = [
   { id: "weekly", label: "Weekly pay, three countries",
     text: "Acme Robotics pays from GBP. Pay Ana Silva in Germany 32 hours at 55 EUR, Tom Reid in the UK 40 hours at 42 GBP, and Mia Chen in Australia 20 hours at 70 AUD." },
