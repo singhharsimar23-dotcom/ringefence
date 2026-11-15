@@ -5,7 +5,7 @@ Airwallex Agentic Banking Hackathon, Kit 06. Airwallex sandbox, with optional on
 
 [Live demo](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) · [Video: security findings](https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing) · [Findings report](FINDINGS.md) · [Live run proof](#proof-a-live-run-on-airwallex)
 
-![Three employers, one run each](docs/img/demo.png)
+![A live payroll run on the Airwallex sandbox, shown as a map: documents, AI agent, code checks, approval, Airwallex, verified payees](docs/img/run-map.png)
 
 ## What it does
 
