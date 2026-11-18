@@ -90,6 +90,7 @@ def test_agent_runs_payroll_but_only_a_passkey_approves(world_app):
     err, text = tool(c, "release_payroll", run_id=wid)  # the agent cannot skip the person
     assert err and "Not approved" in text and f"/approve/{wid}" in text
     assert c.post(f"/play/{wid}/api/approve", json={"tenant": "northwind", "user": "finance-northwind"}).status_code == 403
+    assert c.post(f"/play/{wid}/api/scenario/double_click", json={}).status_code == 403  # scenarios self-approve
 
     v = c.get(f"/approve/{wid}/view").json()
     assert v["passkey"]["allow"] == [] and v["state"] == "AWAITING_APPROVAL"

@@ -238,9 +238,14 @@ def build(mgr: Manager, llm_factory=None) -> MCPServer:
             spec.employers = spec.employers[:1]  # shortcut: one employer per MCP run; several would need a slot argument
         except ValidationError as e:
             raise ToolError(str(errors_of(e))) from None
-        with mgr.lock:  # one agent run at a time: a fresh run replaces the last one (its sandbox slot is needed)
-            for old in mgr.worlds.values():
-                if old.mcp and old.status in ("queued", "starting", "ready"):
+        # one agent run at a time: a fresh run replaces the last one (its sandbox slot is needed), never mid-payout
+        # shortcut: any caller may replace any agent run (no auth by design); bind runs to a caller token if this goes public
+        olds = [o for o in mgr.worlds.values() if o.mcp and o.status in ("queued", "starting", "ready")]
+        if any(o.status == "ready" and (mgr.probe(o) or {}).get("lanes", {}).get(SLOT, {}).get("state") == "RELEASING" for o in olds):
+            raise ToolError("Another payroll is being sent right now. Try again in a minute.")
+        with mgr.lock:
+            for old in olds:
+                if old.status in ("queued", "starting", "ready"):
                     mgr._expire(old)
             mgr.queue = [x for x in mgr.queue if mgr.worlds[x].status == "queued"]
         try:
