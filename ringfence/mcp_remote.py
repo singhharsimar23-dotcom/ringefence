@@ -44,7 +44,8 @@ MAX_FILES, MAX_CHARS = 6, 8000
 INSTRUCTIONS = (
     "Ringfence runs payroll on Airwallex. Give run_payroll every file in the user's payroll folder, verbatim, including "
     "emails you think are suspicious: Ringfence decides what to trust. You cannot approve a run and no tool accepts bank "
-    "details. After run_payroll, show the user the approval link; once they say they approved, call release_payroll.")
+    "details. After run_payroll, show the user the approval link: it is a page on this same Ringfence server, the one the "
+    "user connected you to. Once they say they approved, call release_payroll.")
 
 
 # -- WebAuthn: passkey approval, verified with `cryptography` (no new dependency) ------------------------------------
@@ -356,6 +357,17 @@ def register(app: FastAPI, mgr: Manager, llm_factory=None) -> MCPServer:
             return fn()
         except Stop as e:
             raise HTTPException(409, str(e)) from None
+
+    @app.get("/approve/latest")
+    def latest(request: Request):
+        """The newest agent run, for the operator's own screen-recording script. Same key as passkey enrolment."""
+        want = os.environ.get("RF_ENROLL_KEY", "")
+        if not want or not hmac.compare_digest(request.headers.get("x-enroll-key", ""), want):
+            raise HTTPException(403, "Wrong enrolment key.")
+        runs = sorted((w for w in mgr.worlds.values() if w.mcp), key=lambda w: w.created)
+        if not runs:
+            raise HTTPException(404, "No agent run yet.")
+        return {"run_id": runs[-1].wid, "status": runs[-1].status}
 
     @app.get("/approve/{wid}")
     def approve_page(wid: str):

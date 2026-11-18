@@ -92,6 +92,7 @@ def test_agent_runs_payroll_but_only_a_passkey_approves(world_app):
     assert c.post(f"/play/{wid}/api/approve", json={"tenant": "northwind", "user": "finance-northwind"}).status_code == 403
     assert c.post(f"/play/{wid}/api/scenario/double_click", json={}).status_code == 403  # scenarios self-approve
 
+    assert c.get("/approve/latest").status_code == 403  # the operator's key only
     v = c.get(f"/approve/{wid}/view").json()
     assert v["passkey"]["allow"] == [] and v["state"] == "AWAITING_APPROVAL"
     k = enrol()
