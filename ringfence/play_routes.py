@@ -169,6 +169,8 @@ def register(app: FastAPI, mgr: Manager, llm_factory=None, writer_factory=None) 
         if len(body) > MAX_BODY:
             raise HTTPException(413, copy.TOO_LARGE)
         w = reachable(wid)
+        if w.mcp and path == "approve":  # an agent holds this wid: only a passkey on /approve/{wid} approves its run
+            raise HTTPException(403, copy.MCP_APPROVE_WITH_PASSKEY)
         if path != "calls":
             mgr.touch(wid)
         try:

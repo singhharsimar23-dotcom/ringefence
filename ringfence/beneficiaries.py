@@ -230,6 +230,16 @@ def propose_bank_change(awx, L, tenant: str, contractor_id: str, bank: dict, doc
     return {"id": qid, **rec}
 
 
+def reject_change(L, tenant: str, qid: int, by: str) -> None:
+    """The person says the request is not real: the new details are dropped and the verified account stays in force."""
+    with L.tx() as tx:
+        rows = tx.execute("SELECT contractor_id FROM quarantine WHERE id=? AND tenant=? AND status='ACTIVE'", (qid, tenant)).fetchall()
+        if not rows:
+            raise LookupError(f"no open quarantine item {qid} for {tenant}")
+        tx.execute("UPDATE quarantine SET status='REJECTED' WHERE id=?", (qid,))
+        tx.append("BANK_CHANGE_REJECTED", {"quarantine_id": qid, "contractor_id": rows[0][0], "rejected_by": by}, None, tenant)
+
+
 def confirm_callback(awx, L, tenant: str, qid: int, approver_id: str, role: str, callback_ref: str) -> str:
     """The phone call happened: a different approver types its reference. Only now is the new beneficiary created."""
     from .store import latest_mandate  # local import: store imports nothing from here

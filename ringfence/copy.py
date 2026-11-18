@@ -23,6 +23,7 @@ LIVE_UNAVAILABLE = "The Airwallex sandbox isn't available right now. Try Simulat
 PLAY_DAILY = "Today's runs are used up. Come back tomorrow, or open Three employers."
 PLAY_FULL = "Every slot and the waiting line are full. Try again in a few minutes."
 WORLD_GONE = "This run was cleaned up. Runs last at most 30 minutes. Start a new one."
+MCP_APPROVE_WITH_PASSKEY = "An agent opened this run, so it can only be approved with a passkey on its approval page."
 WORLD_QUEUED = "This run is still waiting for a slot."
 WORLD_STARTING = "This run is still starting. Try again in a few seconds."
 WORLD_STOPPED = "This run stopped before it could finish. Nothing was sent. Start a new one."
@@ -349,6 +350,8 @@ def timeline_row(e: dict) -> dict | None:
         row = ("Act", f"New bank details for {who} (ending {p.get('last4', '')}) are on hold until someone else confirms by phone.")
     elif k == "CALLBACK_CONFIRMED":
         row = ("Act", f"{p['confirmed_by']} confirmed {who}'s new bank details by phone.")
+    elif k == "BANK_CHANGE_REJECTED":
+        row = ("Act", f"The new bank details for {who} were rejected. Their verified account stays.")
     elif k == "FUNDING_REQUESTED":
         row = ("Decide", (f"{T} is short {money(p['currency'], p['amount'])}. Asked {T} to fund its own {p['currency']} "
                          f"account, reference {p['reference']}. Other employers' money is never used."))

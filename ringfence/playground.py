@@ -352,6 +352,9 @@ def draft(text: str, llm: Any | None) -> dict:
 
 
 # -- the world manager ------------------------------------------------------------------------------------------------
+MCP_EXTRA_S = 420.0  # idle grace on top of idle_s for an agent's run
+
+
 class PlayError(Exception):
     def __init__(self, status: int, detail: str):
         super().__init__(detail)
@@ -376,6 +379,7 @@ class World:
     spec: Spec | None = field(default=None, repr=False)
     ended: float = 0.0
     fell_back: bool = False  # asked for live, got the simulated bank because live was full
+    mcp: bool = False  # opened by an agent over MCP: approved only by passkey, sent only by release_payroll
 
 
 def _free_port() -> int:
@@ -456,7 +460,7 @@ class Manager:
             self.n_drafts += 1
             return True
 
-    def create(self, spec: Spec, backend: str, ip: str) -> World:
+    def create(self, spec: Spec, backend: str, ip: str, mcp: bool = False) -> World:
         spec.for_backend(backend)
         key = hashlib.sha256(f"{backend}|{ip}|{spec.model_dump_json(by_alias=True)}".encode()).hexdigest()
         self._reclaim(backend)
@@ -478,7 +482,8 @@ class Manager:
                 backend = "fake"  # nobody waits: a busy live sandbox means the same run on the simulated bank, now
             elif not free(backend) and len(self.queue) >= self.queue_max:
                 raise PlayError(429, copy.PLAY_FULL)
-            w = World(secrets.token_urlsafe(9), backend, ip, key, t, t, spec=spec, fell_back=fell_back)
+            w = World(secrets.token_urlsafe(9), backend, ip, key, t, t, spec=spec, fell_back=fell_back, mcp=mcp,
+                      extra=MCP_EXTRA_S if mcp else 0.0)  # a person walks away to approve on their phone or laptop
             self.worlds[w.wid] = w
             self.queue.append(w.wid)
             self.n_worlds += 1
@@ -543,7 +548,7 @@ class Manager:
             if self._free(backend):
                 return
             gone = sorted((w for w in self.worlds.values() if w.backend == backend and w.status in ("starting", "ready")
-                           and self.now() - w.last_seen >= self.stale_s), key=lambda w: w.last_seen)
+                           and not w.mcp and self.now() - w.last_seen >= self.stale_s), key=lambda w: w.last_seen)
         for w in gone:
             st = self.probe(w) if w.status == "ready" else None
             if st and any((ln or {}).get("state") == "RELEASING" for ln in (st.get("lanes") or {}).values()):
@@ -567,7 +572,7 @@ class Manager:
         e = dict(os.environ)
         slots = SLOTS[:len(w.spec.employers)]
         e.update(RF_VAR=str(w.dir / "var"), RF_DEMO=str(w.dir / "demo"), RF_WORLD=w.wid, RF_TENANTS=",".join(slots),
-                 RF_PUBLIC="0", RF_LLM_DAILY_CAP=str(self.tick_cap))
+                 RF_PUBLIC="0", RF_LLM_DAILY_CAP=str(self.tick_cap), RF_MANUAL_RELEASE="1" if w.mcp else "0")
         for k in ("METAL_RPC_URL", "METAL_RPC_SECRET"):
             e.pop(k, None)  # a world never needs them
         if w.backend == "live":

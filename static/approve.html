@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Approve payroll · Ringfence</title>
+<style>
+@font-face{font-family:"Inter";src:url(/static/fonts/inter.woff2) format("woff2");font-weight:100 900;font-display:swap}
+:root{color-scheme:dark;--ink:#fff;--muted:#a3a3a3;--faint:#6b6b6b;--line:rgba(255,255,255,.1);--red:oklch(72% .17 25);--amber:oklch(83% .13 82);--green:oklch(80% .15 160)}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:var(--ink);font:15px/1.5 "Inter",system-ui,sans-serif}
+main{max-width:720px;margin:0 auto;padding:48px 24px 64px;display:grid;gap:24px}
+h1{margin:0;font-size:28px;line-height:1.15;font-weight:640;letter-spacing:-.03em}
+.muted{color:var(--muted)}.mono{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace}
+.bank{font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 12px;justify-self:start}
+table{width:100%;border-collapse:collapse}
+th{font-size:12px;font-weight:600;color:var(--muted);text-align:left;padding:8px 0;border-bottom:1px solid var(--line)}
+td{padding:12px 0;border-bottom:1px solid var(--line)}
+td.r,th.r{text-align:right}
+.box{border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:8px}
+.box.flag{border-color:color-mix(in oklch,var(--amber) 45%,transparent)}
+.box.flag b{color:var(--amber)}
+.state{font-weight:600}.state.ok{color:var(--green)}.state.held{color:var(--red)}
+button{font:inherit;font-weight:600;height:48px;padding:0 24px;border-radius:999px;border:0;background:#fff;color:#000;cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+#err{color:var(--red);min-height:21px}
+</style>
+</head>
+<body>
+<main>
+  <div class="bank" id="bank">Loading…</div>
+  <h1 id="title">Approve payroll</h1>
+  <div id="status" class="muted"></div>
+  <table><thead><tr><th>Pay</th><th class="r">Amount</th><th class="r">To account ending</th><th class="r">State</th></tr></thead><tbody id="rows"></tbody></table>
+  <div id="fx" class="muted"></div>
+  <div id="banks" style="display:grid;gap:8px"></div>
+  <div id="flags" style="display:grid;gap:8px"></div>
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <button id="go" hidden>Approve with passkey</button>
+    <button id="again" class="ghost" hidden>Check again and ask for approval</button>
+    <span id="done" class="state ok" hidden></span>
+  </div>
+  <div id="err" role="alert"></div>
+  <p class="muted" style="font-size:13px">Your passkey signs exactly the payees, amounts and accounts above. If any of them changes, the signature no longer counts. Your agent can ask Ringfence to send the run only after you approve here.</p>
+</main>
+<script>
+const wid = location.pathname.split("/")[2];
+const $ = (id) => document.getElementById(id);
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s.length % 4) % 4)), (c) => c.charCodeAt(0));
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let view = null, busy = false;
+
+async function load() {
+  if (busy) return;
+  const r = await fetch(`/approve/${wid}/view`);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { $("bank").textContent = "Ringfence"; $("title").textContent = "This run has ended"; $("status").textContent = j.detail || ""; $("go").hidden = true; return; }
+  view = j;
+  $("bank").textContent = j.bank;
+  $("title").textContent = `${j.employer}: ${Object.entries(j.totals || {}).map(([c, a]) => `${a} ${c}`).join(" + ")}`;
+  const held = j.state === "HELD";
+  $("status").innerHTML = `<span class="state ${held ? "held" : ["READY", "RELEASED", "DONE"].includes(j.state) ? "ok" : ""}">${esc(j.status)}</span>`;
+  $("rows").innerHTML = j.payments.map((p) => `<tr><td>${esc(p.name)}</td><td class="r mono">${esc(p.amount)} ${esc(p.currency)}</td><td class="r mono">•••• ${esc(p.to_account_ending)}</td><td class="r muted">${esc(p.state)}</td></tr>`).join("");
+  $("fx").textContent = j.fx.length ? "Converted from " + j.fx.map((g) => `${g.sell} to ${g.buy} at ${g.rate}`).join(", ") : "";
+  $("flags").innerHTML = j.refused_or_flagged.map((f) => `<div class="box flag"><b>${esc(f.decision)}</b><div>${esc(f.what)}</div><div class="muted">${esc(f.why)}</div></div>`).join("");
+  const open = j.bank_change_requests.filter((b) => b.status.startsWith("quarantined"));
+  $("banks").innerHTML = j.bank_change_requests.map((b) => `<div class="box flag"><b>${esc(b.name)} asked to be paid to a new account ending ${esc(b.new_account_ending)}</b>
+    <div class="muted">${b.status.startsWith("quarantined") ? "Ringfence never takes bank details from an email. The verified account above is what gets paid, after you reject this or a second person confirms it by phone." : "Rejected. The verified account stays."}</div>
+    ${b.status.startsWith("quarantined") ? `<div><button class="ghost" data-q="${b.id}">Not from ${esc(b.name.split(" ")[0])}: reject</button></div>` : ""}</div>`).join("");
+  $("banks").querySelectorAll("[data-q]").forEach((el) => { el.onclick = () => reject(+el.dataset.q, el); });
+  $("go").hidden = j.state !== "AWAITING_APPROVAL";
+  $("go").disabled = !(j.passkey && j.passkey.allow.length) || open.length > 0;
+  if (j.state === "AWAITING_APPROVAL") $("err").textContent = !(j.passkey && j.passkey.allow.length)
+    ? "No passkey is enrolled on this server yet. Open /passkey to add one."
+    : open.length ? "Decide on the bank change above first." : "";
+  $("again").hidden = !held;
+  $("done").hidden = j.state !== "READY";
+  $("done").textContent = "Approved. Tell your agent to send it.";
+}
+
+$("go").onclick = async () => {
+  const pk = view.passkey;
+  busy = true; $("go").disabled = true; $("err").textContent = "";
+  try {
+    const c = await navigator.credentials.get({ publicKey: {
+      challenge: unb64u(pk.challenge), rpId: pk.rp_id, userVerification: "required", timeout: 60000,
+      allowCredentials: pk.allow.map((id) => ({ type: "public-key", id: unb64u(id) })) } });
+    const r = await fetch(`/approve/${wid}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      challenge: pk.challenge, id: c.id, clientDataJSON: b64u(c.response.clientDataJSON),
+      authenticatorData: b64u(c.response.authenticatorData), signature: b64u(c.response.signature) }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) $("err").textContent = j.detail || "Not approved.";
+  } catch (e) {
+    $("err").textContent = "The passkey prompt was closed. Nothing was approved.";
+  } finally { busy = false; load(); }
+};
+
+async function reject(qid, el) {
+  el.disabled = true; busy = true;
+  const r = await fetch(`/approve/${wid}/reject`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ qid }) });
+  const j = await r.json().catch(() => ({}));
+  busy = false;
+  if (!r.ok) { $("err").textContent = j.detail || "Could not reject it."; el.disabled = false; } else setTimeout(load, 2500);
+}
+
+$("again").onclick = async () => {
+  $("again").disabled = true;
+  const r = await fetch(`/approve/${wid}/resume`, { method: "POST" });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) $("err").textContent = j.detail || "Could not reopen the run.";
+  $("again").disabled = false; setTimeout(load, 1500);
+};
+
+load(); setInterval(load, 4000);
+</script>
+</body>
+</html>

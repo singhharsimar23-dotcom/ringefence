@@ -42,6 +42,7 @@ from . import (
     verify,
     webhooks,
 )
+from . import beneficiaries as ben
 from .agent import loop
 from .agent.tools import funding_state
 from .awx import Awx, AwxError, build_backend
@@ -71,6 +72,7 @@ class Engine:
         self.llm = None if mode == "scripted" else loop.default_llm()
         self.world = os.environ.get("RF_WORLD") or None  # a playground world: own ledger, own certs, own signing key
         self.ready, self.setup_error = True, ""
+        self.manual = os.environ.get("RF_MANUAL_RELEASE") == "1"  # an MCP world: approving never sends; release_payroll does
         # a fake or playground world never touches the repo's real certs
         self.cert_dir = verify.CERT_DIR if backend == "live" and not self.world else var_dir() / "certs"
         self.o = Orchestrator(awx, L, cert_dir=self.cert_dir)
@@ -206,7 +208,7 @@ class Engine:
             self._docs_seen[t] = ids
             self.tick(t)  # a new email arrived
         st = run["state"]
-        if st == "AWAITING_FUNDS" or (st == "READY" and now - self._ready_since.setdefault(t, now) >= self.release_delay):
+        if st == "AWAITING_FUNDS" or (st == "READY" and not self.manual and now - self._ready_since.setdefault(t, now) >= self.release_delay):
             self.o.advance(rid, t)
         if st != "READY":
             self._ready_since.pop(t, None)
@@ -231,8 +233,8 @@ class Engine:
             if store.get_run(self.L, rid, t):
                 try:
                     self.cache["diff"][t] = self.o.diff(rid, t)
-                except AwxError:
-                    pass  # keep the last diff; the error banner says what happened
+                except AwxError as e:  # keep the last diff; the error banner says what happened
+                    log.warning("diff for %s failed: %s %s %s", t, e.status, e.code, e.message)
             self.cache["balances"][t] = {k: str(v) for k, v in self.awx.for_tenant(t).balances().items()}
         if naive:
             self.cache["naive"], self.cache["naive_at"] = naive_total(self.awx, "AUD"), time.monotonic()
@@ -295,7 +297,8 @@ class Engine:
             if row:
                 p = e["payload"]
                 out.append({**row, "detail": {"seq": e["seq"], "kind": e["kind"], "hash": e["hash"][:16],
-                                              **{k: p[k] for k in ("request_id", "code", "reference", "transfer_id") if k in p}}})
+                                              **{k: p[k] for k in ("request_id", "code", "reference", "transfer_id") if k in p},
+                                              **({"lines": p["lines"]} if p.get("what") == "BENEFICIARY_CHANGED_OUTSIDE_RINGFENCE" else {})}})
         return out[-limit:]
 
     def decisions(self, limit: int = 40) -> list[dict]:
@@ -562,6 +565,19 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
         def job():
             rid = E.rid()
             E.o.approve(rid, b.tenant, b.user, u["role"])
+            return {"state": store.get_run(E.L, rid, b.tenant)["state"] if E.manual else E.o.advance(rid, b.tenant)}
+        return act(job)
+
+    @app.post("/api/release")
+    def release(b: TenantUser):
+        """Send an approved run. Not on the playground proxy: only the MCP release tool calls it, over localhost."""
+        user(b.user)
+
+        def job():
+            rid = E.rid()
+            run = store.get_run(E.L, rid, b.tenant)
+            if run is None or run["state"] != "READY":
+                raise Refused(f"nothing to send: the run is {(run or {}).get('state', 'not started')}")
             return {"state": E.o.advance(rid, b.tenant)}
         return act(job)
 
@@ -569,6 +585,11 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
     def confirm_bank(b: Confirm):
         u = user(b.user)
         return act(lambda: {"beneficiary": E.o.confirm_bank_change(b.tenant, b.qid, b.user, u["role"], b.ref[:80])})
+
+    @app.post("/api/reject_bank")
+    def reject_bank(b: Confirm):
+        user(b.user)
+        return act(lambda: ben.reject_change(E.L, b.tenant, b.qid, b.user))
 
     @app.post("/api/hold")
     def hold(b: TenantUser):
@@ -730,6 +751,8 @@ def create_app(E: Engine, play: Manager | None = None) -> FastAPI:
 
     if play is not None:
         play_routes.register(app, play)
+        from . import mcp_remote
+        mcp_remote.register(app, play)
     return app
 
 
