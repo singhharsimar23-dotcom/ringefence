@@ -37,7 +37,7 @@ def main() -> None:
         return
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(1)  # sharp text at 125% scaling
-    except Exception:  # noqa: BLE001 - not Windows
+    except Exception:  # noqa: BLE001, S110 - not Windows
         pass
     r = tk.Tk()
     r.overrideredirect(True)
