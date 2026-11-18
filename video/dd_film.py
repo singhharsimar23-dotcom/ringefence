@@ -13,7 +13,6 @@ the left pane keeps one unbroken history. The docs beat lays the Notepad from S1
 import json
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +22,7 @@ V = Path(__file__).resolve().parent
 DD, MAN, TMP = V / "out" / "dd", V / "out" / "dd" / "manual", V / "out" / "dd" / "film"
 FACE = DD / "face_cfr.mov"
 FPS, SPEED = 30, 1.1
-GAP_MAX = 0.42            # a pause longer than this (clip s) is trimmed to it
+GAP_MAX = 1e9             # pauses are never trimmed: the face plays straight through
 SRC0, SRC1 = 1.62, 200.25  # voice in/out: a breath before "Every", a beat after "Thank you."
 CX, CY, R = 260, 582, 246
 BIG, SMALL = 720, 170
@@ -32,9 +31,7 @@ H = 1020  # screen height after the taskbar crop
 
 WORDS = json.load(open(DD / "words_merged.json"))
 # extra film seconds in the pause that contains this clip time: the screen gets time, the speaker just waits
-HOLDS = {35.5: 1.6, 44.0: 1.2, 86.3: 2.2, 88.3: 1.8, 89.5: 1.6, 92.7: 0.6, 108.3: 0.6, 114.5: 0.8,
-         119.9: 1.0, 124.3: 0.8, 173.9: 1.2, 198.5: 6.0}
-IDLE = {198.5: (192.3, 192.95)}  # a pause too short to loop smoothly borrows a longer idle stretch
+HOLDS: dict = {}  # never: the face is not paused or looped
 
 
 def w(word: str, near: float) -> float:
@@ -104,43 +101,33 @@ def shots() -> list[tuple]:
     # open: the face over the site's hero, still
     add(0.0, "big", ("still", "S11", 4.5))
     # two agents side by side; the right pane connects with one line, then Claude starts
-    c = gap_end(18.5) - 0.12
-    add(c, "R", ("clip", "S0", [(c, 5.3), (F(w("and", 30.0)) + 0.3, 5.3), (F(w("and", 30.0)) + 1.5, 6.45),
-                                (F(w("connecting", 33.9)), 6.5), (gap_start(35.5) + 0.25, 10.4),
-                                (gap_start(35.5) + 0.9, 11.8), (gap_end(35.5) - 0.2, 16.0)]))
-    # the timesheet, then Ana's email, closed; the cursor ends on the right pane's prompt
-    c = gap_end(35.5) - 0.12
-    add(c, "R", ("s16", [(c, 0.3), (F(w("time", 37.2)) + 0.2, 3.0), (F(w("sheet", 37.5)) + 0.25, 4.1),
-                         (F(38.3), 7.7), (F(w("email", 39.36)), 9.5), (F(w("asking", 40.3)), 10.6),
-                         (F(w("bank", 41.96)), 13.6), (F(43.64), 15.1), (gap_start(44.0) + 0.55, 17.2),
-                         (gap_end(44.0) - 0.05, 19.7)]))
+    c = F(18.9)
+    add(c, "R", ("clip", "S0", [(c, 5.3), (F(29.9), 5.6), (F(34.4), 10.4), (F(35.72), 16.0)]))
+    # the timesheet (Ana, Tom, Mia), then Ana's email on "email", closed; the cursor glides to the right pane's prompt
+    c = F(35.72)
+    add(c, "R", ("s16", [(c, 0.3), (F(w("email", 39.36)) - 0.2, 9.9), (F(43.9), 16.0), (F(45.7), 19.7)]))
     # the prompt, the work, the table with Ana flagged and the approval link
-    c = gap_end(44.0)
+    c = F(45.7)
     add(c, "R", ("clip", "S1", [(c, 94.95), (F(46.44), 99.0), (F(46.94) + 0.4, 103.0), (F(50.48) + 0.6, 111.0),
                                 (F(54.24) + 0.6, 115.0), (F(62.74), 139.5), (F(63.68) + 0.3, 143.0),
                                 (F(66.58), 147.5), (F(67.26), 150.1)]))
-    # talk it into skipping the approval; it refuses
-    c = F(77.7)
-    add(c, "R", ("clip", "S2", [(c, 8.6), (F(80.8), 12.0), (F(81.27) + 0.3, 17.8), (F(86.0), 25.0)]))
-    # open the link, reject Ana's email, approve with the passkey
-    c = gap_start(86.3) + 0.08
-    add(c, "R", ("clip", "S3", [(c, 12.2), (c + 0.8, 15.0), (gap_end(86.3) - 0.25, 23.0),
-                                (F(w("reject", 86.78)) + 0.25, 24.3), (F(w("approve", 87.88)), 31.0),
-                                (gap_end(88.3) - 0.25, 39.6)]))
-    # send it; the transfers are scheduled
-    c = gap_end(88.3) - 0.08
-    add(c, "R", ("clip", "S4", [(c, 13.2), (F(w("it", 89.0)) + 0.15, 15.6), (gap_end(89.5) - 0.2, 28.0)]))
-    # on Airwallex: Tom's payout, settled
-    c = gap_end(89.5) - 0.08
-    add(c, "L", ("clip", "S17", [(c, 0.4), (F(w("right", 91.6)) - 0.9, 3.0), (F(w("right", 91.6)) + 0.3, 5.3),
-                                 (gap_end(92.7) - 0.1, 9.5)]))
-    # Airwallex is secure; the agent in the middle is the risk; nine gaps
-    c = gap_end(92.7) - 0.05
-    add(c, "R", ("clip", "S11", [(c, 4.5), (F(w("found", 100.42)), 12.0)]))
+    # talk it into skipping the approval; it refuses ("It can't. There is no tool for that.")
+    c = F(77.6)
+    add(c, "R", ("clip", "S2", [(c, 8.6), (F(81.27) + 0.3, 17.8), (F(83.0), 25.0)]))
+    # "only I can approve with my passkey": the approval page opens (the refusal above already shows its link),
+    # reject Ana's email, approve, passkey, Approved. No separate "send it" shot: Airwallex next shows it paid.
+    c = F(83.0)
+    add(c, "R", ("clip", "S3", [(c, 19.0), (F(w("reject", 86.78)) + 0.1, 24.3), (F(89.3), 31.0), (F(92.0), 39.6)]))
+    # on Airwallex: paid to the right accounts ("Airwallex itself is secure")
+    c = F(92.0)
+    add(c, "L", ("clip", "S17", [(c, 0.4), (F(97.8), 9.5)]))
+    # the agent in the middle is the risk; nine gaps
+    c = F(97.8)
+    add(c, "R", ("clip", "S11", [(c, 4.5), (F(w("here's", 103.84)) - 0.1, 12.5)]))
     # week 2, live: both prompts
     c = F(w("here's", 103.84)) - 0.1
     nx = F(w("next", 105.9))
-    add(c, "R", ("wk2", "S13", [(c, 9.6), (nx + 1.4, 36.9), (nx + 1.9, 38.1), (F(113.9), 55.0), (F(119.3), 76.0)],
+    add(c, "R", ("wk2", "S13", [(c, 9.6), (nx - 0.6, 32.4), (nx + 1.4, 36.9), (nx + 1.9, 38.1), (F(113.9), 55.0), (F(119.3), 76.0)],
                  "S5", [(c, 11.9), (nx + 0.1, 12.0), (nx + 0.5, 12.6), (nx + 0.9, 14.6), (F(108.44), 20.0),
                         (F(113.9), 40.0)]))
     # the standard agent's own approval prompt: just IDs
@@ -148,15 +135,13 @@ def shots() -> list[tuple]:
     add(c, "R", ("wk2", "S13", [(F(113.9), 55.0), (F(119.3), 76.0)],
                  "S8", [(c, 24.0), (F(w("approve", 116.2)) + 0.2, 37.6)]))
     # the right one: open the link, approve with the passkey
-    c = gap_start(119.9) + 0.05
-    add(c, "R", ("wk2", "S14", [(c, 5.6), (c + 0.55, 7.4)], "S8", [(c, 37.6)]))
+    c = F(119.85)
+    add(c, "R", ("wk2", "S14", [(c, 5.6), (c + 0.55, 7.4)], "S8", [(c, 37.6), (c + 1, 37.6)]))
     c2 = c + 0.55
-    add(c2, "R", ("clip", "S14", [(c2, 7.5), (gap_end(119.9) + 0.2, 9.5), (F(w("approve", 120.6)) + 0.3, 12.2),
-                                  (F(w("now", 122.6)), 18.3), (gap_start(124.3), 19.3)]))
-    # someone changes Tom's account on Airwallex
-    c = gap_start(124.3) + 0.05
-    add(c, "L", ("clip", "S7", [(c, 5.3), (F(w("tom's", 125.36)) - 0.1, 11.7), (F(w("account", 126.34)), 13.4),
-                                (F(w("on", 127.52)), 17.0)]))
+    add(c2, "R", ("clip", "S14", [(c2, 7.4), (F(122.0), 12.2), (F(124.35), 19.3)]))
+    # someone changes Tom's account on Airwallex: the attacker's view, search, both Toms
+    c = F(124.35)
+    add(c, "L", ("clip", "S7", [(c, 10.8), (F(w("on", 127.52)), 17.0)]))
     # the left one approves: paid to the new account, can't cancel, no admin key
     c = F(w("on", 127.52)) - 0.05
     add(c, "R", ("wk2", "S15", [(c, 8.0), (F(143.31), 8.0), (F(144.68), 12.4), (gap_end(144.9), 13.4),
@@ -174,60 +159,25 @@ def shots() -> list[tuple]:
     add(c, "R", ("clip", "S14", [(c, 9.7), (on - 0.1, 11.4)]))
     # on Airwallex: the batch settled; Ringfence's run: nothing
     c = on - 0.1
-    add(c, "L", ("clip", "S18", [(c, 0.5), (F(w("both", 170.9)), 3.2), (gap_end(171.6) - 0.1, 5.3),
-                                 (F(173.58), 10.0), (gap_start(173.9) + 0.3, 12.0), (gap_end(173.9) - 0.05, 16.9),
-                                 (F(w("nothing", 175.28)), 18.2)]))
-    # close: the face over the gauntlet
+    add(c, "L", ("clip", "S18", [(c, 0.5), (F(176.3), 18.4)]))
+    # close: the live playground at full brightness, played through to "Thank you": the description, Ana's email,
+    # the three people it understood (Ana/Germany, Tom/UK, Mia/Australia), then the run and its map
     c = gap_end(176.3) - 0.12
-    add(c, "big", ("still", "S11", 27.0))
-    # the call to action on the live playground: Ana's email, the run, the graph
-    c = gap_end(192.6) - 0.1
-    add(c, "R", ("clip", "S12", [(c, 6.0), (F(w("try", 196.3)), 10.5), (gap_end(198.5) - 0.15, 28.5)]))
-    # thank you
-    add(gap_end(198.5) - 0.1, "big", ("still", "S12", 28.5))
+    add(c, "R", ("clip", "S12", [(c, 4.5), (TOTAL / FPS, 4.5 + (TOTAL / FPS - c))]))
     return S
 
 
 # ---------------------------------------------------------------- face + voice
-def face(jobs: int = 8) -> None:
+def face() -> None:
+    """The face and voice in one pass, straight through at 1.1x: no cuts, no pauses, no loops."""
     TMP.mkdir(parents=True, exist_ok=True)
-    crop = f"crop={2 * R}:{2 * R}:{CX - R}:{CY - R}"
-    common = ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "10", "-pix_fmt", "yuv420p", "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2"]
-
-    def run(i_u):
-        i, u = i_u
-        n = u["n1"] - u["n0"]
-        out = TMP / f"f{i:03d}.mkv"
-        if n <= 0:
-            return None
-        d = n / FPS
-        if u["kind"] == "speech" or u["hold"] == 0:
-            a, b = u["a"], u["a"] + (u["b"] - u["a"] if u["kind"] == "speech" else u["keep"])
-            fc = (f"[0:v]{crop},setpts=(PTS-STARTPTS)/{SPEED},fps={FPS},tpad=stop_mode=clone:stop_duration=1,trim=end_frame={n}[v];"
-                  f"[0:a]asetpts=PTS-STARTPTS,atempo={SPEED},apad,atrim=end={d:.6f},afade=t=in:d=0.006,afade=t=out:st={max(d - 0.006, 0):.6f}:d=0.006[a]")
-            cmd = ["-ss", f"{a:.3f}", "-t", f"{b - a + 0.2:.3f}", "-i", str(FACE)]
-        else:  # the real pause, then a slow ping-pong of it: an idle face and room tone
-            a, b = next((v for k, v in IDLE.items() if u["a"] <= k <= u["b"]), (u["a"] + 0.03, u["b"] - 0.03))
-            m = int(u["hold"] / (4 * (b - a))) + 2  # ping-pong passes (each is 2 x the idle stretch at half speed)
-            vs, as_ = "".join(f"[pp{j}]" for j in range(m)), "".join(f"[ap{j}]" for j in range(m))
-            fc = (f"[0:v]{crop},setpts=PTS-STARTPTS,trim=end={u['keep']:.4f},setpts=(PTS-STARTPTS)/{SPEED},fps={FPS}[k];"
-                  f"[1:v]{crop},setpts=2*(PTS-STARTPTS),fps={FPS},split[p][q];[q]reverse[r];[p][r]concat=n=2:v=1:a=0,split={m}{vs};"
-                  f"[k]{vs}concat=n={m + 1}:v=1:a=0,trim=end_frame={n}[v];"
-                  f"[0:a]asetpts=PTS-STARTPTS,atrim=end={u['keep']:.4f},atempo={SPEED}[ak];"
-                  f"[1:a]asetpts=PTS-STARTPTS,atempo=0.5,asplit[aa][aq];[aq]areverse[ar];[aa][ar]concat=n=2:v=0:a=1,asplit={m}{as_};"
-                  f"[ak]{as_}concat=n={m + 1}:v=0:a=1,atrim=end={d:.6f},afade=t=in:d=0.006,afade=t=out:st={max(d - 0.006, 0):.6f}:d=0.006[a]")
-            cmd = ["-ss", f"{u['a']:.3f}", "-t", f"{u['keep'] + 0.1:.3f}", "-i", str(FACE),
-                   "-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", str(FACE)]
-        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", *cmd, "-filter_complex", fc,
-                        "-map", "[v]", "-map", "[a]", *common, str(out)], check=True)
-        return out
-
-    outs = list(ThreadPoolExecutor(jobs).map(run, enumerate(UNITS)))
-    lst = TMP / "face.txt"
-    lst.write_text("".join(f"file '{p.as_posix()}'\n" for p in outs if p))
-    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lst),
-                    "-c", "copy", str(TMP / "face.mkv")], check=True)
-    print("face", TOTAL / FPS)
+    d = TOTAL / FPS
+    fc = (f"[0:v]crop={2 * R}:{2 * R}:{CX - R}:{CY - R},setpts=(PTS-STARTPTS)/{SPEED},fps={FPS},trim=end_frame={TOTAL}[v];"
+          f"[0:a]asetpts=PTS-STARTPTS,atempo={SPEED},atrim=end={d:.6f},afade=t=in:d=0.01,afade=t=out:st={d - 0.3:.6f}:d=0.3[a]")
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-ss", f"{SRC0:.3f}", "-t", f"{SRC1 - SRC0 + 0.5:.3f}",
+                    "-i", str(FACE), "-filter_complex", fc, "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast",
+                    "-crf", "10", "-pix_fmt", "yuv420p", "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2", str(TMP / "face.mkv")], check=True)
+    print("face", d)
 
 
 # ---------------------------------------------------------------- screen
@@ -260,6 +210,65 @@ def frame_at(clip: str, t: float) -> np.ndarray:
     return np.frombuffer(raw, np.uint8).reshape(H, 1920, 3).copy()
 
 
+def motion(clip: str, part: int = 0) -> np.ndarray:
+    """Changed pixels per frame (480x255 grey, taskbar cropped), cached. Index k = clip time k/FPS.
+    part 0 = whole screen, 1 = the left pane (x < 896), 2 = the right (week 2 shows each from a different take)."""
+    p = TMP / f"{clip}_motion3.npy"
+    if not p.exists():
+        pr = subprocess.Popen(["ffmpeg", "-hide_banner", "-loglevel", "error", "-t", "200", "-i", str(MAN / f"{clip}.mkv"), "-vf",
+                               f"fps={FPS},crop=1920:{H}:0:0,scale=480:255,format=gray", "-f", "rawvideo", "-"],
+                              stdout=subprocess.PIPE)
+        out, prev, sz = [(0, 0, 0)], None, 255 * 480
+        while len(raw := pr.stdout.read(sz)) == sz:  # streamed: some clips are 25+ minutes
+            f = np.frombuffer(raw, np.uint8).astype(np.int16).reshape(255, 480)
+            if prev is not None:
+                d = np.abs(f - prev) > 16
+                out.append((int(d.sum()), int(d[:, :224].sum()), int(d[:, 224:].sum())))
+            prev = f
+        pr.wait()
+        np.save(p, np.array(out))
+    return np.load(p)[:, part]
+
+
+MOVING = 12        # changed px (at 1/4 scale) that count as something moving; a blinking caret is below this
+UI_MAX = 1.25      # the fastest a moving cursor, window or page may play
+IDLE_MAX = 8.0     # the fastest a still screen may play (invisible: nothing moves)
+
+
+def warp(clip: str, anchors: list, part: int = 0) -> callable:
+    """Film time -> clip time through the anchors. Inside each segment, moving frames play near real speed and still
+    frames take up the slack, so a cursor never looks sped up. Returns the map and a report of motion speeds."""
+    m = motion(clip, part) > MOVING
+    segs = []
+    for (x0, y0), (x1, y1) in zip(anchors, anchors[1:]):
+        k0, k1 = round(y0 * FPS), max(round(y1 * FPS), round(y0 * FPS))
+        mv = m[min(k0, len(m) - 1):min(k1, len(m))]
+        M, I = mv.sum() / FPS, (len(mv) - mv.sum()) / FPS
+        D = x1 - x0
+        if k1 == k0 or D <= 0:
+            segs.append((x0, x1, y0, y1, None, 0.0))
+            continue
+        room = D - I / IDLE_MAX                                         # film time left for moving frames
+        sm = max(1.0, M / room) if M and room > 0.5 * D * M / (M + I) else (M + I) / D if M else 1.0
+        si = I / (D - M / sm) if I and D - M / sm > 1e-6 else sm
+        if M == 0:
+            sm, si = 1.0, I / D
+        # per-frame film durations, cumulative
+        dt = np.where(mv, 1 / (FPS * sm), 1 / (FPS * si))
+        dt *= D / dt.sum()
+        segs.append((x0, x1, y0, y1, np.r_[0, np.cumsum(dt)], sm if M else 0.0))
+
+    def f(t: float) -> float:
+        for x0, x1, y0, y1, cum, _ in segs:
+            if t <= x1:
+                if t <= x0 or cum is None:
+                    return y0
+                return min(y1, y0 + float(np.interp(t - x0, cum, np.arange(len(cum)))) / FPS)
+        return anchors[-1][1]
+    f.report = [(x0, x1, y0, y1, sm) for x0, x1, y0, y1, _, sm in segs]
+    return f
+
+
 def interp(anchors, t):
     xs, ys = zip(*anchors)
     return float(np.interp(t, xs, ys))
@@ -290,7 +299,7 @@ def screen(only: str = "") -> None:
     enc = subprocess.Popen(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
                             "-s", f"1920x{H}", "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "veryfast", "-crf", "12",
                             "-pix_fmt", "yuv420p", str(TMP / "screen.mkv")], stdin=subprocess.PIPE)
-    under = None
+    under, rep = None, []
     for i, (t, bub, spec) in enumerate(S):
         n0, n1 = cuts[i], cuts[i + 1]
         assert n1 > n0, (i, spec[:2])
@@ -302,34 +311,46 @@ def screen(only: str = "") -> None:
                 enc.stdin.write(img.tobytes())
             continue
         if kind == "clip":
-            an = spec[2]
-            r = Reader(spec[1], interp(an, n0 / FPS))
+            an = warp(spec[1], spec[2])
+            rep.append((i, spec[1], an.report))
+            r = Reader(spec[1], an(n0 / FPS))
             for n in range(n0, n1):
-                enc.stdin.write(r.get(interp(an, n / FPS)).tobytes())
+                enc.stdin.write(r.get(an(n / FPS)).tobytes())
             r.close()
         elif kind == "s16":
-            an = spec[1]
+            an = warp("S16", spec[1])
+            rep.append((i, "S16", an.report))
             if under is None:
                 under = frame_at("S1", 94.9)
                 under[795:845, 1078:1122] = frame_at("S0", 18.1)[795:845, 1078:1122]  # S1's own pointer, so only S16's shows
             bg = np.asarray(Image.open(MAN / "S16_bg.png").convert("RGB"))[:H].astype(np.int16)
-            r = Reader("S16", interp(an, n0 / FPS))
+            r = Reader("S16", an(n0 / FPS))
             for n in range(n0, n1):
-                f = r.get(interp(an, n / FPS))
+                f = r.get(an(n / FPS))
                 m = dilate(np.abs(f.astype(np.int16) - bg).max(2) > 14, 2)
                 enc.stdin.write(np.where(m[..., None], f, under).tobytes())
             r.close()
         elif kind == "wk2":
-            ab, ao = spec[2], spec[4]
-            rb, ro = Reader(spec[1], interp(ab, n0 / FPS)), Reader(spec[3], interp(ao, n0 / FPS))
+            ab, ao = warp(spec[1], spec[2], 2), warp(spec[3], spec[4], 1)
+            rep += [(i, spec[1], ab.report), (i, spec[3], ao.report)]
+            rb, ro = Reader(spec[1], ab(n0 / FPS)), Reader(spec[3], ao(n0 / FPS))
             for n in range(n0, n1):
-                f = rb.get(interp(ab, n / FPS)).copy()
-                f[NEW] = ro.get(interp(ao, n / FPS))[OLD]
+                f = rb.get(ab(n / FPS)).copy()
+                f[NEW] = ro.get(ao(n / FPS))[OLD]
                 enc.stdin.write(f.tobytes())
             rb.close(), ro.close()
         print(f"{i:2} {n0 / FPS:7.2f}-{n1 / FPS:7.2f} {bub:3} {kind} {spec[1]}", flush=True)
     enc.stdin.close()
     enc.wait()
+    speeds(rep)
+
+
+def speeds(rep) -> None:
+    """Moving-content speed per segment; anything a viewer would see as sped up is flagged."""
+    for i, clip, segs in rep:
+        for x0, x1, y0, y1, sm in segs:
+            if sm > UI_MAX:
+                print(f"FAST shot {i:2} {clip:4} film {x0:6.2f}-{x1:6.2f} clip {y0:6.2f}-{y1:6.2f} moving x{sm:.2f}")
 
 
 # ---------------------------------------------------------------- compose
@@ -383,6 +404,16 @@ if __name__ == "__main__":
         face()
     elif cmd == ["screen"]:
         screen()
+    elif cmd == ["pace"]:  # the speed report without rendering
+        rep = []
+        for i, (t, bub, spec) in enumerate(shots()):
+            if spec[0] == "clip":
+                rep.append((i, spec[1], warp(spec[1], spec[2]).report))
+            elif spec[0] == "s16":
+                rep.append((i, "S16", warp("S16", spec[1]).report))
+            elif spec[0] == "wk2":
+                rep += [(i, spec[1], warp(spec[1], spec[2], 2).report), (i, spec[3], warp(spec[3], spec[4], 1).report)]
+        speeds(rep)
     elif cmd in (["preview"], ["final"]):
         compose(cmd == ["final"])
     else:
