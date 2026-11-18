@@ -1,7 +1,7 @@
 # ABH Demo Day re-record: handoff (written 18 Nov 2026)
 
 ## The job
-Harsimar is re-recording the Ringfence video for **ABH Demo Day**. Dan Kim will review it first.
+Harsimar is re-recording the Ringfence video for **ABH Demo Day**. The organisers review the first version.
 
 This is a **new kind of video**. It is not the security-findings film (SPEAK_V10 / VIDEO_V11). It is a short walkthrough of the real product, with Harsimar's face in a small camera bubble.
 
