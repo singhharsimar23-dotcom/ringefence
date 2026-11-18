@@ -15,18 +15,13 @@ def phrases() -> list[str]:
     text = SCRIPT.read_text(encoding="utf-8").split("### 1.", 1)[1]
     out = []
     for line in text.splitlines()[1:]:
-        if line.startswith("### "):
-            out.append(f"— {line[3:].split('(')[0].strip()} —")
-        elif line.strip() and not line.startswith("("):
+        if line.strip() and not line.startswith(("###", "(")):
             out.append(line.strip())
     chunks = []
     for ln in out:
-        if ln.startswith("—"):
-            chunks.append(ln)
-            continue
         for part, mark in re.findall(r"\s*(.*?)\s*(//|/|$)", ln):
             if part:
-                chunks.append(part + ("   ‖" if mark == "//" else ""))  # ‖ = long pause
+                chunks.append(part)
     return chunks
 
 
@@ -51,7 +46,7 @@ def main() -> None:
 
     def show(d=0):
         i[0] = max(0, min(len(p) - 1, i[0] + d))
-        lab.config(text=p[i[0]], fg="#888" if p[i[0]].startswith("—") else "white")
+        lab.config(text=p[i[0]])
 
     for k in ("<space>", "<Right>", "<Down>", "<Button-1>"):
         r.bind(k, lambda e: show(1))
