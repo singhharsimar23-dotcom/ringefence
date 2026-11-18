@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
+import anyio.from_thread
 import httpx
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
@@ -45,7 +46,8 @@ INSTRUCTIONS = (
     "Ringfence runs payroll on Airwallex. Give run_payroll every file in the user's payroll folder, verbatim, including "
     "emails you think are suspicious: Ringfence decides what to trust. You cannot approve a run and no tool accepts bank "
     "details. After run_payroll, show the user the approval link: it is a page on this same Ringfence server, the one the "
-    "user connected you to. Once they say they approved, call release_payroll.")
+    "user connected you to. Once they say they approved, call release_payroll. "
+    "Report payments as a short table: name, amount, currency, account ending, state, transfer id.")
 
 
 # -- WebAuthn: passkey approval, verified with `cryptography` (no new dependency) ------------------------------------
@@ -206,6 +208,13 @@ def build(mgr: Manager, llm_factory=None) -> MCPServer:
         except Stop as e:
             raise ToolError(str(e)) from None
 
+    def step(ctx: Context, n: int, total: int, msg: str) -> None:
+        """A progress line the agent's UI shows while a tool runs. Best effort: never fails the tool."""
+        try:
+            anyio.from_thread.run(ctx.report_progress, n, total, msg)
+        except Exception:  # noqa: BLE001, S110 - no progress token, or not in a worker thread
+            pass
+
     def wait(w: World, until, timeout: float) -> dict:
         t0 = time.monotonic()
         while time.monotonic() - t0 < timeout:
@@ -229,6 +238,7 @@ def build(mgr: Manager, llm_factory=None) -> MCPServer:
         text = "\n\n".join(f"--- file: {name[:80]} ---\n{body}" for name, body in files.items())
         if len(text) > MAX_CHARS:
             raise ToolError(f"The files are too long together (over {MAX_CHARS} characters).")
+        step(ctx, 1, 4, f"Reading {len(files)} files")
         m_ = llm()
         d = draft(text, _Counted(m_, mgr.count_draft) if m_ else None)
         if not d.get("spec") or d.get("errors"):
@@ -253,6 +263,7 @@ def build(mgr: Manager, llm_factory=None) -> MCPServer:
             w = mgr.create(spec, "live" if mgr.live_available() else "fake", "mcp-" + secrets.token_hex(4), mcp=True)
         except PlayError as e:
             raise ToolError(e.detail) from None
+        step(ctx, 2, 4, "Opening the employer's own Airwallex account")
 
         def go() -> dict:
             t0 = time.monotonic()
@@ -261,10 +272,13 @@ def build(mgr: Manager, llm_factory=None) -> MCPServer:
                 time.sleep(1.0)
             if w.status != "ready":
                 raise Stop(w.error or "The Airwallex sandbox account did not open in time. Try again.")
+            step(ctx, 3, 4, "Checking each payee's bank account on Airwallex, pricing FX")
             call(w, "POST", "start", {"user": ""})
             wait(w, lambda st: settled(st["lanes"][SLOT]) and not st.get("agent_busy") or st.get("error"), 150)
+            step(ctx, 4, 4, "Ready for approval")
             return {**summary(w, public_base(ctx)), "notes": d.get("notes", []),
-                    "next": "Show the user approve_at. Only they can approve, with their passkey. Then call release_payroll."}
+                    "next": "Show the user a short table (name, amount, currency, account ending), anything flagged in one line "
+                            "each, then approve_at. Only they can approve, with their passkey. Then call release_payroll."}
         return guard(go)
 
     @m.tool()
@@ -284,7 +298,9 @@ def build(mgr: Manager, llm_factory=None) -> MCPServer:
                 return {**summary(w, base), "note": "Already sent. Nothing new was sent."}
             if state != "READY":
                 return summary(w, base)
+            step(ctx, 1, 2, "Re-reading every payee from Airwallex")
             call(w, "POST", "release", {"tenant": SLOT, "user": APPROVER})
+            step(ctx, 2, 2, "Done")
             return summary(w, base, since=st["head"])
         return guard(go)
 
@@ -339,7 +355,8 @@ def batch_fp(view: dict) -> str:
 
 def register(app: FastAPI, mgr: Manager, llm_factory=None) -> MCPServer:
     m = build(mgr, llm_factory)
-    sub = m.streamable_http_app(stateless_http=True, json_response=True,
+    sub = m.streamable_http_app(stateless_http=True,  # SSE, so progress lines reach the agent while a tool runs
+                                
                                 transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
     app.router.routes.extend(sub.routes)  # POST /mcp
     app.router.lifespan_context = lambda _app: m.session_manager.run()

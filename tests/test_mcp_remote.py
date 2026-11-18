@@ -52,10 +52,18 @@ def assertion(k, challenge, rp="testserver", flags=0x05, origin="https://testser
     return {"challenge": challenge, "id": "cred-1", "clientDataJSON": b64u(cdj), "authenticatorData": b64u(ad), "signature": b64u(sig)}
 
 
-def tool(c, name, **args):
-    r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": args}},
+def rpc(c, method, params=None) -> list[dict]:
+    """Every JSON-RPC message on the SSE stream: progress notifications, then the result."""
+    r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}},
                headers={"accept": "application/json, text/event-stream"})
-    res = r.json()["result"]
+    return [json.loads(ln[5:]) for ln in r.text.splitlines() if ln.startswith("data:")]
+
+
+def tool(c, name, progress=None, **args):
+    msgs = rpc(c, "tools/call", {"name": name, "arguments": args, **({"_meta": {"progressToken": 7}} if progress is not None else {})})
+    if progress is not None:
+        progress += [m["params"]["message"] for m in msgs if m.get("method") == "notifications/progress"]
+    res = msgs[-1]["result"]
     text = res["content"][0]["text"]
     return res.get("isError", False), (text if res.get("isError") else json.loads(text))
 
@@ -76,12 +84,13 @@ def world_app(awx, L, tmp_path, monkeypatch):
 
 def test_agent_runs_payroll_but_only_a_passkey_approves(world_app):
     c, m = world_app
-    r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, headers={"accept": "application/json, text/event-stream"})
-    names = {t["name"] for t in r.json()["result"]["tools"]}
+    names = {t["name"] for t in rpc(c, "tools/list")[-1]["result"]["tools"]}
     assert names == {"run_payroll", "release_payroll", "payroll_status", "payroll_proof"}  # no approve tool, no bank input
 
-    err, run = tool(c, "run_payroll", files=FILES)
+    seen = []
+    err, run = tool(c, "run_payroll", progress=seen, files=FILES)
     assert not err, run
+    assert seen[0] == "Reading 3 files" and seen[-1] == "Ready for approval", seen  # the agent's UI shows each step
     wid = run["run_id"]
     assert run["state"] == "AWAITING_APPROVAL" and run["approve_at"].endswith(f"/approve/{wid}")
     assert run["bank"].startswith("[SIMULATED]") and {p["name"] for p in run["payments"]} == {"Ana Silva", "Tom Reid"}
