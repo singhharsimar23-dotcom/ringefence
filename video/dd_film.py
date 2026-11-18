@@ -21,7 +21,7 @@ from PIL import Image
 V = Path(__file__).resolve().parent
 DD, MAN, TMP = V / "out" / "dd", V / "out" / "dd" / "manual", V / "out" / "dd" / "film"
 FACE = DD / "face_cfr.mov"
-FPS, SPEED = 30, 1.1
+FPS, SPEED = 30, 1.05
 GAP_MAX = 1e9             # pauses are never trimmed: the face plays straight through
 SRC0, SRC1 = 1.62, 200.25  # voice in/out: a breath before "Every", a beat after "Thank you."
 CX, CY, R = 260, 582, 246
@@ -166,7 +166,10 @@ def shots() -> list[tuple]:
     # close: the live playground at full brightness, played through to "Thank you": the description, Ana's email,
     # the three people it understood (Ana/Germany, Tom/UK, Mia/Australia), then the run and its map
     c = gap_end(176.3) - 0.12
-    add(c, "R", ("clip", "S12", [(c, 4.5), (TOTAL / FPS, 4.5 + (TOTAL / FPS - c))]))
+    end, ty = TOTAL / FPS, F(w("thank", 198.74)) - 0.25
+    add(c, "R", ("clip", "S12", [(c, 4.5), (end, 4.5 + (end - c))]))
+    # "Thank you": the big face, as in the open, over the same playground still playing (darkened)
+    add(ty, "big", ("clip", "S12", [(ty, 4.5 + (ty - c)), (end, 4.5 + (end - c))]))
     return S
 
 
@@ -318,7 +321,8 @@ def screen(only: str = "") -> None:
             rep.append((i, spec[1], an.report))
             r = Reader(spec[1], an(n0 / FPS))
             for n in range(n0, n1):
-                enc.stdin.write(r.get(an(n / FPS)).tobytes())
+                img = r.get(an(n / FPS))
+                enc.stdin.write((dark(img) if bub == "big" else img).tobytes())
             r.close()
         elif kind == "s16":
             an = warp("S16", spec[1])
