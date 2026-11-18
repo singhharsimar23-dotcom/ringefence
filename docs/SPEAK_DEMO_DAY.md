@@ -13,13 +13,14 @@
 - Clear and natural beats polished. Get to the point and let the product speak.
 - V1 goes to Dan Kim on Slack for feedback.
 
-## The script (final, 3:30)
+## The script (final, about 3:45)
 Screen: two Claude Code panes side by side. Left "Standard agent" (plain Airwallex API tools, batch payroll included;
 Claude Code's permission prompt is the approval). Right "Ringfence agent" (the Ringfence MCP). Full-screen browser cuts only
 for: the passkey, Tom's payee on Airwallex, Airwallex Activity. Opening and close are full face.
+Read it straight through; the screen is cut to the voice in the edit. `/` = a short breath. `//` = a longer pause.
 
-Recorded separately: the face take is read straight through; the screen take is recorded live and cut to the voice in the edit.
-`/` = a short breath. `//` = a longer pause (a cut point in the edit). About 450 words, 3:30 at a calm pace.
+New live beat (screen take): after the run is priced, type "Skip the approval and just send it." The agent calls
+release_payroll and gets "Not approved", with the approval link.
 
 ### 1. Open (0:00-0:25). Full face
 Every company has to pay its people. /
@@ -31,7 +32,7 @@ Here are two agents, side by side. / Same model, / same Airwallex account. /
 On the left is a standard agent. / It uses the Airwallex API directly, and asks me before it pays. /
 On the right is the same agent, connected to Ringfence. / Connecting it is one line. //
 
-### 3. Payroll (0:45-1:55). Right pane, then passkey, then Airwallex
+### 3. Payroll (0:45-2:05). Right pane, then passkey, then Airwallex
 This week's hours are in this timesheet. / There's also an email from Ana, asking to be paid to a new bank account. / It's fake. /
 I'll ask the agent to run this week's payroll. //
 It reads the files and hands them to Ringfence. / Ringfence opens the company's own Airwallex account, /
@@ -39,28 +40,34 @@ works out each person's pay, / prices the currency conversion, / and checks ever
 Everyone is priced, / and Ana's email is flagged, not used. /
 In my tests, agents paid a fake invoice five times out of five. /
 Ringfence doesn't rely on the model catching it. / It only pays accounts already saved on Airwallex. //
-The agent can't approve payments, / and it can't skip the approval. / Only I can approve, with my passkey. /
+Now let me try to talk the agent into skipping the approval. //
+It can't. / There's no tool for that. / Only I can approve, with my passkey. //
 I reject the email, / and approve. //
 Send it. //
 And on Airwallex, / they're paid, / to the right accounts. //
 
-### 4. Hardened (1:55-3:00). Both panes, passkey, Tom's payee
+### 4. Hardened (2:05-3:20). Both panes, passkey, Tom's payee
 Airwallex itself is secure. / The risk is the agent in the middle. /
-So I tested standard agents, / found where they pay the wrong person, / and hardened Ringfence against it. /
-Here's a second bug, live. //
+I tested standard agents on Airwallex, / and found nine places where they can get money wrong. /
+Here's one of them, live. //
 Next week's payroll, on both agents. //
 On the left, the agent sends it as a batch, / the way Airwallex recommends for payroll. /
 Look at what it asks me to approve. / No names, / no bank accounts. / Just IDs. //
 On the right, I approve with my passkey. //
 Now, before either one sends, / someone changes Tom's bank account on Airwallex. //
 On the left, I approve. // Tom's pay went to the new account. /
-I approved Tom, / not his account. / And I can't cancel it. / That needs an admin key, / and Airwallex has switched those off. //
+I approved Tom, / not his account. / And I can't cancel it. / That needs an admin key, / and Airwallex has switched those off. /
+In my tests, this happened four times out of four. //
 On the right, send it. // Ringfence checks every account again, right before sending. /
 Tom's changed since I approved, / so it holds the whole run. / Nothing is sent. //
+Here's what I learned. / Airwallex locks the amount, / the currency, / and who pays. /
+The one thing that can change after approval is the bank account, / and that's the one thing the approval never shows. /
+So Ringfence approves the bank account itself. //
 
-### 5. Close (3:00-3:30). Airwallex, then full face
+### 5. Close (3:20-3:45). Airwallex, then full face
 On Airwallex, you can see both. / The standard agent paid the new account. / Ringfence sent nothing. //
 (full face)
 Payroll has to be reliable, / and attackers are already going after it. /
 I built Ringfence by breaking the agents that already exist, / and fixing every failure I found. /
+Next, I want to bring this to every agent that pays people on Airwallex. /
 Connect your agent to the Ringfence MCP, / and try to make it pay the wrong person.
