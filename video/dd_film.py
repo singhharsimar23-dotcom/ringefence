@@ -149,6 +149,8 @@ def shots() -> list[tuple]:
                                 (F(154.34), 28.5)],
                  "S8", [(c, 37.6), (F(w("approve", 128.22)) + 0.2, 38.0), (F(128.52) + 0.3, 40.0),
                         (F(130.68), 50.5), (F(131.23), 52.0), (F(134.94), 68.0), (F(135.64), 72.0),
+                        # skip 81.5-91.6: the take alt-tabs to the IDE; both ends show the same text, cursor off-pane
+                        (sk := F(135.64) + (F(142.66) - F(135.64)) * 9.5 / 24.9, 81.5), (sk, 91.6),
                         (F(142.66), 107.0)]))
     # what I learnt
     c = gap_start(154.6) + 0.1
