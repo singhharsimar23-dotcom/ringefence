@@ -5,11 +5,11 @@
 **Multi-Employer Payroll Executor: deadline-aware, fund-isolated payroll runs on Airwallex.**
 Airwallex Agentic Banking Hackathon, Kit 06. Airwallex sandbox, with optional on-chain funding on the Metal testnet.
 
-[Live demo](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) ·
-[Video 1: Security findings, the full walkthrough](https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing) ·
-[Video 2: Used on Claude MCP, the agent live](https://youtu.be/QnPQ9EYWWQQ) · 
-[Ringfence MCP](#ringfence-mcp-any-agent-a-person-approves) · 
-[Findings report](FINDINGS.md) · 
+[Live demo](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) ..........
+[Video 1: Security findings, the full walkthrough](https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing) ..........
+[Video 2: Used on Claude MCP, the agent live](https://youtu.be/QnPQ9EYWWQQ) ..........
+[Ringfence MCP](#ringfence-mcp-any-agent-a-person-approves) ..........
+[Findings report](FINDINGS.md) ..........
 [Live run proof](#proof-a-live-run-on-airwallex)
 
 ![A live payroll run on the Airwallex sandbox, shown as a map: documents, AI agent, code checks, approval, Airwallex, verified payees](docs/img/run-map.png)
