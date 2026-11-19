@@ -63,8 +63,21 @@ Same model, same Airwallex account, same payroll. Between approval and sending, 
 
 ## How it works
 
+**Approval and bank details**
+- The approver signs a SHA-256 hash of the run, employer, round and every line including its request ID. It expires after 2 hours ([mandate.py](ringfence/mandate.py#L109), [gate.py](ringfence/gate.py#L167)).
+- Bank details are fingerprinted at approval and re-read from Airwallex before release. The run is held if they changed ([beneficiaries.py](ringfence/beneficiaries.py#L131)). Closes [F1](FINDINGS.md#f1-approval-swap).
+- Each transfer carries the approved bank details inline, not an editable payee ID ([executor.py](ringfence/executor.py#L206)). It is read back after creation and cancelled if it points anywhere else ([orchestrator.py](ringfence/orchestrator.py#L187)). Closes [F1](FINDINGS.md#f1-approval-swap) and [F5](FINDINGS.md#f5-batch-payroll).
+- A bank change from an email is quarantined until an approver confirms it by phone callback. Whoever edited a payee can't approve that payee's payment ([beneficiaries.py](ringfence/beneficiaries.py#L204)). Closes [F2](FINDINGS.md#f2-bank-change-from-an-email).
+
+**Exactly once**
+- The request ID is `sha256(run, employer, contractor, attempt)`, minted once and stored before the first call. The amount is not part of it ([mandate.py](ringfence/mandate.py#L115)).
+- After a timeout, Ringfence never resends. It looks the payment up by request ID and adopts it only if payee, amount and currency match. Otherwise it holds the line (`DUPLICATE_MISMATCH`) ([executor.py](ringfence/executor.py#L258)). Closes [F4](FINDINGS.md#f4-a-retry-pays-twice).
+- Before release, it asks Airwallex whether each line was already paid, which catches a lost database ([orchestrator.py](ringfence/orchestrator.py#L173)).
+- A payout that fails after `PAID` becomes `RETURNED`: its fee is credited back and paying again needs a new approval ([executor.py](ringfence/executor.py#L304)).
+- A webhook only prompts a re-fetch of the transfer, after its [signature](https://www.airwallex.com/docs/developer-tools/webhooks/listen-for-webhook-events.md#check-webhook-signatures) is checked ([webhooks.py](ringfence/webhooks.py#L32)).
+
 **Fund isolation**
-- One login per employer: each token is logged in as that account only (`x-login-as`), chosen by code, never by the model ([awx.py](ringfence/awx.py#L85)).
+- One login per employer: each token is logged in as that account only (`x-login-as`), chosen by code, never by the model ([awx.py](ringfence/awx.py#L85)). Closes [F3](FINDINGS.md#f3-the-node-sdk-shares-one-login).
 - An HMAC-signed mandate per employer sets allowed contractors, currencies, per-payment and per-run caps, FX rate band, approver and expiry ([mandate.py](ringfence/mandate.py#L33)).
 - The release gate is a pure function (no I/O, clock or model) with 25 refusal codes, such as `TENANT_MISMATCH`, `INSUFFICIENT_OWN_FUNDS`, `BENEFICIARY_IS_OTHER_TENANT_ACCOUNT` and `OVER_RUN_CAP`. A missing cap is a refusal ([gate.py](ringfence/gate.py#L87)).
 - No pooled funds: funds are checked against this employer's balance only, and FX sells only this employer's spare currency ([fx.py](ringfence/fx.py#L47)).
@@ -76,29 +89,14 @@ Same model, same Airwallex account, same payroll. Between approval and sending, 
 - A deposit counts only if the reference, global account, currency and status all match. Several deposits add up, the run re-prices and resumes by itself, and a reversed deposit reopens the request ([funding.py](ringfence/funding.py#L69)). `ACCEPT_PENDING` decides whether pending deposits count ([funding.py](ringfence/funding.py#L25)).
 - `OVERDUE` and `IN_APPROVAL` transfers are tracked to completion and count as not yet debited ([executor.py](ringfence/executor.py#L167)).
 
-**Approval and bank details**
-- The approver signs a SHA-256 hash of the run, employer, round and every line including its request ID. It expires after 2 hours ([mandate.py](ringfence/mandate.py#L109), [gate.py](ringfence/gate.py#L167)).
-- Bank details are fingerprinted at approval and re-read from Airwallex before release. The run is held if they changed ([beneficiaries.py](ringfence/beneficiaries.py#L131)).
-- Each transfer carries the approved bank details inline, not an editable payee ID ([executor.py](ringfence/executor.py#L206)). It is read back after creation and cancelled if it points anywhere else ([orchestrator.py](ringfence/orchestrator.py#L187)).
-- A bank change from an email is quarantined until an approver confirms it by phone callback. Whoever edited a payee can't approve that payee's payment ([beneficiaries.py](ringfence/beneficiaries.py#L204)).
-
-**Exactly once**
-- The request ID is `sha256(run, employer, contractor, attempt)`, minted once and stored before the first call. The amount is not part of it ([mandate.py](ringfence/mandate.py#L115)).
-- After a timeout, Ringfence never resends. It looks the payment up by request ID and adopts it only if payee, amount and currency match. Otherwise it holds the line (`DUPLICATE_MISMATCH`) ([executor.py](ringfence/executor.py#L258)).
-- Before release, it asks Airwallex whether each line was already paid, which catches a lost database ([orchestrator.py](ringfence/orchestrator.py#L173)).
-- A payout that fails after `PAID` becomes `RETURNED`: its fee is credited back and paying again needs a new approval ([executor.py](ringfence/executor.py#L304)).
-- Webhooks are checked in constant time against the [documented signature](https://www.airwallex.com/docs/developer-tools/webhooks/listen-for-webhook-events.md#check-webhook-signatures) (HMAC-SHA256 of `x-timestamp` + body) and treated as hints. The transfer is always re-fetched ([webhooks.py](ringfence/webhooks.py#L32)).
-
 **Proof and audit**
-- Append-only, hash-chained SQLite ledger. Triggers block `UPDATE` and `DELETE` ([ledger.py](ringfence/ledger.py#L45)).
-- Each transfer carries the ledger head (`rf_seq`, `rf_hash`) in its Airwallex metadata, so a rewritten ledger no longer matches Airwallex ([executor.py](ringfence/executor.py#L206)).
+- The ledger is append-only and hash-chained (triggers block `UPDATE` and `DELETE`), and its head (`rf_seq`, `rf_hash`) goes into each transfer's Airwallex metadata, so a rewritten ledger no longer matches Airwallex ([ledger.py](ringfence/ledger.py#L45), [executor.py](ringfence/executor.py#L206)).
 - A separate verifier with no LLM reads each employer's transfers with its own token and runs 10 checks, including a live cross-employer `401` probe ([verify.py](ringfence/verify.py#L108)). It issues one Ed25519 certificate per employer, verifiable offline ([verify.py](ringfence/verify.py#L63)).
 
 **Agent and integrations**
 - Claude Sonnet 5.5 runs the agent and Claude Haiku 5.5 reads the files an MCP agent sends (`RF_MODEL`, `RF_DRAFT_MODEL`).
 - The agent's 10 tools only read or propose. The employer is fixed by the harness, and every input is validated, then checked by the gate ([agent/tools.py](ringfence/agent/tools.py#L79)).
 - Two MCP servers, and neither has an approve tool, so a person always signs. The [remote one](#ringfence-mcp-any-agent-a-person-approves) (`/mcp`, any agent, passkey approval) offers `run_payroll`, `release_payroll`, `payroll_status` and `payroll_proof` ([mcp_remote.py](ringfence/mcp_remote.py)). The local one offers `get_status`, `price_run`, `propose_run`, `request_release` and `certificate` ([mcp_server.py](ringfence/mcp_server.py)).
-- A per-payout platform fee is collected from each employer and credited back if a payout returns ([fees.py](ringfence/fees.py#L42)).
 
 ## Proof: a live run on Airwallex
 
