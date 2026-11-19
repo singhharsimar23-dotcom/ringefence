@@ -21,11 +21,11 @@ from PIL import Image
 V = Path(__file__).resolve().parent
 DD, MAN, TMP = V / "out" / "dd", V / "out" / "dd" / "manual", V / "out" / "dd" / "film"
 FACE = DD / "face_cfr.mov"
-FPS, SPEED = 30, 1.05
+FPS, SPEED = 30, 1.02
 GAP_MAX = 1e9             # pauses are never trimmed: the face plays straight through
-SRC0, SRC1 = 1.62, 200.25  # voice in/out: a breath before "Every", a beat after "Thank you."
+SRC0, SRC1 = 1.62, 200.3   # voice in/out: a breath before "Every", a calm beat after "Thank you." (Loom's toolbar starts creeping into the circle at ~200.5)
 CX, CY, R = 260, 582, 246
-BIG, SMALL = 720, 170
+BIG, SMALL = 720, 200
 VOICE = "highpass=f=80,afftdn=nf=-25,acompressor=threshold=-18dB:ratio=3:attack=5:release=80,loudnorm=I=-16:TP=-1.5:LRA=11"
 H = 1020  # screen height after the taskbar crop
 
@@ -166,7 +166,7 @@ def shots() -> list[tuple]:
     # close: the live playground at full brightness, played through to "Thank you": the description, Ana's email,
     # the three people it understood (Ana/Germany, Tom/UK, Mia/Australia), then the run and its map
     c = gap_end(176.3) - 0.12
-    end, ty = TOTAL / FPS, F(w("thank", 198.74)) - 0.25
+    end, ty = TOTAL / FPS, F(w("connect", 193.32)) - 0.2   # the big face from "connect your agent" through "Thank you"
     add(c, "R", ("clip", "S12", [(c, 4.5), (end, 4.5 + (end - c))]))
     # "Thank you": the big face, as in the open, over the same playground still playing (darkened)
     add(ty, "big", ("clip", "S12", [(ty, 4.5 + (ty - c)), (end, 4.5 + (end - c))]))
