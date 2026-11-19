@@ -101,7 +101,7 @@ Same model, same Airwallex account, same payroll. Between approval and sending, 
 
 ## Proof: a live run on Airwallex
 
-Run `20261114-53jrfe` (pay date 14 Nov 2026), executed 11 Nov 2026 at 01:39 UTC through the public demo. The accounts are our sandbox, so the IDs are checkable by us. The certificates below are the check you can run yourself.
+Run `20261114-53jrfe` (pay date 14 Nov 2026), executed 11 Nov 2026 at 01:39 UTC through the public demo. Every ID can be looked up in the matching Airwallex sandbox account.
 
 | Account | ID | Pays in |
 |---|---|---|
@@ -166,7 +166,7 @@ make check         # lint + offline tests
 - **Live sandbox:** set `AWX_CLIENT_ID`, `AWX_API_KEY`, `AWX_BASE_URL`, `AWX_PLATFORM_ACCOUNT` and `AWX_EMPLOYER_A/B/C` (never commit them), then run `uv run python -m ringfence.setup_demo` and `make demo`. Set `ANTHROPIC_API_KEY` to use Claude instead of the scripted agent.
 - **Metal:** set `RF_METAL=1`, `METAL_RPC_URL` and `METAL_RPC_SECRET`, then run `python scripts/metal_setup.py` once.
 - **MCP:** the live server is [one line](#ringfence-mcp-any-agent-a-person-approves). To run the local one offline: `claude mcp add ringfence -- uv run python -m ringfence.mcp_server --backend fake`
-- **Embed the engine in your own code:** [examples/embed.py](examples/embed.py) prices a run, has a named person approve it, sends it and verifies it in about 15 lines, offline (it is a test). Swap `build_backend("fake")` for `"live"` to use the sandbox. Any MCP agent can skip code and use the [one-line connect](#ringfence-mcp-any-agent-a-person-approves). Read-only HTTP routes (proof, certificates, ledger, recheck a transfer) are in [docs/API.md](docs/API.md).
+- **Embed the engine in your own code:** [examples/embed.py](examples/embed.py) prices a run, has a named person approve it, sends it and verifies it in about 15 lines, offline (it is a test). Swap `build_backend("fake")` for `"live"` to use the sandbox. Any MCP agent can skip code and use the [one-line connect](#ringfence-mcp-any-agent-a-person-approves).
 - **Findings:** `uv run python scripts/breakit.py [approval|batch|retry]` reproduces them on your own sandbox accounts.
 - **Demo walkthrough:** open **Three employers** and press **Run Friday payroll**. Kestrel pays, Northwind waits for approval, and Harbour is short of AUD. Approve Northwind, fund Harbour (deposit or Metal), approve it, then try **Try to break it** and **Proof**.
 
