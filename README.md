@@ -5,7 +5,7 @@
 **Multi-Employer Payroll Executor: deadline-aware, fund-isolated payroll runs on Airwallex.**
 Airwallex Agentic Banking Hackathon, Kit 06. Airwallex sandbox, with optional on-chain funding on the Metal testnet.
 
-[Live demo](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) · [Video: Agent live on Claude with the Ringfence MCP](https://youtu.be/QnPQ9EYWWQQ) · [Ringfence MCP](#ringfence-mcp-any-agent-a-person-approves) · [Earlier video: security findings](https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing) · [Findings report](FINDINGS.md) · [Live run proof](#proof-a-live-run-on-airwallex)
+[Live demo](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) · [Video 1: Security findings, the full walkthrough](https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing) · [Video 2: Used on Claude MCP, the agent live](https://youtu.be/QnPQ9EYWWQQ) · [Ringfence MCP](#ringfence-mcp-any-agent-a-person-approves) · [Findings report](FINDINGS.md) · [Live run proof](#proof-a-live-run-on-airwallex)
 
 ![A live payroll run on the Airwallex sandbox, shown as a map: documents, AI agent, code checks, approval, Airwallex, verified payees](docs/img/run-map.png)
 
@@ -51,7 +51,7 @@ Any MCP client can run payroll through Ringfence. Connecting is one line, with n
 claude mcp add --transport http ringfence https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com/mcp
 ```
 
-The agent reads the payroll folder and hands the files over, verbatim, even the suspicious email. Code reads them, prices the run on the employer's own Airwallex sandbox account and checks every bank account against what is saved on Airwallex. A person approves on a web page with a passkey. Then the agent sends exactly what was approved. **[Watch it live on Claude](https://youtu.be/QnPQ9EYWWQQ)**.
+The agent reads the payroll folder and hands the files over, verbatim, even the suspicious email. Code reads them, prices the run on the employer's own Airwallex sandbox account and checks every bank account against what is saved on Airwallex. A person approves on a web page with a passkey. Then the agent sends exactly what was approved. **[Video 2: watch it used on Claude MCP](https://youtu.be/QnPQ9EYWWQQ)**.
 
 - **Four tools:** `run_payroll`, `release_payroll`, `payroll_status` and `payroll_proof` ([mcp_remote.py](ringfence/mcp_remote.py)).
 - **No approve tool, and no tool takes bank details.** Asked to skip the approval, the agent gets "Not approved" and the approval link. The email's new bank account is flagged and never used.
