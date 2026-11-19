@@ -57,3 +57,9 @@ artifacts/
 /docs/img/chain.png
 /docs/img/proof.png
 /docs/TRY_IT_HANDOFF.md
+/docs/DEMO.md
+/docs/DEMO_DAY_HANDOFF.md
+/docs/SPEAK_DEMO_DAY.md
+/docs/VIDEO_DEMO_DAY_HANDOFF.md
+/docs/VIDEO_SONNET_HANDOFF.md
+/demo/prompter.py
