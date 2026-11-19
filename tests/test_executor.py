@@ -297,7 +297,6 @@ def test_a_transfer_in_approval_is_reserved_against_the_next_run(awx, fake, L, e
 
 
 def test_a_transfer_found_by_request_id_that_differs_from_the_line_is_held_not_adopted(awx, fake, L, ex):
-    from ringfence import beneficiaries as ben
     new_run(awx, L, "kestrel", {"noah": D(10)})
     ln = lines(L, "kestrel")["noah"]
     awx.for_tenant("kestrel").post("/transfers/create", {  # someone with the API key got there first, with another amount

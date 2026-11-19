@@ -3,7 +3,6 @@ import sqlite3
 from decimal import Decimal as D
 
 import pytest
-from helpers import acct
 
 from ringfence import __main__ as cli
 from ringfence import beneficiaries as ben
@@ -38,8 +37,6 @@ def test_isolation_report_passes_and_certificates_verify(world, awx, L):
 
 
 def test_a_transfer_with_no_ledger_intent_fails_that_tenant_only(world, awx, fake, L):
-    kes = fake.accounts[acct("kestrel")]
-    some = next(iter(kes.transfers.values()))
     rogue = awx.for_tenant("kestrel").post("/transfers/create", {
         "request_id": "rogue-not-in-ledger-0001", "beneficiary_id": next(iter(ben.load_registry()["tenants"]["kestrel"]["beneficiaries"].values())), "transfer_amount": D("1.00"),
         "transfer_currency": "USD", "source_currency": "USD", "transfer_method": "LOCAL", "reason": "x"})

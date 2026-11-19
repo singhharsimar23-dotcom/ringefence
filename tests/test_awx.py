@@ -120,6 +120,7 @@ def test_transfer_by_request_drops_rows_a_backend_did_not_filter():
 
 def test_the_ca_transfer_spelling_of_a_duplicate_request_id_is_adopted_like_the_transfers_one():
     import httpx
+
     from ringfence.awx import AwxError, _raise_for
     r = httpx.Response(400, json={"code": "request_id_duplicate", "message": "used", "details": {"source_id": "tr_1", "source_type": "transfer_id"}})
     try:

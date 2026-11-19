@@ -1,6 +1,6 @@
 # Ringfence
 
-[![Live demo](https://img.shields.io/badge/live%20demo-online-111?style=flat-square)](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) [![Airwallex](https://img.shields.io/badge/Airwallex-sandbox-111?style=flat-square)](https://www.airwallex.com/docs) [![Claude](https://img.shields.io/badge/Claude-Sonnet-111?style=flat-square&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude) ![Python](https://img.shields.io/badge/Python-3.12+-111?style=flat-square&logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-111?style=flat-square&logo=fastapi&logoColor=white) ![Tests](https://img.shields.io/badge/offline%20tests-470%20passing-111?style=flat-square) ![Hackathon](https://img.shields.io/badge/Airwallex%20hackathon-Kit%2006-111?style=flat-square)
+[![Live demo](https://img.shields.io/badge/live%20demo-online-111?style=flat-square)](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) [![Airwallex](https://img.shields.io/badge/Airwallex-sandbox-111?style=flat-square)](https://www.airwallex.com/docs) [![Claude](https://img.shields.io/badge/Claude-Sonnet-111?style=flat-square&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude) ![Python](https://img.shields.io/badge/Python-3.12+-111?style=flat-square&logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-111?style=flat-square&logo=fastapi&logoColor=white) ![Tests](https://img.shields.io/badge/offline%20tests-472%20passing-111?style=flat-square) ![Hackathon](https://img.shields.io/badge/Airwallex%20hackathon-Kit%2006-111?style=flat-square)
 
 **Multi-Employer Payroll Executor: deadline-aware, fund-isolated payroll runs on Airwallex.**
 Airwallex Agentic Banking Hackathon, Kit 06. Airwallex sandbox, with optional on-chain funding on the Metal testnet.
@@ -59,7 +59,7 @@ The agent reads the payroll folder and hands the files over, verbatim, even the 
 
 ![Left: a standard agent on the Airwallex API approved a batch, and Tom's pay went to his changed account, which it could not cancel. Right: the Ringfence agent re-read the payees and held the whole run](docs/img/mcp-compare.png)
 
-Same model, same Airwallex account, same payroll. Between approval and sending, Tom's bank account was changed on Airwallex. On the left, the standard agent approved a batch of IDs, with no names or bank accounts, and Tom's pay went to the new account (`99999901`). The cancel failed with `401`, since it needs an admin key and Airwallex has switched those off. On the right, Ringfence held the run and nothing was sent. The standard agent's batch hit this 4 times out of 4 ([F5](FINDINGS.md#f5-batch-payroll)). The left and right panes are two takes of the same demo, shown side by side as in the video ([dd_compare.py](video/dd_compare.py)).
+Same model, same Airwallex account, same payroll. Between approval and sending, Tom's bank account was changed on Airwallex. On the left, the standard agent approved a batch of IDs, with no names or bank accounts, and Tom's pay went to the new account (`99999901`). The batch cancel failed with `401 Admin permissions required`, and Airwallex has switched admin keys off. On the right, Ringfence held the run and nothing was sent. The standard agent's batch hit this 4 times out of 4 ([F5](FINDINGS.md#f5-batch-payroll)). The left and right panes are two takes of the same demo, shown side by side as in the video ([dd_compare.py](video/dd_compare.py)).
 
 ## How it works
 
@@ -68,7 +68,7 @@ Same model, same Airwallex account, same payroll. Between approval and sending, 
 - An HMAC-signed mandate per employer sets allowed contractors, currencies, per-payment and per-run caps, FX rate band, approver and expiry ([mandate.py](ringfence/mandate.py#L33)).
 - The release gate is a pure function (no I/O, clock or model) with 25 refusal codes, such as `TENANT_MISMATCH`, `INSUFFICIENT_OWN_FUNDS`, `BENEFICIARY_IS_OTHER_TENANT_ACCOUNT` and `OVER_RUN_CAP`. A missing cap is a refusal ([gate.py](ringfence/gate.py#L87)).
 - No pooled funds: funds are checked against this employer's balance only, and FX sells only this employer's spare currency ([fx.py](ringfence/fx.py#L47)).
-- **Why separate accounts, not connected accounts.** The sandbox blocks connected-account onboarding ("This account cannot onboard business/individual accounts"), so each employer is its own account in one organisation, reached by one scoped key. Isolation is the same (own balances, payees and global accounts; cross-account calls refused). The risk is also the same, since one key reaches every employer, so isolation rests on code. Switching to connected accounts changes only [`TenantClient._login`](ringfence/awx.py#L85): log in as the platform and add `x-on-behalf-of`.
+- **Why separate accounts, not connected accounts.** The sandbox blocks connected-account onboarding ("This account cannot onboard business/individual accounts"), so each employer is its own account in one organisation, reached by one scoped key. Isolation is the same (own balances, payees and global accounts; cross-account calls refused). The risk is also the same, since one key reaches every employer, so isolation rests on code. Switching to connected accounts changes only [`TenantClient._login`](ringfence/awx.py#L85): log in as the platform and add `x-on-behalf-of`. The login page documents [`x-login-as`](https://www.airwallex.com/docs/api/authentication/api_access_token/login.md) for keys linked to several accounts.
 
 **Deadline-aware funding**
 - Act-by time is the currency's bank cut-off on pay day minus 2 hours, shown in the employer's timezone (AUD 11:00 Sydney, GBP 12:00 London, EUR 12:00 Berlin, USD 15:00 New York) ([funding.py](ringfence/funding.py#L29)).
@@ -87,7 +87,7 @@ Same model, same Airwallex account, same payroll. Between approval and sending, 
 - After a timeout, Ringfence never resends. It looks the payment up by request ID and adopts it only if payee, amount and currency match. Otherwise it holds the line (`DUPLICATE_MISMATCH`) ([executor.py](ringfence/executor.py#L258)).
 - Before release, it asks Airwallex whether each line was already paid, which catches a lost database ([orchestrator.py](ringfence/orchestrator.py#L173)).
 - A payout that fails after `PAID` becomes `RETURNED`: its fee is credited back and paying again needs a new approval ([executor.py](ringfence/executor.py#L304)).
-- Webhooks are HMAC-SHA256 checked in constant time and treated as hints. The transfer is always re-fetched ([webhooks.py](ringfence/webhooks.py#L32)).
+- Webhooks are checked in constant time against the [documented signature](https://www.airwallex.com/docs/developer-tools/webhooks/listen-for-webhook-events.md#check-webhook-signatures) (HMAC-SHA256 of `x-timestamp` + body) and treated as hints. The transfer is always re-fetched ([webhooks.py](ringfence/webhooks.py#L32)).
 
 **Proof and audit**
 - Append-only, hash-chained SQLite ledger. Triggers block `UPDATE` and `DELETE` ([ledger.py](ringfence/ledger.py#L45)).
@@ -149,7 +149,7 @@ The faucet gives about 100 USDZ, so the demo counts 1 USDZ as USD 10. Tests: [te
 
 ## Testing
 
-- 462 offline tests against a fake Airwallex built from recorded sandbox behaviour ([PROBES.md](docs/PROBES.md)), plus 500 random operation sequences with money invariants checked after every step.
+- 472 offline tests against a fake Airwallex built from recorded sandbox behaviour ([PROBES.md](docs/PROBES.md)), plus 500 random operation sequences with money invariants checked after every step.
 - 36 prompt-injection documents: an agent that obeys every instruction attempted 28 attacks and the gate blocked all 28. Claude followed none ([GAUNTLET.md](docs/GAUNTLET.md)).
 - Live on the sandbox, 20 parallel releases with 3 dropped responses made exactly one transfer per line. Benchmark against a reference agent with a human approving every write: [BENCH.md](docs/BENCH.md).
 
@@ -177,3 +177,11 @@ Layout: [ringfence/](ringfence/) core and web app · [tests/](tests/) · [script
 - The public MCP endpoint has no login. Each run is a throwaway sandbox world with one employer, and any caller can replace the last agent run.
 - Bank cut-off times are configured assumptions, not Airwallex data.
 - Wage and tax calculation stay in the employer's payroll system. This is not compliance software.
+
+## Airwallex docs this relies on
+
+- [Transfers: create](https://www.airwallex.com/docs/api/payouts/transfers/create.md) (`request_id` rejected for 7 days, look up by `request_id` after a timeout) and [cancel](https://www.airwallex.com/docs/api/payouts/transfers/cancel.md)
+- [Beneficiaries: update](https://www.airwallex.com/docs/api/payouts/beneficiaries/update.md) (edit in place, the root of F1) and [batch transfers](https://www.airwallex.com/docs/api/payouts/batch_transfers.md) (F5)
+- [Login](https://www.airwallex.com/docs/api/authentication/api_access_token/login.md) (`x-login-as`) and [scoped API keys](https://www.airwallex.com/docs/developer-tools/api/manage-api-keys.md)
+- [Webhook signatures](https://www.airwallex.com/docs/developer-tools/webhooks/listen-for-webhook-events.md#check-webhook-signatures) and [FX conversions](https://www.airwallex.com/docs/api/transactional_fx/conversion/create.md)
+- [Simulate a transfer status](https://www.airwallex.com/docs/api/simulation/transfers/transition.md) (sandbox only, the source of every `[SIMULATED]` step)

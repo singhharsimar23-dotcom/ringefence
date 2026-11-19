@@ -32,7 +32,7 @@ packages = ["ringfence"]
 
 [tool.ruff]
 line-length = 110
-extend-exclude = ["scripts"]
+extend-exclude = ["scripts", "bench", "demo", "video"]  # probes, demo driver and film scripts: evidence, not product code
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

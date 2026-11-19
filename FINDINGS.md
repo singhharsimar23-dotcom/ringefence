@@ -92,7 +92,7 @@ Airwallex's account isolation held: [12 of 12 cross-account calls were refused](
 **What it can cause.** Every network blip can double a payment. This type of transfer has no cancel endpoint, so the money cannot be pulled back.
 
 **Technical details.**
-- `request_id` is the only idempotency key. A new `request_id` is, by design, a new payment.
+- `request_id` is the only idempotency key. A new `request_id` is, by design, a new payment. Airwallex's [transfer docs](https://www.airwallex.com/docs/api/payouts/transfers/create.md) say a request ID reused within 7 days is rejected and that after a timeout you should look the payout up by `request_id`. The failure is an agent that retries with a fresh ID instead, which is the common agent pattern.
 - Steps:
   1. `POST /connected_account_transfers/create`, Northwind to Kestrel, GBP 1, `request_id …-ca1`.
   2. Treat the response as lost.
@@ -113,7 +113,7 @@ Airwallex's account isolation held: [12 of 12 cross-account calls were refused](
 **What it can cause.** A whole payroll run can go to an attacker's account, and the company cannot stop it.
 
 **Technical details.**
-- Batch items reference a `beneficiary_id`. The item preview (`transfer_draft`) carries no bank details at any stage ([receipt 04](bench/probes/airwallex_receipts/04_batch_items_PREVIEW_no_bank_details.json)).
+- Batch items reference a `beneficiary_id` ([batch transfer docs](https://www.airwallex.com/docs/api/payouts/batch_transfers.md)), and a beneficiary can be [edited in place](https://www.airwallex.com/docs/api/payouts/beneficiaries/update.md). The item preview (`transfer_draft`) carries no bank details at any stage ([receipt 04](bench/probes/airwallex_receipts/04_batch_items_PREVIEW_no_bank_details.json)).
 - Steps:
   1. Create a batch with one item for a payee at ..4444.
   2. Edit the payee in place (same ID) to ..9901.

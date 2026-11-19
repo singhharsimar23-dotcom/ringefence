@@ -65,7 +65,7 @@ def test_topup_pulls_on_metal_then_the_matcher_closes_the_request(world, L, monk
 
 
 def test_device_signed_mode_never_binds_here_and_a_retry_cannot_pull_twice(world, L, tmp_path):
-    o, sim, rid, calls = world
+    _o, sim, _rid, calls = world
     (tmp_path / "owner.json").unlink()  # the fix: Harbour's owner key lives on Harbour's device, not on this server
     for name, cap in (("a-small", "1"), ("b-big", "500")):
         (tmp_path / "signed" / name).mkdir(parents=True)
