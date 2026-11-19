@@ -1,4 +1,4 @@
-"""Off-camera swap for the Demo Day shoot: change Tom's bank account on Airwallex for BOTH agents.
+"""The swap in the README's side-by-side: change Tom's bank account on Airwallex for both agents, between approval and sending.
 
     python demo/swap_tom.py 99999901    left Tom (payroll:tom) and the right Tom of the newest Ringfence run
     python demo/swap_tom.py --left 12345601    revert only the left Tom (the right run's world is thrown away anyway)

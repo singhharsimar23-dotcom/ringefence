@@ -1,6 +1,6 @@
 # Ringfence
 
-[![Live demo](https://img.shields.io/badge/live%20demo-online-111?style=flat-square)](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) [![Airwallex](https://img.shields.io/badge/Airwallex-sandbox-111?style=flat-square)](https://www.airwallex.com/docs) [![Claude](https://img.shields.io/badge/Claude-Sonnet-111?style=flat-square&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude) ![Python](https://img.shields.io/badge/Python-3.12+-111?style=flat-square&logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-111?style=flat-square&logo=fastapi&logoColor=white) ![Tests](https://img.shields.io/badge/offline%20tests-473%20passing-111?style=flat-square) ![Hackathon](https://img.shields.io/badge/Airwallex%20hackathon-Kit%2006-111?style=flat-square)
+[![Live demo](https://img.shields.io/badge/live%20demo-online-111?style=flat-square)](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) [![Airwallex](https://img.shields.io/badge/Airwallex-sandbox-111?style=flat-square)](https://www.airwallex.com/docs) [![Claude](https://img.shields.io/badge/Claude-Sonnet-111?style=flat-square&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude) ![Python](https://img.shields.io/badge/Python-3.12+-111?style=flat-square&logo=python&logoColor=white) [![check](https://github.com/singhharsimar23-dotcom/ringefence/actions/workflows/check.yml/badge.svg)](https://github.com/singhharsimar23-dotcom/ringefence/actions/workflows/check.yml)
 
 **Multi-Employer Payroll Executor: deadline-aware, fund-isolated payroll runs on Airwallex.**
 Airwallex Agentic Banking Hackathon, Kit 06. Airwallex sandbox, with optional on-chain funding on the Metal testnet.
@@ -59,7 +59,7 @@ The agent reads the payroll folder and hands the files over, verbatim, even the 
 
 ![Left: a standard agent on the Airwallex API approved a batch, and Tom's pay went to his changed account, which it could not cancel. Right: the Ringfence agent re-read the payees and held the whole run](docs/img/mcp-compare.png)
 
-Same model, same Airwallex account, same payroll. Between approval and sending, Tom's bank account was changed on Airwallex. On the left, the standard agent approved a batch of IDs, with no names or bank accounts, and Tom's pay went to the new account (`99999901`). The batch cancel failed with `401 Admin permissions required`, and Airwallex has switched admin keys off. On the right, Ringfence held the run and nothing was sent. The standard agent's batch hit this 4 times out of 4 ([F5](FINDINGS.md#f5-batch-payroll)). The left and right panes are two takes of the same demo, shown side by side as in the video ([dd_compare.py](video/dd_compare.py)).
+Same model, same Airwallex account, same payroll. Between approval and sending, Tom's bank account was changed on Airwallex. On the left, the standard agent approved a batch of IDs, with no names or bank accounts, and Tom's pay went to the new account (`99999901`). The batch cancel failed with `401 Admin permissions required`, and Airwallex has switched admin keys off. On the right, Ringfence held the run and nothing was sent. The standard agent's batch hit this 4 times out of 4 ([F5](FINDINGS.md#f5-batch-payroll)). The left and right panes are two takes of the same demo, shown side by side as in the video.
 
 ## How it works
 
@@ -95,6 +95,7 @@ Same model, same Airwallex account, same payroll. Between approval and sending, 
 - A separate verifier with no LLM reads each employer's transfers with its own token and runs 10 checks, including a live cross-employer `401` probe ([verify.py](ringfence/verify.py#L108)). It issues one Ed25519 certificate per employer, verifiable offline ([verify.py](ringfence/verify.py#L63)).
 
 **Agent and integrations**
+- Claude Sonnet 5.5 runs the agent and Claude Haiku 5.5 reads the files an MCP agent sends (`RF_MODEL`, `RF_DRAFT_MODEL`).
 - The agent's 10 tools only read or propose. The employer is fixed by the harness, and every input is validated, then checked by the gate ([agent/tools.py](ringfence/agent/tools.py#L79)).
 - Two MCP servers, and neither has an approve tool, so a person always signs. The [remote one](#ringfence-mcp-any-agent-a-person-approves) (`/mcp`, any agent, passkey approval) offers `run_payroll`, `release_payroll`, `payroll_status` and `payroll_proof` ([mcp_remote.py](ringfence/mcp_remote.py)). The local one offers `get_status`, `price_run`, `propose_run`, `request_release` and `certificate` ([mcp_server.py](ringfence/mcp_server.py)).
 - A per-payout platform fee is collected from each employer and credited back if a payout returns ([fees.py](ringfence/fees.py#L42)).
@@ -170,7 +171,7 @@ make check         # lint + offline tests
 - **Findings:** `uv run python scripts/breakit.py [approval|batch|retry]` reproduces them on your own sandbox accounts.
 - **Demo walkthrough:** open **Three employers** and press **Run Friday payroll**. Kestrel pays, Northwind waits for approval, and Harbour is short of AUD. Approve Northwind, fund Harbour (deposit or Metal), approve it, then try **Try to break it** and **Proof**.
 
-Layout: [ringfence/](ringfence/) core and web app · [tests/](tests/) · [scripts/](scripts/) findings and setup · [bench/](bench/) sandbox probes and evidence · [static/](static/) UI · [deploy/](deploy/) Azure VM.
+Layout: [ringfence/](ringfence/) core and web app · [tests/](tests/) · [scripts/](scripts/) findings and setup · [bench/](bench/) sandbox probes and evidence · [examples/](examples/) the engine in your own code · [demo/](demo/) payroll files, attack documents and the standard agent · [static/](static/) UI · [deploy/](deploy/) Azure VM · [docs/API.md](docs/API.md) read-only HTTP routes.
 
 ## Limitations
 

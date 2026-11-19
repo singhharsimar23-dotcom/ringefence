@@ -63,3 +63,6 @@ artifacts/
 /docs/VIDEO_DEMO_DAY_HANDOFF.md
 /docs/VIDEO_SONNET_HANDOFF.md
 /demo/prompter.py
+/video/
+/demo/director.py
+/scripts/capture.py
