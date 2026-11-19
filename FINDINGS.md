@@ -92,7 +92,7 @@ Airwallex's account isolation held: [12 of 12 cross-account calls were refused](
 **What it can cause.** Every network blip can double a payment. This type of transfer has no cancel endpoint, so the money cannot be pulled back.
 
 **Technical details.**
-- `request_id` is the only idempotency key. A new `request_id` is, by design, a new payment. Airwallex's [transfer docs](https://www.airwallex.com/docs/api/payouts/transfers/create.md) say a request ID reused within 7 days is rejected and that after a timeout you should look the payout up by `request_id`. The failure is an agent that retries with a fresh ID instead, which is the common agent pattern.
+- `request_id` is the only idempotency key. A new `request_id` is, by design, a new payment. Airwallex's [transfer docs](https://www.airwallex.com/docs/api/payouts/transfers/create.md) say a request ID reused within 7 days is rejected and that after a timeout you should look the payout up by `request_id`. The failure is an agent that retries with a fresh ID instead.
 - Steps:
   1. `POST /connected_account_transfers/create`, Northwind to Kestrel, GBP 1, `request_id …-ca1`.
   2. Treat the response as lost.
