@@ -1,6 +1,6 @@
 # Ringfence
 
-[![Live demo](https://img.shields.io/badge/live%20demo-online-111?style=flat-square)](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) [![Airwallex](https://img.shields.io/badge/Airwallex-sandbox-111?style=flat-square)](https://www.airwallex.com/docs) [![Claude](https://img.shields.io/badge/Claude-Sonnet-111?style=flat-square&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude) ![Python](https://img.shields.io/badge/Python-3.12+-111?style=flat-square&logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-111?style=flat-square&logo=fastapi&logoColor=white) ![Tests](https://img.shields.io/badge/offline%20tests-472%20passing-111?style=flat-square) ![Hackathon](https://img.shields.io/badge/Airwallex%20hackathon-Kit%2006-111?style=flat-square)
+[![Live demo](https://img.shields.io/badge/live%20demo-online-111?style=flat-square)](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) [![Airwallex](https://img.shields.io/badge/Airwallex-sandbox-111?style=flat-square)](https://www.airwallex.com/docs) [![Claude](https://img.shields.io/badge/Claude-Sonnet-111?style=flat-square&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude) ![Python](https://img.shields.io/badge/Python-3.12+-111?style=flat-square&logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-111?style=flat-square&logo=fastapi&logoColor=white) ![Tests](https://img.shields.io/badge/offline%20tests-473%20passing-111?style=flat-square) ![Hackathon](https://img.shields.io/badge/Airwallex%20hackathon-Kit%2006-111?style=flat-square)
 
 **Multi-Employer Payroll Executor: deadline-aware, fund-isolated payroll runs on Airwallex.**
 Airwallex Agentic Banking Hackathon, Kit 06. Airwallex sandbox, with optional on-chain funding on the Metal testnet.
@@ -149,7 +149,7 @@ The faucet gives about 100 USDZ, so the demo counts 1 USDZ as USD 10. Tests: [te
 
 ## Testing
 
-- 472 offline tests against a fake Airwallex built from recorded sandbox behaviour ([PROBES.md](docs/PROBES.md)), plus 500 random operation sequences with money invariants checked after every step.
+- 473 offline tests against a fake Airwallex built from recorded sandbox behaviour ([PROBES.md](docs/PROBES.md)), plus 500 random operation sequences with money invariants checked after every step.
 - 36 prompt-injection documents: an agent that obeys every instruction attempted 28 attacks and the gate blocked all 28. Claude followed none ([GAUNTLET.md](docs/GAUNTLET.md)).
 - Live on the sandbox, 20 parallel releases with 3 dropped responses made exactly one transfer per line. Benchmark against a reference agent with a human approving every write: [BENCH.md](docs/BENCH.md).
 
@@ -166,6 +166,7 @@ make check         # lint + offline tests
 - **Live sandbox:** set `AWX_CLIENT_ID`, `AWX_API_KEY`, `AWX_BASE_URL`, `AWX_PLATFORM_ACCOUNT` and `AWX_EMPLOYER_A/B/C` (never commit them), then run `uv run python -m ringfence.setup_demo` and `make demo`. Set `ANTHROPIC_API_KEY` to use Claude instead of the scripted agent.
 - **Metal:** set `RF_METAL=1`, `METAL_RPC_URL` and `METAL_RPC_SECRET`, then run `python scripts/metal_setup.py` once.
 - **MCP:** the live server is [one line](#ringfence-mcp-any-agent-a-person-approves). To run the local one offline: `claude mcp add ringfence -- uv run python -m ringfence.mcp_server --backend fake`
+- **Embed the engine in your own code:** [examples/embed.py](examples/embed.py) prices a run, has a named person approve it, sends it and verifies it in about 15 lines, offline (it is a test). Swap `build_backend("fake")` for `"live"` to use the sandbox. Any MCP agent can skip code and use the [one-line connect](#ringfence-mcp-any-agent-a-person-approves).
 - **Findings:** `uv run python scripts/breakit.py [approval|batch|retry]` reproduces them on your own sandbox accounts.
 - **Demo walkthrough:** open **Three employers** and press **Run Friday payroll**. Kestrel pays, Northwind waits for approval, and Harbour is short of AUD. Approve Northwind, fund Harbour (deposit or Metal), approve it, then try **Try to break it** and **Proof**.
 
