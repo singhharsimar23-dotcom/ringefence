@@ -132,7 +132,7 @@ Run `20261114-53jrfe` (pay date 14 Nov 2026), executed 11 Nov 2026 at 01:39 UTC 
 - **Real vs simulated:** transfers, FX, fees, beneficiaries, the global account and the isolation check are real sandbox calls. Payouts reaching `PAID` and Harbour's deposit used Airwallex's `/simulation/*` endpoints. The platform's fee credit is recorded by Ringfence only, because the sandbox doesn't credit the platform. All simulated steps are labelled `[SIMULATED]`.
 - **APIs used:** login per account (`x-login-as`), `/balances/current`, `/beneficiaries`, `/global_accounts`, `/deposits`, `/fx/quotes/create`, `/fx/conversions/create`, `/transfers/create`, `/transfers` (get, list by `request_id`, cancel), `/webhooks`, `/simulation/*`.
 
-## Metal: on-chain funding mandates
+## Alta formerly(Metal): on-chain funding mandates
 
 [Metal](https://testnet.metalntwx.com) is a blockchain testnet (chain ID 63825) whose wallets support on-chain spending mandates, with test token USDZ. Ringfence uses it as a second way for a short employer to fund payroll, through the pinned `@metalntwx/metal-agent@0.3.3` CLI ([metal.py](ringfence/metal.py#L134)).
 
@@ -168,7 +168,7 @@ make check         # lint + offline tests
 ```
 
 - **Live sandbox:** set `AWX_CLIENT_ID`, `AWX_API_KEY`, `AWX_BASE_URL`, `AWX_PLATFORM_ACCOUNT` and `AWX_EMPLOYER_A/B/C` (never commit them), then run `uv run python -m ringfence.setup_demo` and `make demo`. Set `ANTHROPIC_API_KEY` to use Claude instead of the scripted agent.
-- **Metal:** set `RF_METAL=1`, `METAL_RPC_URL` and `METAL_RPC_SECRET`, then run `python scripts/metal_setup.py` once.
+- **Alta formerly(Metal):** set `RF_METAL=1`, `METAL_RPC_URL` and `METAL_RPC_SECRET`, then run `python scripts/metal_setup.py` once.
 - **MCP:** the live server is [one line](#ringfence-mcp-any-agent-a-person-approves). To run the local one offline: `claude mcp add ringfence -- uv run python -m ringfence.mcp_server --backend fake`
 - **Embed the engine in your own code:** [examples/embed.py](examples/embed.py) prices a run, has a named person approve it, sends it and verifies it in about 15 lines, offline (it is a test). Swap `build_backend("fake")` for `"live"` to use the sandbox. Any MCP agent can skip code and use the [one-line connect](#ringfence-mcp-any-agent-a-person-approves).
 - **Findings:** `uv run python scripts/breakit.py [approval|batch|retry]` reproduces them on your own sandbox accounts.
