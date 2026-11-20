@@ -68,6 +68,20 @@ Payroll is where we proved it, because it is the hardest case: deadlines, severa
 - **For Airwallex:** every run is payouts, FX and global-account deposits, from customers who needed this before they would let an agent near their money.
 - **Revenue:** every landed payout is metered and charged through the gate, and a returned payout is credited ([fees.py](ringfence/fees.py)). Pricing is a policy on top of that meter: flat today, and tiered or percentage pricing with a floor and a cap, the model payments platforms like Stripe and Ramp run, applies to the same meter.
 
+## Ways to use it
+
+Ringfence serves a person and an agent with the same engine and the same approval. Pick the way that fits you.
+
+| | Who | How | Start |
+|---|---|---|---|
+| **As an MCP server** | An AI agent: Claude Code or any MCP client that supports HTTP | The agent hands over the payroll files and gets back a priced, checked run. A person approves on a passkey page, and `release_payroll` sends exactly what was approved. | [One line](#ringfence-mcp-any-agent-a-person-approves) |
+| **In the browser** | A person: a payroll team or a reviewer | The [live site](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) shows three employers on their own Airwallex accounts, a flowchart of each run, a log of everything Ringfence did and a Proof tab. **Try it** runs your own files or a hostile document. | [Open the live demo](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) |
+| **In your code** | An engineer | Embed the engine to price, approve, send and verify a run in about 15 lines, or read run state over HTTP. | [examples/embed.py](examples/embed.py), [docs/API.md](docs/API.md) |
+
+![The Ringfence web app: each employer on its own Airwallex account, the four steps of a run, and a log of everything Ringfence did](docs/img/demo.png)
+
+The flowchart at the top of this page is drawn live in the **Try it** tab. The same approval gate sits behind all three ways: an agent cannot skip it, and a person has to sign.
+
 ## Ringfence MCP: any agent, a person approves
 
 Any MCP client that supports HTTP can run payroll through Ringfence. Connecting is one line, with no login:
