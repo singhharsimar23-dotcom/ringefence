@@ -51,13 +51,22 @@ Airwallex's account isolation held: 12 of 12 cross-account calls were refused.
 
 ## Why it matters
 
-An agent near money is usually either blocked or has a person approving every write. The second does not hold: in our benchmark a careful human approved the right payment and the money still went to a changed account, 3 times out of 3 ([BENCH.md](docs/BENCH.md)). Ringfence changes the person's job to one signature on the exact run, and holds the run if anything changed after it. The agent does the rest: it reads the files, prices the run, converts currency, checks every bank account, sends and verifies.
+Every company will want an agent running its payments. One question stops them: what if it sends the money to the wrong place?
 
-That is the shift: payroll operations goes from people doing and re-checking every step to an agent doing the work while a person signs. We attacked it to earn that trust: 473 offline tests, 500 random operation sequences with money invariants checked after every step, 36 injection documents, and 20 parallel releases with 3 dropped responses on the live sandbox that made exactly one transfer per line ([Testing](#testing)). Payroll is the first use because it is high-stakes, deadline-bound and multi-employer. The controls (exact-batch approval, pinned bank details, one request ID per intent, one token per account) apply to any payout.
+We asked it on the live Airwallex sandbox. A standard agent, with a careful person approving every payment, paid a changed account 3 times out of 3. Ringfence held the run 3 times out of 3, before any money moved ([BENCH.md](docs/BENCH.md)).
 
-- **Adoption is one line.** Ringfence is an MCP server, so an agent builder connects it instead of integrating it and keeps the agent and model they already use ([connect](#ringfence-mcp-any-agent-a-person-approves)).
-- **For Airwallex:** each run is payouts, FX and global-account deposits from customers who could not let an agent run them before.
-- **Revenue:** a flat GBP 1.50 per paid payout, charged to the employer's own wallet, is already in the code ([fees.py](ringfence/fees.py)). The price is a placeholder, and the platform side is [SIMULATED] in the sandbox.
+| | Agent + a person approving every payment | Ringfence |
+|---|---|---|
+| The person's job | Check every payment | Sign once |
+| A payee's bank account changes after approval | Paid the new account, 3/3 | Held the whole run, 3/3 |
+| Connecting an agent | Integrate the API | One line |
+
+The agent reads the files, prices the run, converts currency, checks every bank account, sends and verifies. The person signs. Behind that one signature: 473 tests, 500 random operation sequences, 36 injection documents, and 20 parallel releases with dropped responses that made exactly one transfer per line ([Testing](#testing)).
+
+Payroll is where we proved it, because it is the hardest case: deadlines, several employers, money that can't be called back. The same controls fit any payout.
+
+- **For Airwallex:** every run is payouts, FX and global-account deposits, from customers who needed this before they would let an agent near their money.
+- **Revenue:** a per-payout fee is already built in, GBP 1.50 per paid payout ([fees.py](ringfence/fees.py)).
 
 ## Ringfence MCP: any agent, a person approves
 
