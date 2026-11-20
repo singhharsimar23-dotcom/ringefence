@@ -1,6 +1,6 @@
 # Ringfence
 
-[![Live demo](https://img.shields.io/badge/live%20demo-online-111?style=flat-square)](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) [![Airwallex](https://img.shields.io/badge/Airwallex-sandbox-111?style=flat-square)](https://www.airwallex.com/docs) [![Claude](https://img.shields.io/badge/Claude-Sonnet-111?style=flat-square&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude) ![Python](https://img.shields.io/badge/Python-3.12+-111?style=flat-square&logo=python&logoColor=white) [![check](https://github.com/singhharsimar23-dotcom/ringefence/actions/workflows/check.yml/badge.svg)](https://github.com/singhharsimar23-dotcom/ringefence/actions/workflows/check.yml)
+[![Live demo](https://img.shields.io/badge/live%20demo-online-111?style=flat-square)](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) [![Airwallex](https://img.shields.io/badge/Airwallex-sandbox-111?style=flat-square)](https://www.airwallex.com/docs) [![Claude](https://img.shields.io/badge/Claude-Sonnet-111?style=flat-square&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude) ![Python](https://img.shields.io/badge/Python-3.12+-111?style=flat-square&logo=python&logoColor=white) [![check](https://github.com/singhharsimar23-dotcom/ringefence/actions/workflows/check.yml/badge.svg)](https://github.com/singhharsimar23-dotcom/ringefence/actions/workflows/check.yml) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/singhharsimar23-dotcom/ringefence/badge)](https://scorecard.dev/viewer/?uri=github.com/singhharsimar23-dotcom/ringefence)
 
 **Multi-Employer Payroll Executor: deadline-aware, fund-isolated payroll runs on Airwallex.**
 A control layer between AI agents and Airwallex payouts: the agent proposes, code checks, a person signs. Payroll is the first use.
@@ -176,6 +176,7 @@ The faucet gives about 100 USDZ, so the demo counts 1 USDZ as USD 10. Tests: [te
 - 476 offline tests against a fake Airwallex built from recorded sandbox behaviour ([PROBES.md](docs/PROBES.md)), plus 500 random operation sequences with money invariants checked after every step. The timesheet parser, which reads untrusted documents, is fuzzed with Atheris ([fuzz/](fuzz/)); fuzzing found a stray carriage return that crashed intake instead of being rejected, now fixed and tested.
 - 36 prompt-injection documents: an agent that obeys every instruction attempted 28 attacks and the gate blocked all 28. Claude followed none ([GAUNTLET.md](docs/GAUNTLET.md)).
 - Live on the sandbox, 20 parallel releases with 3 dropped responses made exactly one transfer per line. Benchmark against a reference agent with a human approving every write: [BENCH.md](docs/BENCH.md).
+- Supply chain: [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/singhharsimar23-dotcom/ringefence) 7.6 / 10 on 20 Nov 2026 (live badge at the top). GitHub Actions are pinned to commit SHAs, workflow tokens are read-only, CodeQL and Dependabot run, `main` blocks force pushes and needs passing checks, and the repo has a [security policy](SECURITY.md) and an MIT [license](LICENSE).
 
 ## Run it
 
