@@ -4,9 +4,9 @@ Ringfence moves money on the Airwallex sandbox and the Metal testnet only. It is
 
 ## Report a vulnerability
 
-Use GitHub's private reporting: **Security tab → Report a vulnerability** on this repository. Please do not open a public issue for a security problem.
+Use GitHub's private reporting: [report a vulnerability](https://github.com/singhharsimar23-dotcom/ringefence/security/advisories/new). Please do not open a public issue for a security problem.
 
-Include the route, tool or file involved, the steps to reproduce, and what an attacker gains. Never include real credentials. We aim to acknowledge a report within 3 working days.
+Include the route, tool or file involved, the steps to reproduce, and what an attacker gains. Never include real credentials. We aim to acknowledge a report within 3 working days, and to publish a fix and a disclosure within 90 days.
 
 ## What counts
 

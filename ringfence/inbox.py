@@ -26,7 +26,10 @@ class TimesheetError(ValueError):
 
 def parse_timesheet(tenant: str, text: str) -> dict[str, Decimal]:
     known = seed.contractors(tenant)
-    rows = list(csv.reader(io.StringIO(text)))
+    try:
+        rows = list(csv.reader(io.StringIO(text)))
+    except csv.Error as e:  # a stray CR or an oversized field must be a rejection, not a crash
+        raise TimesheetError(f"unreadable table: {e}") from None
     if not rows or [h.strip().lower() for h in rows[0]] != ["contractor_id", "hours"]:
         raise TimesheetError("header must be exactly: contractor_id,hours")
     out: dict[str, Decimal] = {}

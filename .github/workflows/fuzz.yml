@@ -1,0 +1,19 @@
+name: fuzz
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 5 * * 3"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  timesheet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - run: uv sync --locked
+      - run: uv run --with atheris==3.1.0 python fuzz/fuzz_timesheet.py -max_total_time=45

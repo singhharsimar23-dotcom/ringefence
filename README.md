@@ -61,7 +61,7 @@ We asked it on the live Airwallex sandbox. A standard agent, with a careful pers
 | A payee's bank account changes after approval | Paid the new account, 3/3 | Held the whole run, 3/3 |
 | Connecting an agent | Integrate the API | One line |
 
-The agent reads the files, prices the run, converts currency, checks every bank account, sends and verifies. The person signs. Behind that one signature: 473 tests, 500 random operation sequences, 36 injection documents, and 20 parallel releases with dropped responses that made exactly one transfer per line ([Testing](#testing)).
+The agent reads the files, prices the run, converts currency, checks every bank account, sends and verifies. The person signs. Behind that one signature: 476 tests, 500 random operation sequences, 36 injection documents, and 20 parallel releases with dropped responses that made exactly one transfer per line ([Testing](#testing)).
 
 Payroll is where we proved it, because it is the hardest case: deadlines, several employers, money that can't be called back. The same controls fit any payout.
 
@@ -173,7 +173,7 @@ The faucet gives about 100 USDZ, so the demo counts 1 USDZ as USD 10. Tests: [te
 
 ## Testing
 
-- 473 offline tests against a fake Airwallex built from recorded sandbox behaviour ([PROBES.md](docs/PROBES.md)), plus 500 random operation sequences with money invariants checked after every step.
+- 476 offline tests against a fake Airwallex built from recorded sandbox behaviour ([PROBES.md](docs/PROBES.md)), plus 500 random operation sequences with money invariants checked after every step. The timesheet parser, which reads untrusted documents, is fuzzed with Atheris ([fuzz/](fuzz/)); fuzzing found a stray carriage return that crashed intake instead of being rejected, now fixed and tested.
 - 36 prompt-injection documents: an agent that obeys every instruction attempted 28 attacks and the gate blocked all 28. Claude followed none ([GAUNTLET.md](docs/GAUNTLET.md)).
 - Live on the sandbox, 20 parallel releases with 3 dropped responses made exactly one transfer per line. Benchmark against a reference agent with a human approving every write: [BENCH.md](docs/BENCH.md).
 
