@@ -3,6 +3,7 @@
 [![Live demo](https://img.shields.io/badge/live%20demo-online-111?style=flat-square)](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) [![Airwallex](https://img.shields.io/badge/Airwallex-sandbox-111?style=flat-square)](https://www.airwallex.com/docs) [![Claude](https://img.shields.io/badge/Claude-Sonnet-111?style=flat-square&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude) ![Python](https://img.shields.io/badge/Python-3.12+-111?style=flat-square&logo=python&logoColor=white) [![check](https://github.com/singhharsimar23-dotcom/ringefence/actions/workflows/check.yml/badge.svg)](https://github.com/singhharsimar23-dotcom/ringefence/actions/workflows/check.yml)
 
 **Multi-Employer Payroll Executor: deadline-aware, fund-isolated payroll runs on Airwallex.**
+A control layer between AI agents and Airwallex payouts: the agent proposes, code checks, a person signs. Payroll is the first use.
 Airwallex Agentic Banking Hackathon, Kit 06. Airwallex sandbox, with optional on-chain funding on the Metal testnet.
 
 [Live demo](https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com) ..........
@@ -48,9 +49,19 @@ We built a payroll agent the way Airwallex's docs, SDK and MCP suggest, then att
 
 Airwallex's account isolation held: 12 of 12 cross-account calls were refused.
 
+## Why it matters
+
+An agent near money is usually either blocked or has a person approving every write. The second does not hold: in our benchmark a careful human approved the right payment and the money still went to a changed account, 3 times out of 3 ([BENCH.md](docs/BENCH.md)). Ringfence changes the person's job to one signature on the exact run, and holds the run if anything changed after it. The agent does the rest: it reads the files, prices the run, converts currency, checks every bank account, sends and verifies.
+
+That is the shift: payroll operations goes from people doing and re-checking every step to an agent doing the work while a person signs. We attacked it to earn that trust: 473 offline tests, 500 random operation sequences with money invariants checked after every step, 36 injection documents, and 20 parallel releases with 3 dropped responses on the live sandbox that made exactly one transfer per line ([Testing](#testing)). Payroll is the first use because it is high-stakes, deadline-bound and multi-employer. The controls (exact-batch approval, pinned bank details, one request ID per intent, one token per account) apply to any payout.
+
+- **Adoption is one line.** Ringfence is an MCP server, so an agent builder connects it instead of integrating it and keeps the agent and model they already use ([connect](#ringfence-mcp-any-agent-a-person-approves)).
+- **For Airwallex:** each run is payouts, FX and global-account deposits from customers who could not let an agent run them before.
+- **Revenue:** a flat GBP 1.50 per paid payout, charged to the employer's own wallet, is already in the code ([fees.py](ringfence/fees.py)). The price is a placeholder, and the platform side is [SIMULATED] in the sandbox.
+
 ## Ringfence MCP: any agent, a person approves
 
-Any MCP client can run payroll through Ringfence. Connecting is one line, with no login:
+Any MCP client that supports HTTP can run payroll through Ringfence. Connecting is one line, with no login:
 
 ```
 claude mcp add --transport http ringfence https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com/mcp
@@ -176,12 +187,13 @@ make check         # lint + offline tests
 
 Layout: [ringfence/](ringfence/) core and web app · [tests/](tests/) · [scripts/](scripts/) findings and setup · [bench/](bench/) sandbox probes and evidence · [examples/](examples/) the engine in your own code · [demo/](demo/) payroll files, attack documents and the standard agent · [static/](static/) UI · [deploy/](deploy/) Azure VM · [docs/API.md](docs/API.md) read-only HTTP routes.
 
-## Limitations
+## Limitations and path to production
 
 - Sandbox and testnet only. Steps the sandbox can't perform are [SIMULATED]: fee credits, employer top-ups and payouts reaching `PAID`. The sandbox has no direct debit, so direct-debit reversals aren't exercised.
 - The public MCP endpoint has no login. Each run is a throwaway sandbox world with one employer, and any caller can replace the last agent run.
 - Bank cut-off times are configured assumptions, not Airwallex data.
 - Wage and tax calculation stay in the employer's payroll system. This is not compliance software.
+- Production needs: login on the MCP endpoint, a shared database in place of SQLite, connected accounts once the sandbox allows onboarding, and bank cut-off times from Airwallex data.
 
 ## Airwallex docs this relies on
 
