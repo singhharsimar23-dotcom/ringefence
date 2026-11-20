@@ -66,7 +66,7 @@ The agent reads the files, prices the run, converts currency, checks every bank 
 Payroll is where we proved it, because it is the hardest case: deadlines, several employers, money that can't be called back. The same controls fit any payout.
 
 - **For Airwallex:** every run is payouts, FX and global-account deposits, from customers who needed this before they would let an agent near their money.
-- **Revenue:** a per-payout fee is already built in, GBP 1.50 per paid payout ([fees.py](ringfence/fees.py)).
+- **Revenue:** every landed payout is metered and charged through the gate, and a returned payout is credited ([fees.py](ringfence/fees.py)). Pricing is a policy on top of that meter: flat today, and tiered or percentage pricing with a floor and a cap, the model payments platforms like Stripe and Ramp run, applies to the same meter.
 
 ## Ringfence MCP: any agent, a person approves
 
