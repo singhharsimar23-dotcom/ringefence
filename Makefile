@@ -2,7 +2,7 @@
 sync:
 	uv sync
 check:
-	uv run ruff check . && uv run pytest -q -m "not live and not live_llm"
+	uv run ruff check . && uv run pytest -q -m "not live and not live_llm" --cov=ringfence --cov-branch --cov-fail-under=85
 live:
 	uv run pytest -q -m live
 demo:
