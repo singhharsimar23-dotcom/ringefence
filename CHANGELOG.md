@@ -4,6 +4,10 @@ All notable changes. Dates are 2026. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.1.1] - 2026-11-21
+
 ### Added
 - A TLA+ model of the release protocol, checked with TLC in CI. It finds no violation, and finds the approval swap and the double pay when their fixes are switched off (21 Nov).
 - 31 Hypothesis property tests, and an exhaustive run of the executor under every fault schedule of four release attempts (21 Nov).
@@ -34,5 +38,6 @@ First tagged release: the Airwallex Agentic Banking Hackathon, Kit 06 submission
 ### Fixed
 - A stray carriage return in a timesheet raised an unhandled `csv.Error` instead of being rejected. Found by fuzzing (20 Nov).
 
-[Unreleased]: https://github.com/singhharsimar23-dotcom/ringefence/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/singhharsimar23-dotcom/ringefence/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/singhharsimar23-dotcom/ringefence/releases/tag/v0.1.1
 [0.1.0]: https://github.com/singhharsimar23-dotcom/ringefence/releases/tag/v0.1.0
