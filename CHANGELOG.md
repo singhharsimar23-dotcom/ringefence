@@ -4,7 +4,13 @@ All notable changes. Dates are 2026. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- A TLA+ model of the release protocol, checked with TLC in CI. It finds no violation, and finds the approval swap and the double pay when their fixes are switched off (21 Nov).
+- 31 Hypothesis property tests, and an exhaustive run of the executor under every fault schedule of four release attempts (21 Nov).
+- Mutation testing of the gate, mandate and money code: 435 mutants, all caught. A scheduled workflow reruns it (21 Nov).
+
+### Fixed
+- A signature containing non-ASCII characters raised an error in the mandate and approval check instead of being refused (21 Nov).
 
 ## [0.1.0] - 2026-11-21
 

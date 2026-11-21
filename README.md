@@ -64,7 +64,7 @@ We asked it on the live Airwallex sandbox. A standard agent, with a careful pers
 | A payee's bank account changes after approval | Paid the new account, 3/3 | Held the whole run, 3/3 |
 | Connecting an agent | Integrate the API | One line |
 
-The agent reads the files, prices the run, converts currency, checks every bank account, sends and verifies. The person signs. Behind that one signature: 476 tests, 500 random operation sequences, 36 injection documents, and 20 parallel releases with dropped responses that made exactly one transfer per line ([Testing](#testing)).
+The agent reads the files, prices the run, converts currency, checks every bank account, sends and verifies. The person signs. Behind that one signature: 588 tests, a mutation score of 435 of 435 on the gate, mandate and money code, a TLA+ model of the release protocol, 500 random operation sequences, 36 injection documents, and 20 parallel releases with dropped responses that made exactly one transfer per line ([Testing](#testing)).
 
 Payroll is where we proved it, because it is the hardest case: deadlines, several employers, money that can't be called back. The same controls fit any payout.
 
@@ -188,7 +188,7 @@ The faucet gives about 100 USDZ, so the demo counts 1 USDZ as USD 10. Tests: [te
 
 ## Testing
 
-- 476 offline tests against a fake Airwallex built from recorded sandbox behaviour ([PROBES.md](docs/PROBES.md)), with a coverage floor of 85% (88% measured), plus 500 random operation sequences with money invariants checked after every step. The timesheet parser, which reads untrusted documents, is fuzzed with Atheris ([fuzz/](fuzz/)); fuzzing found a stray carriage return that crashed intake instead of being rejected, now fixed and tested.
+- 588 offline tests against a fake Airwallex built from recorded sandbox behaviour ([PROBES.md](docs/PROBES.md)), with a coverage floor of 85% (88% measured), plus 500 random operation sequences with money invariants checked after every step, 31 Hypothesis properties, and every fault schedule of four release attempts. Mutation testing changed the gate, mandate and money code 435 ways and the tests caught all 435 ([TESTING.md](docs/TESTING.md#mutation-testing)). The release protocol is also model-checked with TLA+ ([formal/](formal/README.md): 479,088 states, no violation, and the unfixed designs break as [FINDINGS.md](FINDINGS.md) says). Dafny was not used. The timesheet parser, which reads untrusted documents, is fuzzed with Atheris ([fuzz/](fuzz/)); fuzzing found a stray carriage return that crashed intake instead of being rejected, now fixed and tested.
 - 36 prompt-injection documents: an agent that obeys every instruction attempted 28 attacks and the gate blocked all 28. Claude followed none ([GAUNTLET.md](docs/GAUNTLET.md)).
 - Live on the sandbox, 20 parallel releases with 3 dropped responses made exactly one transfer per line. Benchmark against a reference agent with a human approving every write: [BENCH.md](docs/BENCH.md).
 - Supply chain: [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/singhharsimar23-dotcom/ringefence) 7.6 / 10 on 20 Nov 2026 (live badge at the top). GitHub Actions are pinned to commit SHAs, workflow tokens are read-only, CodeQL, Dependabot, dependency review and an OSV scan run, `main` blocks force pushes and needs passing checks, and the repo has a [security policy](SECURITY.md) and an MIT [license](LICENSE).
