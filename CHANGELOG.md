@@ -4,11 +4,7 @@ All notable changes. Dates are 2026. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
-### Added
-- Documentation set in [docs/](docs/): architecture, MCP reference, run guide, Airwallex usage, testing, threat model and decisions.
-- Contributing guide, code of conduct, roadmap, issue and pull request templates.
-- Coverage floor in `make check`, and a release workflow that attaches checksums and a build attestation.
-- Dependency review on pull requests and a daily OSV scan of `uv.lock`.
+Nothing yet.
 
 ## [0.1.0] - 2026-11-21
 
@@ -23,6 +19,11 @@ First tagged release: the Airwallex Agentic Banking Hackathon, Kit 06 submission
 - Bench against a recommended agent setup, and five reproducible security findings ([FINDINGS.md](FINDINGS.md)) (6 to 10 Nov).
 - A local stdio MCP server (3 Nov), and a remote MCP server with passkey approval (18 Nov).
 - Supply-chain controls: MIT license, security policy, CodeQL, Dependabot, OpenSSF Scorecard (7.6 of 10 on 20 Nov), pinned actions, Atheris fuzz target (20 Nov).
+
+- Documentation set in [docs/](docs/): architecture, MCP reference, run guide, Airwallex usage, testing, threat model, decisions, and a guide for OpenRouter models with a short example agent (21 Nov).
+- Impact analysis for each security finding: who needs access, first and second order effects (21 Nov).
+- Contributing guide, code of conduct, roadmap, issue and pull request templates (21 Nov).
+- Coverage floor in `make check`, a release workflow that attaches checksums and a build attestation, dependency review on pull requests and a daily OSV scan of `uv.lock` (21 Nov).
 
 ### Fixed
 - A stray carriage return in a timesheet raised an unhandled `csv.Error` instead of being rejected. Found by fuzzing (20 Nov).
