@@ -1,6 +1,6 @@
 # HTTP API
 
-Two supported ways in: the [MCP server](../README.md#ringfence-mcp-any-agent-a-person-approves) (`/mcp`) and the engine as a library ([examples/embed.py](../examples/embed.py)). The web app's `/api/*` routes are its own backend. Only the read-only ones below are meant for outside callers. `/openapi.json` lists every route.
+Two supported ways in: the [MCP server](MCP.md) (`/mcp`) and the engine as a library ([examples/embed.py](../examples/embed.py)). The web app's `/api/*` routes are its own backend. Only the read-only ones below are meant for outside callers. `/openapi.json` lists every route.
 
 ## Read-only, safe to call
 

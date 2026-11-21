@@ -1,0 +1,25 @@
+# Ringfence
+
+> A control layer between AI agents and Airwallex payouts: the agent proposes, code checks, a person signs. Payroll is the first use. Airwallex sandbox and Metal testnet only: no real money moves.
+
+## Use it
+
+- [MCP server](docs/MCP.md): connect any MCP client that supports HTTP with `claude mcp add --transport http ringfence https://ringfence-hs23-eu.indiasouthcentral.cloudapp.azure.com/mcp`. Tools: run_payroll, release_payroll, payroll_status, payroll_proof. There is no approve tool: a person approves on a passkey page.
+- [Run it](docs/RUN_IT.md): offline demo with `make fake-demo`, no keys needed.
+- [Read-only HTTP API](docs/API.md)
+
+## Understand it
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Threat model](docs/THREAT_MODEL.md)
+- [Decisions](docs/DECISIONS.md)
+- [Security findings](FINDINGS.md): five ways an agent built from Airwallex's own guidance paid the wrong account or paid twice
+- [A recorded live run](docs/PROOF.md): every Airwallex ID
+
+## What is simulated
+
+Payouts reaching PAID, a short employer's deposit and the platform's fee credit use Airwallex sandbox simulation endpoints and are labelled [SIMULATED]. Transfers, FX, beneficiaries and the isolation check are real sandbox calls.
+
+## Limits
+
+Sandbox only. The public MCP endpoint has no login. See [limitations](README.md#limitations-and-path-to-production).
