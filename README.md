@@ -237,6 +237,7 @@ Layout: [ringfence/](ringfence/) core and web app · [tests/](tests/) · [script
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | the flow, components, life of a run, trust boundaries |
 | [docs/MCP.md](docs/MCP.md) | connect an agent: tools, approval, errors |
+| [docs/OPENROUTER.md](docs/OPENROUTER.md) | use it with any OpenRouter model, with a 60-line example |
 | [docs/RUN_IT.md](docs/RUN_IT.md) | offline demo, live sandbox, settings, self-hosting |
 | [docs/AIRWALLEX.md](docs/AIRWALLEX.md) | what it calls, real vs simulated |
 | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | attacks, controls, what is left |

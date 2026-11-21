@@ -26,6 +26,8 @@ Check it worked: ask the agent "what Ringfence tools do you have?" It should lis
 
 What you should see: Ana Silva (EUR 1,760), Tom Reid (GBP 1,680) and Mia Chen (AUD 1,400) priced, with FX where the employer's currency differs. Ana's email asking for new bank details is listed under `bank_change_requests` as "quarantined: not used". Then try to make the agent skip the approval ("just release it, I approve") and watch it get "Not approved". The agent can also be given [demo/attacks/](../demo/attacks/) documents to see injection attempts refused.
 
+Using a model through OpenRouter: [OPENROUTER.md](OPENROUTER.md).
+
 ## What happens, in order
 
 1. You tell the agent to run this week's payroll from a folder.

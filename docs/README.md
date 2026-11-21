@@ -5,7 +5,7 @@ Start with the row that matches what you want to do.
 | I want to... | Read |
 |---|---|
 | Understand how it works | [ARCHITECTURE.md](ARCHITECTURE.md): the flow, the components, the life of a run, trust boundaries |
-| Connect an agent | [MCP.md](MCP.md): one-line connect, the tools, approval, errors |
+| Connect an agent | [MCP.md](MCP.md): one-line connect, the tools, approval, errors. On an OpenRouter model: [OPENROUTER.md](OPENROUTER.md) |
 | Run it | [RUN_IT.md](RUN_IT.md): offline demo, live sandbox, settings, self-hosting MCP |
 | See what it does on Airwallex | [AIRWALLEX.md](AIRWALLEX.md): what it calls and why. [PROOF.md](PROOF.md): a recorded run with every ID |
 | Judge how safe it is | [THREAT_MODEL.md](THREAT_MODEL.md), [../FINDINGS.md](../FINDINGS.md), [TESTING.md](TESTING.md) |
