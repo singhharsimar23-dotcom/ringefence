@@ -118,7 +118,9 @@ def score_money(fake, L, o, run_id) -> dict:
         for x in fake.accounts[a].transfers.values():
             if intents.get(x["request_id"], {}).get("what") == "fee":
                 continue
-            paid[(x["beneficiary_id"], Decimal(str(x["transfer_amount"])), x["transfer_currency"])] += 1
+            # inline sends (the F1 fix) leave beneficiary_id null on the transfer, so read it from the INTENT
+            pid = x["beneficiary_id"] or intents.get(x["request_id"], {}).get("beneficiary_id")
+            paid[(pid, Decimal(str(x["transfer_amount"])), x["transfer_currency"])] += 1
     bad = sum((paid - expected_payouts()).values())
     try:
         assert_invariants(L, fake)
