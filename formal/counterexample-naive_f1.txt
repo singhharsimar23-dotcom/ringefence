@@ -1,0 +1,86 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 118 and seed -1551293726168648685 with 12 workers on 12 cores with 1671MB heap and 64MB offheap memory [pid: 17000] (Windows 11 10.0 amd64, Eclipse Adoptium 21.0.13.1 x86_64, MSBDiskFPSet, DiskStateQueue).
+Finished computing initial states: 8 distinct states generated at 2026-11-21 11:06:05.
+Error: Invariant PaidOnlyApproved is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ apprHash = "none"
+/\ rid = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 1)
+/\ apprAmt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 1)
+/\ amt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ approved = FALSE
+/\ paid = {}
+/\ line = (p1 :> "READY" @@ p2 :> "READY" @@ p3 :> "READY")
+/\ bank = (p1 :> ok @@ p2 :> ok @@ p3 :> ok)
+/\ runSt = "NONE"
+
+State 2: <Propose line 53, col 12 to line 54, col 83 of module RingfenceRelease>
+/\ apprHash = "none"
+/\ rid = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 1)
+/\ apprAmt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 1)
+/\ amt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ approved = FALSE
+/\ paid = {}
+/\ line = (p1 :> "READY" @@ p2 :> "READY" @@ p3 :> "READY")
+/\ bank = (p1 :> ok @@ p2 :> ok @@ p3 :> ok)
+/\ runSt = "AWAITING"
+
+State 3: <Approve line 56, col 12 to line 58, col 54 of module RingfenceRelease>
+/\ apprHash = [b |-> "ids", a |-> (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)]
+/\ rid = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 1)
+/\ apprAmt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ amt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ approved = TRUE
+/\ paid = {}
+/\ line = (p1 :> "READY" @@ p2 :> "READY" @@ p3 :> "READY")
+/\ bank = (p1 :> ok @@ p2 :> ok @@ p3 :> ok)
+/\ runSt = "APPROVED"
+
+State 4: <Gate line 69, col 9 to line 71, col 80 of module RingfenceRelease>
+/\ apprHash = [b |-> "ids", a |-> (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)]
+/\ rid = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 1)
+/\ apprAmt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ amt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ approved = TRUE
+/\ paid = {}
+/\ line = (p1 :> "READY" @@ p2 :> "READY" @@ p3 :> "READY")
+/\ bank = (p1 :> ok @@ p2 :> ok @@ p3 :> ok)
+/\ runSt = "RELEASING"
+
+State 5: <EditBank line 61, col 19 to line 62, col 91 of module RingfenceRelease>
+/\ apprHash = [b |-> "ids", a |-> (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)]
+/\ rid = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 1)
+/\ apprAmt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ amt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ approved = TRUE
+/\ paid = {}
+/\ line = (p1 :> "READY" @@ p2 :> "READY" @@ p3 :> "READY")
+/\ bank = (p1 :> ok @@ p2 :> evil @@ p3 :> ok)
+/\ runSt = "RELEASING"
+
+State 6: <Intend line 74, col 14 to line 76, col 86 of module RingfenceRelease>
+/\ apprHash = [b |-> "ids", a |-> (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)]
+/\ rid = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 1)
+/\ apprAmt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ amt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ approved = TRUE
+/\ paid = {}
+/\ line = (p1 :> "READY" @@ p2 :> "INTENT" @@ p3 :> "READY")
+/\ bank = (p1 :> ok @@ p2 :> evil @@ p3 :> ok)
+/\ runSt = "RELEASING"
+
+State 7: <Send line 79, col 5 to line 86, col 71 of module RingfenceRelease>
+/\ apprHash = [b |-> "ids", a |-> (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)]
+/\ rid = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 1)
+/\ apprAmt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ amt = (p1 :> 1 @@ p2 :> 1 @@ p3 :> 2)
+/\ approved = TRUE
+/\ paid = {[bank |-> evil, amt |-> 1, rid |-> 1, p |-> p2, ret |-> FALSE]}
+/\ line = (p1 :> "READY" @@ p2 :> "PAID" @@ p3 :> "READY")
+/\ bank = (p1 :> ok @@ p2 :> evil @@ p3 :> ok)
+/\ runSt = "RELEASING"
+
+14226 states generated, 2256 distinct states found, 1286 states left on queue.
+The depth of the complete state graph search is 7.
+The average outdegree of the complete state graph is 2 (minimum is 0, the maximum 14 and the 95th percentile is 8).
+Finished in 01s at (2026-11-21 11:06:05)

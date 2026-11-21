@@ -1,0 +1,25 @@
+name: formal
+on:
+  push:
+    branches: [main]
+    paths: ["formal/**", ".github/workflows/formal.yml"]
+  pull_request:
+    paths: ["formal/**", ".github/workflows/formal.yml"]
+  workflow_dispatch:
+permissions: {}
+jobs:
+  tlc:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Fetch TLC 2.19 (tla2tools.jar from the v1.7.4 release), pinned by hash
+        run: |
+          curl -sSL -o "$RUNNER_TEMP/tla2tools.jar" https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  $RUNNER_TEMP/tla2tools.jar" | sha256sum -c -
+      - run: java -version
+      - name: Check the model, and that the naive variants still break
+        run: TLA_JAR="$RUNNER_TEMP/tla2tools.jar" bash formal/run.sh
