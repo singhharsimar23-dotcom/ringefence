@@ -22,7 +22,8 @@ def _sign(key_name: str, data: dict) -> str:
 
 
 def _ok(key_name: str, data: dict, sig: str) -> bool:
-    return hmac.compare_digest(_sign(key_name, data), sig or "")
+    # bytes, because compare_digest raises on a str with non-ASCII characters instead of returning False
+    return hmac.compare_digest(_sign(key_name, data).encode(), (sig or "").encode(errors="replace"))
 
 
 def _dt(s: str | None) -> datetime | None:
