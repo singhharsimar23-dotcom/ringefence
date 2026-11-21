@@ -1,3 +1,4 @@
+import itertools
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal as D
 
@@ -214,6 +215,28 @@ def test_status_never_moves_backwards_and_an_unknown_status_holds(awx, fake, L, 
 
 
 # -- crash recovery (GET-only) -------------------------------------------------------------------------
+FAULT_CHOICES = [None, ("timeout_after_commit", {"n": 1}), ("error_before_commit", {"status": 500, "n": 1})]
+
+
+@pytest.mark.parametrize("schedule", list(itertools.product(range(3), repeat=4)))
+def test_every_fault_schedule_of_four_rounds_pays_each_line_exactly_once(awx, fake, L, schedule):
+    """Exhaustive, not sampled: every choice of (none, lost reply, failed send) before each of four release attempts, then one clean attempt."""
+    new_run(awx, L, "kestrel")
+    ex = Executor(awx, L, sleep=lambda s: None)
+    for choice in schedule:
+        if FAULT_CHOICES[choice]:
+            fake.inject(FAULT_CHOICES[choice][0], **FAULT_CHOICES[choice][1])
+        ex.release(RUN, "kestrel")
+        ex.recover()
+    ex.release(RUN, "kestrel")  # a final clean attempt: whatever happened before, the run completes
+    ex.recover()
+    ts = fake.all_transfers(acct("kestrel"))
+    assert len(ts) == 2 and len({t["request_id"] for t in ts}) == 2  # one transfer per line, ever
+    assert sum(t["transfer_amount"] for t in ts) == D("1050.00")
+    assert fake.balance(acct("kestrel"), "USD") == D("10000000.00") - D("1050.00")  # debited exactly once
+    assert L.verify().ok
+
+
 def test_recover_finds_a_transfer_that_landed_and_does_not_resend(awx, fake, L, ex):
     new_run(awx, L, "kestrel", {"noah": D(10)})
     ln = lines(L, "kestrel")["noah"]
