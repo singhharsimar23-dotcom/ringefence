@@ -265,7 +265,7 @@ a.door{border-color:var(--line-3)}
 .foot{border-top:1px solid var(--line);padding:56px 0 72px}
 .foot p{margin-bottom:8px}
 .cols3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:32px}
-.links{display:grid;gap:6px}
+.links{display:grid;gap:6px;list-style:none;padding:0;margin:0 0 12px}
 .links a{color:var(--ink-2);text-decoration:none}
 .links a:hover{color:var(--ink)}
 
