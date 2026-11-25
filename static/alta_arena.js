@@ -84,6 +84,6 @@ function ticker(a) {
 }
 
 function reveal() {
-  const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && (e.target.classList.add("in"), io.unobserve(e.target))), { threshold: 0.12 });
+  const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && (e.target.classList.add("seen"), io.unobserve(e.target))), { threshold: 0.12 });
   document.querySelectorAll(".scene:not(.hero), .mnode").forEach((el) => { el.classList.add("rv"); io.observe(el); });
 }
