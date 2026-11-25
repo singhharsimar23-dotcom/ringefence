@@ -66,3 +66,7 @@ artifacts/
 /video/
 /demo/director.py
 /scripts/capture.py
+
+# local tooling and agent handoff (not published)
+/graphify-out/
+/docs/NEXT_AGENT_PROMPT.md

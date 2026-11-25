@@ -3,6 +3,9 @@ __HOST__ {
 	request_body {
 		max_size 64KB
 	}
+	handle /alta* {
+		reverse_proxy 127.0.0.1:8010
+	}
 	reverse_proxy 127.0.0.1:8000
 	header {
 		Strict-Transport-Security "max-age=31536000"

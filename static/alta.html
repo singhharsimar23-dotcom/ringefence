@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ringfence on Alta</title>
+<meta name="description" content="Each line a person approves becomes one single-use mandate on the Alta testnet. A compromised Ringfence server can pay only those lines, once each.">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:,">
+<link rel="preload" href="/static/vendor/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/landing.css">
+<link rel="stylesheet" href="/static/alta.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the page</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>Ringfence</a>
+    <nav aria-label="Page">
+      <a href="#attacks">Attacks</a>
+      <a href="#found">Findings</a>
+      <a href="#proof">Proof</a>
+      <a href="#agents">Agents</a>
+      <a href="#limits">Limits</a>
+      <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/main/docs/ALTA_SETTLEMENT.md">Write-up</a>
+      <a class="btn sm primary" href="/app#/try">Live demo</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+<section class="scene hero" id="top">
+  <div class="wrap">
+    <p class="eyebrow mono"><span class="dot"></span>Alta testnet · chain 63825 · approval-bound settlement</p>
+    <h1>The approval becomes the chain's law.</h1>
+    <p class="sub">A person approves one exact payroll batch. Ringfence compiles each line into a single-use mandate on Alta, signed on a separate device. A compromised Ringfence server can then pay only those lines, once each, before the approval expires.</p>
+    <div class="btns">
+      <a class="btn primary lg" href="#proof">Check the chain now <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn lg" href="#attacks">See the attacks <span class="arr" aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="how">
+  <div class="wrap">
+    <p class="eyebrow mono">1 · How it works</p>
+    <h2>Two enforcers of the same rule.</h2>
+    <p class="lead">On a bank rail, Ringfence's gate is the only thing between a compromised server and the money. On Alta there is a second one, in the transaction itself: the employer's account refuses any pull that the approved mandate does not allow.</p>
+    <div class="mflow" aria-label="How an approved batch becomes mandates">
+      <div class="mnode"><p class="k mono">agent</p><p>proposes the batch</p></div>
+      <div class="medge mono small">gate</div>
+      <div class="mnode"><p class="k mono">person</p><p>approves the exact batch hash</p></div>
+      <div class="medge mono small">export</div>
+      <div class="mnode hi"><p class="k mono">approver's device</p><p>one mandate per line: payee, amount, one pull</p></div>
+      <div class="medge mono small">credential</div>
+      <div class="mnode"><p class="k mono">server</p><p>pulls each line once, with a key that cannot do more</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="attacks">
+  <div class="wrap">
+    <p class="eyebrow mono">2 · Attack lab</p>
+    <h2>First we broke it. Each attack ran live on the testnet.</h2>
+    <p class="lead">The attacker is the Ringfence server itself: it holds every pull key and no owner key. Each attack runs twice, once against a broad mandate (what an agent wallet is usually given) and once against Ringfence's per-line mandates. Every cell is the chain's own answer.</p>
+    <p class="small muted" id="atk-meta">Loading.</p>
+    <table class="real" id="atk-t"><thead><tr><th>Attack</th><th>Incident class</th><th>Unprotected: broad mandate, or before the fix</th><th>Ringfence: per-line mandates, after the fix</th></tr></thead><tbody></tbody></table>
+  </div>
+</section>
+
+<section class="scene" id="found">
+  <div class="wrap">
+    <p class="eyebrow mono">3 · Found, then fixed</p>
+    <h2>Every defect, and the test that holds it shut.</h2>
+    <p class="lead">Some of these are in Alta's defaults, some are in Ringfence's own first design. Each one was reproduced before it was fixed, and each fix has a test.</p>
+    <div class="fgrid" id="finds"></div>
+  </div>
+</section>
+
+<section class="scene" id="proof">
+  <div class="wrap">
+    <p class="eyebrow mono">4 · Proof</p>
+    <h2>A payroll on the testnet, checked against the chain.</h2>
+    <p class="lead">The recorded payroll's credentials are public files. This page reads each one from the chain now and compares it to what was approved: the payee, one pull of the exact amount, the approved batch hash in the credential's signed description.</p>
+    <div class="win">
+      <div class="bar mono"><span>recorded payroll</span><span class="tag" id="pr-state">loading</span></div>
+      <div class="body">
+        <ul class="txs mono small" id="pr-lines"><li class="muted">Loading.</li></ul>
+        <div class="btns left">
+          <button class="btn primary" id="recheck" type="button">Re-check on the chain</button>
+          <a class="btn" href="/alta/payroll.zip">Download the proof files</a>
+          <a class="btn" href="/alta/api/cert">Signed certificate</a>
+        </div>
+        <p class="small muted" id="rc-out" role="status"></p>
+        <p class="small muted">Auditors do not need this server: <span class="mono">python scripts/alta_audit.py --export export.json --creds creds/ --book book.json</span> reads the same credentials from the chain.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="agents">
+  <div class="wrap">
+    <p class="eyebrow mono">5 · For agents</p>
+    <h2>Read-only tools. No approve tool, no wallet field.</h2>
+    <p class="lead">Connect any MCP client. The tools price a payroll, return the attack results and findings, return the signed certificate, and re-check the payroll against the chain. None can bind, sign, pull, revoke or approve, and none takes a wallet address or an amount.</p>
+    <pre class="code mono small" id="mcp-cmd">claude mcp add --transport http ringfence-alta https://ringfence.example/alta/mcp</pre>
+    <div class="win">
+      <div class="bar mono"><span>price a payroll</span><span class="tag">moves nothing</span></div>
+      <div class="body">
+        <form id="price-f" class="row" autocomplete="off">
+          <label>noah, hours <input class="in mono" name="noah" value="10" inputmode="decimal"></label>
+          <label>zoe, hours <input class="in mono" name="zoe" value="8" inputmode="decimal"></label>
+          <button class="btn" type="submit">Price it</button>
+        </form>
+        <ul class="txs mono small" id="price-out"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="limits">
+  <div class="wrap">
+    <p class="eyebrow mono">6 · Limits</p>
+    <h2>What this does not claim.</h2>
+    <ul class="lim small" id="limits-l"></ul>
+  </div>
+</section>
+</main>
+<footer class="wrap foot"><p class="small muted"><a href="/">Ringfence</a> · <a href="/app#/try">Live demo</a> · <a href="https://github.com/singhharsimar23-dotcom/ringefence">GitHub</a></p></footer>
+<script src="/static/alta.js"></script>
+</body>
+</html>

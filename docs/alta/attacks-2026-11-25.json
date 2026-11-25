@@ -1,0 +1,210 @@
+{
+ "date": "2026-11-25",
+ "network": "alta testnet (chain 63825)",
+ "principal": "0x325AAd1A0b41E12785b323AE1aCEC6Baa3a380Da",
+ "attacks": {
+  "1": {
+   "name": "approval swap",
+   "does": "pay line A's money to the attacker's wallet",
+   "class": "Bybit, Feb 2025: signers approved what they could not read"
+  },
+  "2": {
+   "name": "address poisoning",
+   "does": "pay a wallet that looks like A's (same first 6 and last 4)",
+   "class": "address-poisoning losses, every year"
+  },
+  "3": {
+   "name": "inflated amount",
+   "does": "pay A more than the approved line",
+   "class": "Lobstar Wilde, Feb 2026: an agent sent far more than meant"
+  },
+  "4": {
+   "name": "double pull",
+   "does": "pull A's line a second time with a new payment id from a fresh machine",
+   "class": "Alta's own docs: dedup is local to one disk"
+  },
+  "5": {
+   "name": "server binds its own mandate",
+   "does": "mint and bind a mandate for the employer's principal without the owner key",
+   "class": "AIXBT, Mar 2025: operator access abused"
+  },
+  "6": {
+   "name": "stale attempt",
+   "does": "a line is reopened as attempt 2, then the server pays attempt 1 as well",
+   "class": "found by us, in our first design"
+  },
+  "7": {
+   "name": "stale approval",
+   "does": "the batch is re-approved, then the server pays the line under the OLD approval",
+   "class": "found by us, in our first design"
+  }
+ },
+ "rows": [
+  {
+   "attack": 1,
+   "name": "approval swap",
+   "side": "broad mandate",
+   "usd_lost": "0.50",
+   "outcome": "paid",
+   "reason": "",
+   "tx": "0x18e23736442be9f8ecf00cbeb0a63dd65a5c4abb9a9ec109fe10721e51d6eeb6",
+   "to": "0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead",
+   "usdz": "0.05",
+   "note": "paid the attacker"
+  },
+  {
+   "attack": 1,
+   "name": "approval swap",
+   "side": "Ringfence",
+   "usd_lost": "0",
+   "outcome": "refused",
+   "reason": "mandate_payee_not_listed",
+   "tx": "0xb00099329cfff7e8a8fe37a13d085880078058c178a8f002ed04416195c55b78",
+   "to": "0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead",
+   "usdz": "0",
+   "note": "line pays only 0x2469C5\u2026"
+  },
+  {
+   "attack": 2,
+   "name": "address poisoning",
+   "side": "broad mandate",
+   "usd_lost": "0.50",
+   "outcome": "paid",
+   "reason": "",
+   "tx": "0x95058881bbc66f9021187f5034f5727b006184978710cafc64d9d2e331e1d577",
+   "to": "0x24693c421d5f5fc0501609158cd98599a56ad071",
+   "usdz": "0.05"
+  },
+  {
+   "attack": 2,
+   "name": "address poisoning",
+   "side": "Ringfence",
+   "usd_lost": "0",
+   "outcome": "refused",
+   "reason": "mandate_payee_not_listed",
+   "tx": "0x37ce85e1fcf912de7e2b1c61953965f23c2fcc8cbf30f26d93e3ee334609938c",
+   "to": "0x24693c421d5f5fc0501609158cd98599a56ad071",
+   "usdz": "0"
+  },
+  {
+   "attack": 3,
+   "name": "inflated amount",
+   "side": "broad mandate",
+   "usd_lost": "0.50",
+   "outcome": "paid",
+   "reason": "",
+   "tx": "0xe78558d4a59b657cfa77962ad5dd3f27cb0e02c419f3df33ed47a05e2b02da71",
+   "to": "0x37AE5dD7a8e8ac55928A9E857c78a0A358A29214",
+   "usdz": "0.05",
+   "note": "0.04 was approved"
+  },
+  {
+   "attack": 3,
+   "name": "inflated amount",
+   "side": "Ringfence",
+   "usd_lost": "0",
+   "outcome": "refused",
+   "reason": "mandate_cap_exceeded",
+   "tx": "0x8b41ade6adbd7fa1e4bc2621cdc1bd7295e608625f1a9b00cc436c14bbcc1eb7",
+   "to": "0x37AE5dD7a8e8ac55928A9E857c78a0A358A29214",
+   "usdz": "0",
+   "note": "0.04 was approved"
+  },
+  {
+   "attack": 4,
+   "name": "double pull",
+   "side": "broad mandate",
+   "usd_lost": "0.40",
+   "outcome": "paid",
+   "reason": "",
+   "tx": "0xe7ef0647ee24a01d10638e4153895fdeacc10e5bb5359c64bc3d66f3624f3c0c",
+   "to": "0x2469C5dBA6E8e859e9AF92Ae15621E223EF3d071",
+   "usdz": "0.04",
+   "note": "first pull: paid"
+  },
+  {
+   "attack": 4,
+   "name": "double pull",
+   "side": "Ringfence",
+   "usd_lost": "0",
+   "outcome": "refused",
+   "reason": "mandate_budget_spent",
+   "tx": "0x898783e9d3d34169553aa96db711d2a544a68ee91c2952bf996d8c1577e5f1c2",
+   "to": "0x2469C5dBA6E8e859e9AF92Ae15621E223EF3d071",
+   "usdz": "0",
+   "note": "first pull: paid"
+  },
+  {
+   "attack": 5,
+   "name": "server binds its own mandate",
+   "side": "broad mandate",
+   "usd_lost": "10",
+   "outcome": "paid",
+   "reason": "",
+   "tx": "0x7e1b1fc206c3f4f6cf3dcad9b0ebce6929fb6ffa587d61a9fdc9a0af55fe6e96",
+   "to": "0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead",
+   "usdz": "1",
+   "note": "the server held the owner key"
+  },
+  {
+   "attack": 5,
+   "name": "server binds its own mandate",
+   "side": "Ringfence",
+   "usd_lost": "0",
+   "outcome": "refused",
+   "reason": "the call to 0x325AAd1A0b41E12785b323AE1aCEC6Baa3a380Da would fail: Execution reverted for ",
+   "tx": "",
+   "to": "0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead",
+   "usdz": "0",
+   "note": "the chain rejects a bind not signed by the principal's owner"
+  },
+  {
+   "attack": 6,
+   "name": "stale attempt",
+   "side": "before the fix",
+   "usd_lost": "0.50",
+   "outcome": "paid",
+   "reason": "",
+   "tx": "0xe08f4229f6710b3a9609e6b90511d4ce3f384afb36d81acade6e155ceb46962e",
+   "to": "0x2469C5dBA6E8e859e9AF92Ae15621E223EF3d071",
+   "usdz": "0.05",
+   "note": "attempt 2 paid, then attempt 1 is pulled for the same person"
+  },
+  {
+   "attack": 6,
+   "name": "stale attempt",
+   "side": "after the fix",
+   "usd_lost": "0",
+   "outcome": "refused",
+   "reason": "mandate_revoked",
+   "tx": "0xcdcee4d988ed3ca6c807415fa8032ab165087002f3f5a011d977199048b1f79f",
+   "to": "0x2469C5dBA6E8e859e9AF92Ae15621E223EF3d071",
+   "usdz": "0",
+   "note": "attempt 2 paid, then attempt 1 is pulled for the same person"
+  },
+  {
+   "attack": 7,
+   "name": "stale approval",
+   "side": "before the fix",
+   "usd_lost": "0.40",
+   "outcome": "paid",
+   "reason": "",
+   "tx": "0xb136ffa9eb7012ad2e2662b75e5f70b906abcbde39cfbaf959e43753a8d05c81",
+   "to": "0x37AE5dD7a8e8ac55928A9E857c78a0A358A29214",
+   "usdz": "0.04",
+   "note": "paid under an approval that was replaced"
+  },
+  {
+   "attack": 7,
+   "name": "stale approval",
+   "side": "after the fix",
+   "usd_lost": "0",
+   "outcome": "refused",
+   "reason": "mandate_revoked",
+   "tx": "0x056abf3fef5d0a2fae431f8c129c52f7ed7b61d4e0db9ded5366697ed28cf2e9",
+   "to": "0x37AE5dD7a8e8ac55928A9E857c78a0A358A29214",
+   "usdz": "0",
+   "note": "the old credential was revoked on re-approval"
+  }
+ ]
+}

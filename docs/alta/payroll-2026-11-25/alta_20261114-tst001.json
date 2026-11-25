@@ -1,0 +1,113 @@
+{
+ "alg": "Ed25519",
+ "body": {
+  "batch_hash": "ded0546eab79cc449a6bc2db4ebce90ad1cf71c04b50f005466369350c218b53",
+  "checks": [
+   {
+    "line": "rf-jilala7bd",
+    "name": "credential_exists",
+    "ok": true
+   },
+   {
+    "line": "rf-jilala7bd",
+    "name": "bound_by_the_owner",
+    "ok": true
+   },
+   {
+    "line": "rf-jilala7bd",
+    "name": "pays_only_the_pinned_wallet",
+    "ok": true
+   },
+   {
+    "line": "rf-jilala7bd",
+    "name": "exactly_this_amount_once",
+    "ok": true
+   },
+   {
+    "line": "rf-jilala7bd",
+    "name": "signed_for_this_approved_batch",
+    "ok": true
+   },
+   {
+    "line": "rf-jilala7bd",
+    "name": "never_paid_twice",
+    "ok": true
+   },
+   {
+    "line": "rf-jilala7bd",
+    "name": "ledger_state_matches_chain",
+    "ok": true
+   },
+   {
+    "line": "rf-jilala7bd",
+    "name": "every_payment_has_an_intent",
+    "ok": true
+   },
+   {
+    "line": "rf-n7wmoqlhk",
+    "name": "credential_exists",
+    "ok": true
+   },
+   {
+    "line": "rf-n7wmoqlhk",
+    "name": "bound_by_the_owner",
+    "ok": true
+   },
+   {
+    "line": "rf-n7wmoqlhk",
+    "name": "pays_only_the_pinned_wallet",
+    "ok": true
+   },
+   {
+    "line": "rf-n7wmoqlhk",
+    "name": "exactly_this_amount_once",
+    "ok": true
+   },
+   {
+    "line": "rf-n7wmoqlhk",
+    "name": "signed_for_this_approved_batch",
+    "ok": true
+   },
+   {
+    "line": "rf-n7wmoqlhk",
+    "name": "never_paid_twice",
+    "ok": true
+   },
+   {
+    "line": "rf-n7wmoqlhk",
+    "name": "ledger_state_matches_chain",
+    "ok": true
+   },
+   {
+    "line": "rf-n7wmoqlhk",
+    "name": "every_payment_has_an_intent",
+    "ok": true
+   }
+  ],
+  "issued_at": "2026-11-25T07:01:36.179820+00:00",
+  "kind": "alta_settlement",
+  "ledger_head": {
+   "hash": "288be40f085477fd0e09f63b96c3bda2960470158ade75615e76545989f2a280",
+   "seq": 13
+  },
+  "limit": "Checks the credentials this server holds. Alta has no command that lists a principal's mandates, so a mandate written outside this server would not appear here.",
+  "lines": [
+   {
+    "mandate": "0x17d23f4cbfaf397e0e4e94fee52149c9f8a26059a0d121d28d1b3851a97dc92d",
+    "ok": true,
+    "request_id": "rf-jilala7bdotqmp3r434cmxhmmu5r3qcxder3uawou5hsn2y",
+    "spent_usdz": "0.11"
+   },
+   {
+    "mandate": "0x6408ae63e60e008e5493c6526bb16feb5ad82c5b0d2ecac32803cff4e8521cb1",
+    "ok": true,
+    "request_id": "rf-n7wmoqlhk7loj2uf6dpu7pxxwipnqgiccj5h73qpr46zap6",
+    "spent_usdz": "0.1"
+   }
+  ],
+  "result": "PASS",
+  "run_id": "20261114-tst001",
+  "tenant": "kestrel"
+ },
+ "signature": "6TZVvmA/vOKrW42Cc6EmAPi6SYfq4dLcQJeXVpz/Xp/3vi+t1OcWHmzy/3cviNm/JIh50kwJHeCC+A6Nst7yDw=="
+}

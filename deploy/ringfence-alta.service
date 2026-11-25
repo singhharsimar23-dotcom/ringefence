@@ -1,0 +1,24 @@
+[Unit]
+Description=Ringfence on Alta (read-only page, API and MCP; holds no key that can move money)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ringfence
+WorkingDirectory=/opt/ringfence
+EnvironmentFile=/etc/ringfence/env
+# its own state dir and its own HOME: the Alta CLI keeps pull state under HOME, and this process never pulls
+Environment=RF_VAR=/var/lib/ringfence/alta HOME=/var/lib/ringfence/alta/home RF_ALTA_PORT=8010 PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1
+Environment=RF_METAL_DIR=/var/lib/ringfence/alta/metal RF_METAL_CLI=/opt/metal_pkg/node_modules/@metalntwx/metal-agent/dist/index.js PATH=/opt/node/bin:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=/usr/bin/install -d -o ringfence -g ringfence /var/lib/ringfence/alta /var/lib/ringfence/alta/home /var/lib/ringfence/alta/metal
+ExecStart=/opt/ringfence/.venv/bin/python -m ringfence.alta_app
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/ringfence /opt/ringfence
+
+[Install]
+WantedBy=multi-user.target

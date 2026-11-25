@@ -167,7 +167,57 @@ Run `20261114-53jrfe` (pay date 14 Nov 2026), executed 11 Nov 2026 at 01:39 UTC 
 - **Real vs simulated:** transfers, FX, fees, beneficiaries, the global account and the isolation check are real sandbox calls. Payouts reaching `PAID` and Harbour's deposit used Airwallex's `/simulation/*` endpoints. The platform's fee credit is recorded by Ringfence only, because the sandbox doesn't credit the platform. All simulated steps are labelled `[SIMULATED]`.
 - **APIs used:** login per account (`x-login-as`), `/balances/current`, `/beneficiaries`, `/global_accounts`, `/deposits`, `/fx/quotes/create`, `/fx/conversions/create`, `/transfers/create`, `/transfers` (get, list by `request_id`, cancel), `/webhooks`, `/simulation/*`.
 
-## Alta (formerly Metal): on-chain funding mandates
+## Alta (formerly Metal): approval-bound settlement and funding mandates
+
+<!-- alta:start -->
+### Approval-bound settlement (new)
+
+Live page: `/alta`. MCP: `/alta/mcp`. Full write-up: [docs/ALTA_SETTLEMENT.md](docs/ALTA_SETTLEMENT.md).
+
+On a bank rail, Ringfence's gate is the only enforcer. On Alta the human's approval is compiled into the payment: an approver's device (a separate process and key) signs one single-use mandate per approved line, with the approved batch hash in its signed description. A compromised Ringfence server can then pay only the approved lines, once each, before the approval expires. The executor is the unchanged, mutation-tested one; only the client underneath it changes ([alta.py](ringfence/alta.py)).
+
+**First we broke it.** The attacker is the Ringfence server (every pull key, no owner key). Each attack ran live on the testnet against a broad mandate and against Ringfence's per-line mandates:
+
+Run 2026-11-25, alta testnet (chain 63825).
+
+| # | Attack | Incident class | Unprotected | Ringfence |
+|---|---|---|---|---|
+| 1 | approval swap: pay line A's money to the attacker's wallet | Bybit, Feb 2025: signers approved what they could not read | paid [0x18e23736…eeb6](https://testnet.metalntwx.com/tx/0x18e23736442be9f8ecf00cbeb0a63dd65a5c4abb9a9ec109fe10721e51d6eeb6) | refused, `mandate_payee_not_listed` [0xb0009932…5b78](https://testnet.metalntwx.com/tx/0xb00099329cfff7e8a8fe37a13d085880078058c178a8f002ed04416195c55b78) |
+| 2 | address poisoning: pay a wallet that looks like A's (same first 6 and last 4) | address-poisoning losses, every year | paid [0x95058881…d577](https://testnet.metalntwx.com/tx/0x95058881bbc66f9021187f5034f5727b006184978710cafc64d9d2e331e1d577) | refused, `mandate_payee_not_listed` [0x37ce85e1…938c](https://testnet.metalntwx.com/tx/0x37ce85e1fcf912de7e2b1c61953965f23c2fcc8cbf30f26d93e3ee334609938c) |
+| 3 | inflated amount: pay A more than the approved line | Lobstar Wilde, Feb 2026: an agent sent far more than meant | paid [0xe78558d4…da71](https://testnet.metalntwx.com/tx/0xe78558d4a59b657cfa77962ad5dd3f27cb0e02c419f3df33ed47a05e2b02da71) | refused, `mandate_cap_exceeded` [0x8b41ade6…1eb7](https://testnet.metalntwx.com/tx/0x8b41ade6adbd7fa1e4bc2621cdc1bd7295e608625f1a9b00cc436c14bbcc1eb7) |
+| 4 | double pull: pull A's line a second time with a new payment id from a fresh machine | Alta's own docs: dedup is local to one disk | paid [0xe7ef0647…3c0c](https://testnet.metalntwx.com/tx/0xe7ef0647ee24a01d10638e4153895fdeacc10e5bb5359c64bc3d66f3624f3c0c) | refused, `mandate_budget_spent` [0x898783e9…f1c2](https://testnet.metalntwx.com/tx/0x898783e9d3d34169553aa96db711d2a544a68ee91c2952bf996d8c1577e5f1c2) |
+| 5 | server binds its own mandate: mint and bind a mandate for the employer's principal without the owner key | AIXBT, Mar 2025: operator access abused | paid [0x7e1b1fc2…6e96](https://testnet.metalntwx.com/tx/0x7e1b1fc206c3f4f6cf3dcad9b0ebce6929fb6ffa587d61a9fdc9a0af55fe6e96) | refused, `the` |
+| 6 | stale attempt: a line is reopened as attempt 2, then the server pays attempt 1 as well | found by us, in our first design | paid [0xe08f4229…962e](https://testnet.metalntwx.com/tx/0xe08f4229f6710b3a9609e6b90511d4ce3f384afb36d81acade6e155ceb46962e) | refused, `mandate_revoked` [0xcdcee4d9…f79f](https://testnet.metalntwx.com/tx/0xcdcee4d988ed3ca6c807415fa8032ab165087002f3f5a011d977199048b1f79f) |
+| 7 | stale approval: the batch is re-approved, then the server pays the line under the OLD approval | found by us, in our first design | paid [0xb136ffa9…5c81](https://testnet.metalntwx.com/tx/0xb136ffa9eb7012ad2e2662b75e5f70b906abcbde39cfbaf959e43753a8d05c81) | refused, `mandate_revoked` [0x056abf3f…f2e9](https://testnet.metalntwx.com/tx/0x056abf3fef5d0a2fae431f8c129c52f7ed7b61d4e0db9ded5366697ed28cf2e9) |
+
+**Then we fixed it.** Defects found while building this, each reproduced first and each with a test:
+
+| # | Defect | Where |
+|---|---|---|
+| A1 | A reopened line could be paid twice | Ringfence's first Alta design |
+| A2 | A renewed approval left the old credentials payable | Ringfence's device, found by its own test |
+| A3 | Alta's default mandate is broad | Alta CLI 0.3.3 defaults, measured on the testnet |
+| A4 | Alta's pull memory is local to one machine | Alta's own documentation, reproduced live |
+| A5 | The live top-up holds the employer's owner key | Ringfence's earlier Metal top-up, still deployed |
+| A6 | Slow signing made credentials outlive the approval | Ringfence's device, found by the first live payroll |
+| A7 | A payroll that paid nothing was certified as a pass | Ringfence's verifier, found by the same live run |
+| A8 | Every pull failed, and the error said the wallet was unfunded | Ringfence's Alta adapter, found by the same live run |
+
+How each was broken and fixed is in [docs/ALTA_SETTLEMENT.md](docs/ALTA_SETTLEMENT.md#defects-found-and-the-fix-for-each).
+
+Recorded in [payroll-2026-11-25/](payroll-2026-11-25/): the approved batch, each credential file (never a pull key), the line report and the signed certificate. Result: **PASS**. The Airwallex fee step ran on the offline fake and is [SIMULATED]; the payments are real testnet payments.
+
+| Line | Ledger state | Paid (USDZ) | Checks |
+|---|---|---|---|
+| noah | PAID | 0.11 | all passed |
+| zoe | PAID | 0.1 | all passed |
+
+Audit a run without this server: `python scripts/alta_audit.py --export export.json --creds creds/ --book book.json`.
+
+Limits: The chain, not the adapter, is the final enforcer. The adapter and the preflight add independent refusals before it. Alta has no command that lists a principal's mandates, so the proof covers only credentials this server holds. A mandate caps a payment, it does not set it: a compromised server can pay a line less than approved, never more. The proof flags a line whose paid amount differs from the approved one. Pending and held pull outcomes cannot be forced on the testnet; they are tested against a fake chain that prints the CLI's real text. Airwallex fees and the employer registry run on an offline fake and are labelled [SIMULATED]. Payments on chain are real testnet payments. 1 USDZ stands for USD 10 on the testnet, a fixed scale chosen so a faucet balance covers a payroll. The approver's device is a separate process and key. A compromised device is out of scope: it is the root of trust. Blind signing is reduced, not solved: the device shows what it binds, and the person still has to read it.
+<!-- alta:end -->
+
+### Funding mandates for a short employer
 
 [Metal](https://testnet.metalntwx.com) is a blockchain testnet (chain ID 63825) whose wallets support on-chain spending mandates, with test token USDZ. Ringfence uses it as a second way for a short employer to fund payroll, through the pinned `@metalntwx/metal-agent@0.3.3` CLI ([metal.py](ringfence/metal.py#L134)).
 

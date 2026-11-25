@@ -1,0 +1,66 @@
+{
+ "1": {
+  "survives_in_status": true,
+  "present_in_credential_file": false,
+  "full_length": 118,
+  "tampered_status_exit": 0,
+  "tampered_pull_exit": 0,
+  "tampered_pull": "paid",
+  "tampered_output": "transaction 0x244fd264672cbdcca472f48e15722d23267500bde077830abf39e4e57a19a548\noutcome paid\nspent 0.01 *USDZ of 0.01 *USDZ\npayer 0x325AAd1A0b41E12785b323AE1aCEC6Baa3a380Da\npayee 0x2469C5dBA6E8e859e9AF92Ae15621E223EF3d071\namount 0.01 *USDZ\nexplorer https://testnet.metalntwx.com/tx/0x244fd264672cbdcca",
+  "description_is_signed": false,
+  "fallback_needed": true
+ },
+ "2": {
+  "pull_key_can_revoke": false,
+  "pull_key_output": "error: C:\\Users\\hprad\\OneDrive\\Desktop\\fintech\\var\\alta\\probe\\20261125-104001\\02-revoke\\m.key.json does not hold a 32-byte private key\n",
+  "owner_revoke_exit": 0,
+  "owner_revoke_tx": "0x5bc80a86f08e89df73bd3872b7d4148c292ee47c6c557637029becee9cd5b83c",
+  "pull_after_revoke": "mandate_revoked"
+ },
+ "5": {
+  "refusal": "mandate_cap_exceeded",
+  "refusal_tx": "0x84e33085a1ce66465084b6468ce576890e0d1edbb830564e980b3ad52014c133",
+  "payments_after_refusal": "0",
+  "then_pull_exit": 0,
+  "then_pull": "paid",
+  "pay_tx": "0x9e1572b93d0624ec1b790bdff63514c1585021344135eb5d41aa78b704be8855",
+  "payments_after_pay": "1",
+  "occurrence_survives_refusal": true
+ },
+ "6": {
+  "bind_exit_unfunded": 0,
+  "bind_output": "bound 0x3499db772e73161b37bfe5751e332b8fa4c75d60b75ded7dd61be439083c8739\ntransaction 0xcceb591c53dde72df6f70f9a2e3ae79f634c1aa23b51e5a7e2b5e983d1128ebe\nexplorer https://testnet.metalntwx.com/tx/0xcceb",
+  "pull_exit": 1,
+  "reason": null,
+  "output": "error: Mandate Binding rejects the pull and records nothing: Execution reverted for an unknown reason.\n"
+ },
+ "7": {
+  "first": "paid",
+  "same_id_again": "paid",
+  "new_id": "refused, not sent",
+  "fresh_home_new_id": "refused, not sent",
+  "payments_total": "1",
+  "safe": true
+ },
+ "8": {
+  "bind_fields": {
+   "bound": "0x29af304633a0e1b8dbee8397a6c044f736d2208c7b263520103ad57390bce928",
+   "transaction": "0x42a028fd70f374c9f953e03f8873b1b08b5c8a3c02d4bb734b9c29c4940910fd",
+   "gas": "1159247"
+  },
+  "bind_output_keys": [
+   "bound",
+   "explorer",
+   "gas",
+   "transaction"
+  ],
+  "list_mandates_cmd": "none in `--help`: no list/ls subcommand (checked 0.3.3)",
+  "note": "read the bind tx on the explorer for gas; a balance read needs `status <txHash>` or a direct RPC call"
+ },
+ "9": {
+  "tool_output_tail": "{\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{\"listChanged\":true}},\"serverInfo\":{\"name\":\"metal-agent\",\"version\":\"0.3.3\"}},\"jsonrpc\":\"2.0\",\"id\":1}\n{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"MCP error -32602: Input validation error: Invalid arguments for tool mandate_pull: Required at paymentId\\nRequired at network\"}],\"isError\":true},\"jsonrpc\":\"2.0\",\"id\":2}\n",
+  "payments_after": "0",
+  "refused_other_address": false
+ },
+ "3_4": "pending/held cannot be forced here: record the real output if either ever appears"
+}

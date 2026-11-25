@@ -1,5 +1,7 @@
 # On-chain funding with Alta (formerly Metal)
 
+> Approval-bound settlement (each approved payroll line becomes a one-pull mandate, with live attack results and every defect found) is in [ALTA_SETTLEMENT.md](ALTA_SETTLEMENT.md).
+
 [Metal](https://testnet.metalntwx.com) is a blockchain testnet (chain ID 63825) whose wallets support on-chain spending mandates, with test token USDZ. Ringfence uses it as a second way for a short employer to fund payroll, through the pinned `@metalntwx/metal-agent@0.3.3` CLI ([metal.py](../ringfence/metal.py#L134)).
 
 1. Harbour signs a mandate for exactly its shortfall: one pull, payable only to the platform's settlement wallet, expiring in one hour.

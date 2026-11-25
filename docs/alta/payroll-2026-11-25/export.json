@@ -1,0 +1,31 @@
+{
+ "run_id": "20261114-tst001",
+ "tenant": "kestrel",
+ "round": 1,
+ "batch_hash": "ded0546eab79cc449a6bc2db4ebce90ad1cf71c04b50f005466369350c218b53",
+ "approval_expires_at": "2026-11-25T08:57:24.708593+00:00",
+ "lines": [
+  {
+   "contractor_id": "noah",
+   "beneficiary_id": "alta-kestrel-noah",
+   "amount": "1.10",
+   "currency": "USD",
+   "method": "LOCAL",
+   "source_currency": "USD",
+   "attempt": 1,
+   "request_id": "rf-jilala7bdotqmp3r434cmxhmmu5r3qcxder3uawou5hsn2y",
+   "usdz": "0.11"
+  },
+  {
+   "contractor_id": "zoe",
+   "beneficiary_id": "alta-kestrel-zoe",
+   "amount": "1.00",
+   "currency": "USD",
+   "method": "LOCAL",
+   "source_currency": "USD",
+   "attempt": 1,
+   "request_id": "rf-n7wmoqlhk7loj2uf6dpu7pxxwipnqgiccj5h73qpr46zap6",
+   "usdz": "0.10"
+  }
+ ]
+}

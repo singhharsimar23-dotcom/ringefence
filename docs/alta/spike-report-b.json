@@ -1,0 +1,19 @@
+{
+ "1": {
+  "survives_in_status": true,
+  "description_found_in_layer2_disclosure": true,
+  "full_length": 118,
+  "tampered_status_exit": 1,
+  "tampered_pull_exit": 1,
+  "tampered_pull": null,
+  "tampered_output": "error: UndisclosedClaim: layer2 carries a disclosure absent from _sd\n",
+  "description_is_signed": true,
+  "fallback_needed": false
+ },
+ "9": {
+  "tool_output_tail": "{\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{\"listChanged\":true}},\"serverInfo\":{\"name\":\"metal-agent\",\"version\":\"0.3.3\"}},\"jsonrpc\":\"2.0\",\"id\":1}\n{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"outcome refused, not sent\\nreason mandate_payee_not_listed (the payee is not one the mandate allows)\\nrecorded no\\nnext: nothing was paid; mandate_status shows the mandate's limits and state: a start date or a window clears with time, and a limit, or a revoked or unbound mandate, needs the user\"}],\"isError\":true},\"jsonrpc\":\"2.0\",\"id\":2}\n",
+  "payments_after": "0",
+  "refused_other_address": true
+ },
+ "3_4": "pending/held cannot be forced here: record the real output if either ever appears"
+}

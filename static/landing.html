@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ringfence</title>
-<meta name="description" content="A payroll agent that can't pay one company's people with another company's money. Runs on the Airwallex sandbox and Metal testnet.">
+<meta name="description" content="A payroll agent that can't pay one company's people with another company's money. Runs on the Airwallex sandbox and the Alta testnet.">
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="data:,">
 <link rel="preload" href="/static/vendor/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
@@ -19,7 +19,7 @@
       <a href="#found">Findings</a>
       <a href="#proof">Proof</a>
       <a href="#how">How it works</a>
-      <a href="#metal">Metal</a>
+      <a href="#metal">Alta</a>
       <a href="#real">What's real</a>
       <a href="https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing" target="_blank" rel="noopener">Video 1: Findings</a>
       <a href="https://youtu.be/QnPQ9EYWWQQ" target="_blank" rel="noopener">Video 2: Used on Claude MCP</a>
@@ -33,7 +33,7 @@
 <!-- hero -->
 <section class="scene hero" id="top">
   <div class="wrap">
-    <p class="eyebrow mono"><span class="dot"></span>Airwallex Agentic Banking Hackathon · Kit 06 · Airwallex sandbox + Metal testnet</p>
+    <p class="eyebrow mono"><span class="dot"></span>Airwallex Agentic Banking Hackathon · Kit 06 · Airwallex sandbox + Alta testnet</p>
     <h1>A payroll agent that can't pay one company's people with another company's money.</h1>
     <p class="sub">Ringfence runs contractor pay for several employers on Airwallex. The model reads and proposes. Code and Airwallex decide what moves. Each result on this page says where it ran.</p>
     <div class="btns">
@@ -348,7 +348,14 @@ call   x-on-behalf-of: acct_…  another one</pre>
 <section class="scene" id="metal">
   <div class="wrap">
     <p class="eyebrow mono">11 · On chain</p>
-    <h2 class="fade">Pay the gap from a crypto wallet, with a cap the chain enforces.</h2>
+    <h2 class="fade">On Alta, the approval becomes the chain's law.</h2>
+    <p class="lead fade">A person approves one exact payroll batch. A separate approver's device signs one single-use mandate on the Alta testnet for each approved line. A compromised Ringfence server can then pay only those lines, once each, before the approval expires. Two enforcers hold the same rule: Ringfence's gate before the send, and the employer's account in the transaction itself. The executor is the same tested code as on Airwallex; only the client underneath it changes.</p>
+    <div class="mcards fade">
+      <a class="card link" href="/alta#attacks"><p class="pill no">first we broke it</p><h3>Seven attacks, run live</h3><p>The attacker is the Ringfence server, holding every pull key. Each attack runs against a broad mandate and against the per-line mandates. Every cell is the chain's own answer.</p><span class="go mono small">Open the attack lab <span class="arr" aria-hidden="true">→</span></span></a>
+      <a class="card link" href="/alta#found"><p class="pill ok">then we fixed it</p><h3>Eight defects, each with a test</h3><p>A reopened line that could be paid twice, a replaced approval that stayed payable, the defaults in Alta's own CLI, and three more the first live payroll exposed.</p><span class="go mono small">Read the findings <span class="arr" aria-hidden="true">→</span></span></a>
+      <a class="card link" href="/alta#proof"><p class="pill">check it yourself</p><h3>A payroll, read back from the chain</h3><p>Re-check the recorded payroll's credentials against the chain now, download the files, or connect an agent to the read-only MCP.</p><span class="go mono small">Check the chain <span class="arr" aria-hidden="true">→</span></span></a>
+    </div>
+    <h3 class="fade also">Also: funding a short employer from a wallet</h3>
     <p class="lead fade">On Metal testnet, Harbour signs a mandate: at most the shortfall in USDZ, one pull, only to the platform's settlement wallet. The agent can use it once. Anything else, Metal refuses and records the refusal on chain.</p>
     <div class="mflow fade" aria-label="How a Metal top-up flows">
       <div class="mnode"><p class="k mono">harbour wallet</p><p>USDZ on Metal testnet</p></div>
