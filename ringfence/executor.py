@@ -90,6 +90,8 @@ class Executor:
                 return self._stop(run_id, tenant, "HELD", "FX_FAILED", why)
         for ln in ready:
             stop = self._guard_and_intend(run_id, tenant, ln["contractor_id"])
+            if stop == "SKIP":  # another release already took this line
+                continue
             if stop:
                 return stop
             self._submit(c, store.get_line(self.L, run_id, tenant, ln["contractor_id"]))
@@ -114,7 +116,7 @@ class Executor:
         return state
 
     def _guard_and_intend(self, run_id: str, tenant: str, cid: str) -> str | None:
-        """One tx: re-check kill switch and approval expiry, then write INTENT. None = go ahead."""
+        """One tx: re-check kill switch and approval expiry, then write INTENT only if the line is still READY. None = go ahead."""
         with self.L.tx() as tx:
             if self.L.kill_switch_on():
                 stop = ("HELD", "KILL_SWITCH")
@@ -124,6 +126,8 @@ class Executor:
                 stop = ("AWAITING_APPROVAL", "APPROVAL_EXPIRED") if ap and ap.expires_at <= clock.utc_now() else None
             if stop is None:
                 ln = store.get_line(tx, run_id, tenant, cid)
+                if ln["state"] != "READY":
+                    return "SKIP"
                 tx.append("INTENT", {"contractor_id": cid, "request_id": ln["request_id"], "amount": ln["amount"],
                                      "currency": ln["currency"], "attempt": ln["attempt"],
                                      "beneficiary_id": ln["beneficiary_id"]}, run_id, tenant)

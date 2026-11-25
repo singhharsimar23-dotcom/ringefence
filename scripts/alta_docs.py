@@ -60,7 +60,7 @@ def payroll_md() -> str:
 def findings_md() -> str:
     out = []
     for f in FINDINGS:
-        out += [f"### {f['id']}. {f['title']}", f"*{f['where']}.*", "", f"**How it was broken.** {f['broke']}", "", f"**The fix.** {f['fixed']}", "",
+        out += [f"### {f['id']}. {f['title']}", f"*{f['where']}.*", "", f"**What was found.** {f['broke']}", "", f"**The fix.** {f['fixed']}", "",
                 "**Tests.** " + ", ".join(f"`{t}`" for t in f["tests"]) + (f". Live: attack {f['attack']}." if f.get("attack") else "."), ""]
     return "\n".join(out)
 

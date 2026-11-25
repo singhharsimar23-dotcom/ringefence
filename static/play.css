@@ -258,11 +258,11 @@ button.link{justify-self:start}
 @media (prefers-reduced-motion:reduce){.ge path.live{animation:none}.gn{transition:none}}
 
 /* Alta card: the Try view's way into /alta, ahead of the older top-up card */
-.alta-card{display:grid;gap:var(--s3);margin-top:var(--s4);padding:var(--s5);border:1px solid var(--ink);border-radius:var(--r);background:oklch(100% 0 0/.03);text-align:left;color:var(--muted)}
-.alta-card .k{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.alta-card{display:grid;gap:var(--s3);margin-top:var(--s4);padding:var(--s5);border:1px solid rgba(122,162,255,.45);border-radius:var(--r);background:oklch(100% 0 0/.03);text-align:left;color:var(--muted)}
+.alta-card .k{font-family:var(--mono);font-size:12px;color:var(--blue)}
 .alta-card h2{font-size:20px;line-height:26px;font-weight:600;color:var(--ink);letter-spacing:-.015em}
 .alta-card .an{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s3)}
-.alta-card .an b{display:block;font-size:26px;line-height:30px;color:var(--ink);font-weight:650}
+.alta-card .an b{display:block;font-size:26px;line-height:30px;color:var(--blue);font-weight:650}
 .alta-card .an span{font-size:12px;line-height:16px}
-.alta-card .go{justify-self:start;display:inline-flex;align-items:center;min-height:var(--btn-h);padding:0 var(--s4);border-radius:999px;background:var(--ink);color:var(--bg);font-weight:600;text-decoration:none}
-@media (hover:hover) and (pointer:fine){.alta-card .go:hover{background:oklch(90% 0 0)}}
+.alta-card .go{justify-self:start;display:inline-flex;align-items:center;min-height:var(--btn-h);padding:0 var(--s4);border-radius:999px;background:var(--blue);color:#000;font-weight:600;text-decoration:none}
+@media (hover:hover) and (pointer:fine){.alta-card .go:hover{background:#9bb8ff}}

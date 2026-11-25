@@ -1,6 +1,6 @@
 # Security findings
 
-Before building Ringfence, we built a reference payroll agent the way Airwallex's docs, SDK and MCP suggest, and tried to make it pay the wrong account. These are the five issues that can cost a company real money. Each was proven on the Airwallex sandbox, or in Airwallex's published SDK code, and each is closed in Ringfence.
+Before building Ringfence, we built a reference payroll agent the way Airwallex's docs, SDK and MCP suggest, and tried to make it pay the wrong account. These are the seven issues that can cost a company real money. F1 to F5 were proven on the Airwallex sandbox or in Airwallex's published SDK code. F6 and F7 are in how payroll automation decides what is safe to pay, and were reproduced in simulation. Each is closed in Ringfence.
 
 **Scope.** Airwallex sandbox only, our own accounts, amounts of GBP 2 or less. Every test transfer was cancelled or reversed, and every test payee was deleted.
 
@@ -11,6 +11,8 @@ Before building Ringfence, we built a reference payroll agent the way Airwallex'
 | [F3](#f3-the-node-sdk-shares-one-login) | The Node SDK shares one login | High | SDK code, offline | Nobody: it is how clients are built | One client's payroll is paid from another client's account |
 | [F4](#f4-a-retry-pays-twice) | A retry pays twice | Medium | Live | Nobody: a lost reply and a retry | A payment that can't be pulled back is doubled |
 | [F5](#f5-batch-payroll) | Batch payroll | Medium | Live, 4 of 4 | Same as F1 | A whole batch goes to a swapped account and can't be cancelled |
+| [F6](#f6-auto-release-after-a-bank-change) | Auto-release after a bank change | High | Simulation, fails before the fix | Nobody: an ordinary recurring payroll | A payroll is paid to a changed account with no person ever approving it |
+| [F7](#f7-a-restart-during-a-release) | A restart during a release | Medium | Simulation, fails before the fix | Nobody: a restart at the wrong moment | A line is prepared for payment twice |
 
 Airwallex's account isolation held: [12 of 12 cross-account calls were refused](#what-held).
 
@@ -198,13 +200,66 @@ Airwallex recommends batch transfers for payroll. A batch pays whatever bank acc
 
 ---
 
+## F6. Auto-release after a bank change
+
+**High** · Simulation, fails before the fix
+
+Many payroll tools pay automatically when "nothing changed since last week", so a person is not asked to approve the same payroll again. That test is usually written over amounts: same contractors, same hours, same totals. It never looks at who receives the money. A contractor's bank details can change through a fully legitimate process, and the next payroll still looks identical.
+
+`bank details changed` → `next payroll, same hours` → `"nothing changed", auto-release` → `paid to the new account, no approval`
+
+| | |
+|---|---|
+| **Needs** | No attacker beyond one accepted bank change: a real one, or a fake invoice that gets through a callback. After that, an ordinary recurring payroll. |
+| **When** | The employer has turned on "release automatically when nothing changed". A run created after the change, with the same hours as last time. |
+| **First order** | The run is released with no approval at all: no signature, no batch hash. The money goes to the new account and the log shows an automatic release. |
+| **Second order** | The first payment to any new account is exactly the one a person should have seen. It is skipped by the rule that exists to save people time, so the convenience becomes the way around the control. |
+| **Limit** | It needs auto-release switched on and a bank change that was confirmed first. |
+
+**Evidence.** [test_a_payroll_after_a_confirmed_bank_change_is_never_auto_released](tests/test_controls.py) runs it on the offline Airwallex double: same hours, new account, auto-release on. Before the fix the run went straight to READY. After it, the run waits for a person.
+
+**Fix in Ringfence.** "Nothing changed" now covers who is paid as well as how much: a run that includes a contractor with a confirmed bank change always needs a person's approval ([orchestrator.py](ringfence/orchestrator.py)). The release gate keeps its own check on the stored flag, so both layers hold.
+
+<details>
+<summary>Technical details</summary>
+
+- The release gate allows a run with no approval when the mandate's `auto_release` is `if_no_diff`, the diff is empty and nothing is new. The diff compared contractor and amount only.
+- A confirmed bank change updates the payee registry and never touched that history.
+- Reproduce: `uv run pytest tests/test_controls.py -k bank_change`.
+
+</details>
+
+---
+
+## F7. A restart during a release
+
+**Medium** · Simulation, fails before the fix
+
+A payroll release loops over its lines. Recovery after a restart puts a run that was mid-release back to READY. If a release is still running when that happens, a second release can start on the same lines, and both prepare the same payment.
+
+`release starts` → `restart reopens the run` → `second release starts` → `same line prepared twice`
+
+| | |
+|---|---|
+| **Needs** | Nobody: a restart or a second instance at the wrong moment. |
+| **When** | Recovery runs while another release is part way through a run. |
+| **First order** | Two requests for one payment reach Airwallex with the same request ID. Airwallex's duplicate rejection is then the only protection left. |
+| **Second order** | Two instances each believe they own the payment, so the log records two intents for one obligation. |
+| **Limit** | The request ID is fixed in advance, so a duplicate send is rejected by Airwallex. This closes the gap one layer earlier. |
+
+**Evidence.** [test_a_line_another_release_already_took_is_skipped_not_intended_twice](tests/test_executor.py): the second attempt to prepare a line that is already in progress is skipped and writes no second intent.
+
+**Fix in Ringfence.** A line is prepared for payment only if it is still READY, inside the same transaction that writes the intent ([executor.py](ringfence/executor.py)).
+
+---
+
 ## How the findings combine
 
 `F2: an email edits a payee` → `F1 and F5: the reviewer sees the right name and amount` → `a sent batch can't be recalled`
 
 - F2 lets an attacker edit a payee with no access to the platform.
 - F1 and F5 mean a person approving by name and amount does not see the edit.
-- F3 and F4 need no attacker. They come from how an integration picks a login and how it retries.
+- F3, F4, F6 and F7 need no attacker. They come from how an integration picks a login, how it retries, how it decides a payroll is safe to pay without asking, and how it recovers from a restart.
 
 We proved each step separately on the sandbox. We did not run the whole path as one attack.
 
@@ -225,8 +280,10 @@ Each finding became a control in code, with a test or a recorded run behind it.
 | F3 | A verifier probes cross-employer access live: 12 of 12 refused ([What held](#what-held)) |
 | F4 | 20 parallel releases and 3 dropped replies made one transfer per line ([TESTING.md](docs/TESTING.md)) |
 | F5 | No batches. One transfer per payee, each cancellable until it is sent. |
+| F6 | A run with a confirmed bank change is never auto-released ([test_controls.py](tests/test_controls.py)) |
+| F7 | A line is prepared only while it is READY ([test_executor.py](tests/test_executor.py)) |
 
-Ringfence is hardened against these five and the attack classes behind them. It is not proven safe against everything. A transfer already sent cannot be cancelled, one scoped key reaches every employer, and the build is sandbox only. The full list is in [THREAT_MODEL.md](docs/THREAT_MODEL.md#what-is-left).
+Ringfence is built against these seven and the classes behind them. The scope, and what is still open, are in [THREAT_MODEL.md](docs/THREAT_MODEL.md#what-is-left).
 
 ## Reproduce
 

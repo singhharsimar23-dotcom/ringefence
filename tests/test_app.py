@@ -260,7 +260,7 @@ def test_landing_is_the_front_door_and_the_app_moved_to_app(c):
 def test_live_demo_opens_try_it_with_the_guide(c):
     land, app = c.get("/").text, c.get("/app").text
     assert '<a class="btn sm primary" href="/app#/try">Live demo</a>' in land
-    assert '<a class="btn primary lg" href="/app#/try">Open the live demo' in land
+    assert '<a class="btn lg" href="/app#/try">Open the live demo' in land
     assert app.index("/static/copy.js") < app.index("/static/guide.js") and c.get("/static/guide.js").status_code == 200
     copy_js = c.get("/static/copy.js").text
     assert "T.guide = {" in copy_js and "T.tips = {" in copy_js and "Blockchain, on Alta" in copy_js

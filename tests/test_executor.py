@@ -356,3 +356,11 @@ def test_a_late_return_does_not_wash_a_hold_into_awaiting_approval(awx, fake, L)
     fake.late_failure(acct("kestrel"), lines(L, "kestrel")["noah"]["transfer_id"])
     ex.poll_inflight()
     assert store.get_run(L, RUN, "kestrel")["state"] == "HELD" and lines(L, "kestrel")["noah"]["state"] == "PLANNED"
+
+
+def test_a_line_another_release_already_took_is_skipped_not_intended_twice(awx, fake, L, ex):
+    """recover() can reopen a run while a release is mid-loop; the second loop must not write a second INTENT."""
+    new_run(awx, L, "kestrel")
+    assert ex._guard_and_intend(RUN, "kestrel", "noah") is None
+    assert ex._guard_and_intend(RUN, "kestrel", "noah") == "SKIP"
+    assert len(kinds(L, "INTENT")) == 1

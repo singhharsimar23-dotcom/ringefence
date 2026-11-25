@@ -23,7 +23,7 @@
       <a href="#found">Findings</a>
       <a href="#proof">Proof</a>
       <a href="#agents">Agents</a>
-      <a href="#limits">Limits</a>
+      <a href="#limits">Scope</a>
       <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/main/docs/ALTA_SETTLEMENT.md">Write-up</a>
       <a href="/">Home</a>
       <a class="btn sm primary" href="/app#/try">Live demo</a>
@@ -42,6 +42,7 @@
       <a class="btn lg" href="#proof">Check the chain now <span class="arr" aria-hidden="true">→</span></a>
       <a class="btn lg" href="/app#/try">Open the live demo <span class="arr" aria-hidden="true">→</span></a>
     </div>
+    <div class="prot" aria-label="Protected against"><span class="pill ok">an approval swapped for another wallet</span><span class="pill ok">look-alike addresses</span><span class="pill ok">a payment above the approved amount</span><span class="pill ok">the same line pulled twice, even from another machine</span><span class="pill ok">a server minting its own mandate</span><span class="pill ok">a reopened line paid twice</span><span class="pill ok">an old approval used after it is replaced</span></div>
     <div class="stats" id="stats"></div>
   </div>
 </section>
@@ -49,7 +50,7 @@
 <section class="scene" id="try">
   <div class="wrap">
     <p class="eyebrow mono">1 · Try it</p>
-    <h2>You are the compromised server. Try to take the money.</h2>
+    <h2>Try to take the money.</h2>
     <p class="lead">Pick an attack and run it against a broad mandate, the way an agent wallet is usually set up, and against Ringfence's per-line mandates. Each answer below is the testnet's own, recorded when the attack ran live, with its transaction.</p>
     <div class="arena">
       <div class="picks" id="picks" role="radiogroup" aria-label="Attack"></div>
@@ -97,8 +98,8 @@
 <section class="scene" id="attacks">
   <div class="wrap">
     <p class="eyebrow mono">3 · Attack lab</p>
-    <h2>First we broke it. Each attack ran live on the testnet.</h2>
-    <p class="lead">The attacker is the Ringfence server itself: it holds every pull key and no owner key. Each attack runs twice, once against a broad mandate (what an agent wallet is usually given) and once against Ringfence's per-line mandates. Every cell is the chain's own answer.</p>
+    <h2>Seven attack types, run live on the testnet.</h2>
+    <p class="lead">Each attack type runs twice, once against a broad mandate (what an agent wallet is usually given) and once against Ringfence's per-line mandates. Every cell is the chain's own answer.</p>
     <p class="small muted" id="atk-meta"></p>
     <table class="real" id="atk-t"><thead><tr><th>Attack</th><th>Incident class</th><th>Unprotected: broad mandate, or before the fix</th><th>Ringfence: per-line mandates, after the fix</th></tr></thead><tbody></tbody></table>
   </div>
@@ -106,7 +107,7 @@
 
 <section class="scene" id="found">
   <div class="wrap">
-    <p class="eyebrow mono">4 · Found, then fixed</p>
+    <p class="eyebrow mono">4 · Findings</p>
     <h2>Every defect, and the test that holds it shut.</h2>
     <p class="lead">Some of these are in Alta's defaults, some are in Ringfence's own first design. Each one was reproduced before it was fixed, and each fix has a test.</p>
     <div class="fgrid" id="finds"></div>
@@ -156,8 +157,8 @@
 
 <section class="scene" id="limits">
   <div class="wrap">
-    <p class="eyebrow mono">7 · Limits</p>
-    <h2>What this does not claim.</h2>
+    <p class="eyebrow mono">7 · Scope</p>
+    <h2>What it covers.</h2>
     <ul class="lim small" id="limits-l"></ul>
   </div>
 </section>

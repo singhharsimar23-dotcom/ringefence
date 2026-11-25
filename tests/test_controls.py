@@ -297,3 +297,26 @@ def test_strict_name_match_blocks_every_verdict_but_full_match(orch, L, monkeypa
         orch.confirm_bank_change("northwind", q["id"], "priya", role(L, "northwind"), "call-4411")
     monkeypatch.delenv("RF_STRICT_NAME_MATCH")  # default (sandbox demo): only NOT_MATCHED blocks
     orch.confirm_bank_change("northwind", q["id"], "priya", role(L, "northwind"), "call-4411")
+
+
+def _kestrel_after_a_bank_change(orch, L):
+    orch.ensure_mandates()
+    q = orch.propose_bank_change("none", "kestrel", "noah", NEW_BANK, "email-9", "maya")
+    orch.confirm_bank_change("kestrel", q["id"], "priya", role(L, "kestrel"), "call-4411")
+    return orch.create_run("kestrel", PAY)
+
+
+def test_an_unchanged_payroll_still_auto_releases(orch, L):
+    assert orch.submit(orch.create_run("kestrel", PAY), "kestrel") == "READY"
+
+
+def test_a_payroll_after_a_confirmed_bank_change_is_never_auto_released(orch, fake, L):
+    """Same hours as last week, so amounts match; only the payee's account differs. That is not 'nothing changed'."""
+    rid = _kestrel_after_a_bank_change(orch, L)
+    run = store.get_run(L, rid, "kestrel")
+    assert run["diff_empty"] and run["any_new_or_changed"]
+    assert orch.submit(rid, "kestrel") == "AWAITING_APPROVAL"
+    assert orch.advance(rid, "kestrel") == "AWAITING_APPROVAL"
+    assert fake.accounts[acct("kestrel")].transfers == {}
+    orch.approve(rid, "kestrel", "priya", role(L, "kestrel"))
+    assert orch.advance(rid, "kestrel") == "RELEASED"

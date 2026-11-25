@@ -52,6 +52,7 @@ def test_price_uses_the_registry_rates_and_refuses_a_non_cent_amount(docs):
     assert [(x["usd"], x["usdz"]) for x in j["lines"]] == [("550.00", "55.00"), ("500.00", "50.00")]
     assert c.post("/alta/api/price", json={"mallory": "1"}).status_code == 400
     assert c.post("/alta/api/price", json={"noah": "0.001"}).status_code == 400
+    assert c.post("/alta/api/price", json={"noah": "abc"}).status_code == 400
 
 
 def test_recheck_reads_the_chain_now_so_a_later_change_shows(world, device, chain, L, docs):

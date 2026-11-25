@@ -4,6 +4,7 @@ from helpers import RUN
 from test_alta_device import MULE, NOAH, ZOE, chain, device, executor, exp, rid, world
 
 from ringfence import alta_verify, store, verify
+from ringfence.alta import Chain
 from ringfence.alta_verify import report
 
 
@@ -77,3 +78,25 @@ def test_a_payroll_that_has_not_paid_is_incomplete_not_a_pass(world, device, cha
     rep = report(L, world.chain, RUN, "kestrel")
     assert rep["ok"] and not rep["settled"]
     assert alta_verify.certificate(L, rep)["body"]["result"] == "INCOMPLETE"
+
+
+def test_the_audit_never_trusts_a_refusal_reason_alta_cannot_prove(world, device, chain, L, monkeypatch):
+    """Alta's own `mandate verify` cannot confirm an over-budget or over-occurrences refusal from the chain alone:
+    the MandateRefused event carries no spent or occurrences count, unlike MandatePayment, so the running total the
+    refusal must have broken never reaches the chain. Ringfence's audit never reads a refusal's stated reason at
+    all, only the mandate's own live spent/occurrences/payments from `mandate status`, so a reason Alta cannot
+    prove is a reason the audit never needed."""
+    paid_world(world, device, chain, L)
+    rep_before = report(L, world.chain, RUN, "kestrel")
+
+    real_status = Chain.status
+
+    def lying_status(self, rid):
+        s = real_status(self, rid)
+        if s is not None:
+            s["reason"] = "mandate_budget_spent"  # a claim `mandate status` never carries, and the audit must never need
+        return s
+
+    monkeypatch.setattr(Chain, "status", lying_status)
+    rep_after = report(L, world.chain, RUN, "kestrel")
+    assert rep_before == rep_after

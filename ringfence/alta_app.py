@@ -124,7 +124,7 @@ def create_app(runner=None) -> FastAPI:
     def api_price(hours: dict[str, str]):
         try:
             return price(hours)
-        except (ValueError, AwxError) as e:
+        except (ValueError, ArithmeticError, AwxError) as e:
             raise HTTPException(400, str(e)) from None
 
     @app.get("/alta/api/cert")

@@ -71,7 +71,7 @@ const T = {
   altaCardH: "Be the hacked server. Try to take the money.",
   altaCardP: "Each approved payroll line becomes a one-pull mandate on Alta. Replay seven attacks against a broad wallet and against Ringfence's per-line mandates, each answer the chain's own, and re-check a real payroll on the chain.",
   altaCardGo: "Open the Alta page",
-  altaN: ["attacks run live on the testnet", "paid the attacker, unprotected side", "refused on chain", "defects found and fixed"],
+  altaN: ["attacks run live on the testnet", "paid out, unprotected side", "refused on chain", "findings closed"],
   live: "Live · Airwallex test account", offline: "Offline demo", offlineRules: "Offline rules",
   agentCapped: "Offline rules (daily Claude limit reached)",
   seeProof: "See the proof", startOver: "Start over", presenter: "Presenter mode", showDetails: "Show details", hideDetails: "Hide details",

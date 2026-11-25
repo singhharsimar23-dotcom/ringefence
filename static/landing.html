@@ -37,8 +37,8 @@
     <h1>A payroll agent that can't pay one company's people with another company's money.</h1>
     <p class="sub">Ringfence runs contractor pay for several employers on Airwallex. The model reads and proposes. Code and Airwallex decide what moves. Each result on this page says where it ran.</p>
     <div class="btns">
-      <a class="btn primary lg" href="/app#/try">Open the live demo <span class="arr" aria-hidden="true">→</span></a>
-      <a class="btn lg" href="/alta">Alta on chain <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn primary lg" href="/alta">Alta: approval-bound payroll on chain <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn lg" href="/app#/try">Open the live demo <span class="arr" aria-hidden="true">→</span></a>
       <a class="btn lg" href="/app#/demo">Three-employer demo <span class="arr" aria-hidden="true">→</span></a>
       <a class="btn lg" href="https://drive.google.com/file/d/1zJT3bRolDF0d6HG6CB4pQZLJZWVne-vB/view?usp=sharing" target="_blank" rel="noopener">Video 1: Security findings</a>
       <a class="btn lg" href="https://youtu.be/QnPQ9EYWWQQ" target="_blank" rel="noopener">Video 2: Used on Claude MCP</a>
@@ -85,11 +85,29 @@
   </div>
 </section>
 
+<!-- 10: Alta -->
+<section class="scene" id="alta"><span id="metal"></span>
+  <div class="wrap">
+    <p class="eyebrow mono">01 · On chain</p>
+    <h2 class="fade">On Alta, the approval becomes the chain's law.</h2>
+    <p class="lead fade">A person approves one exact payroll batch. A separate approver's device signs one single-use mandate on the Alta testnet for each approved line. A compromised Ringfence server can then pay only those lines, once each, before the approval expires. Two enforcers hold the same rule: Ringfence's gate before the send, and the employer's account in the transaction itself. The executor is the same tested code as on Airwallex; only the client underneath it changes.</p>
+    <div class="prot fade" aria-label="Protected against"><span class="pill ok">an approval swapped for another wallet</span><span class="pill ok">look-alike addresses</span><span class="pill ok">a payment above the approved amount</span><span class="pill ok">the same line pulled twice, even from another machine</span><span class="pill ok">a server minting its own mandate</span><span class="pill ok">a reopened line paid twice</span><span class="pill ok">an old approval used after it is replaced</span></div>
+    <div class="astats fade" id="astats" hidden></div>
+    <div class="mcards fade">
+      <a class="card link" href="/alta#attacks"><p class="pill ok">protected</p><h3>Seven attack types, run live</h3><p>Each one is run on the Alta testnet against a broad mandate and against the per-line mandates. Every result is the chain's own answer, with its transaction.</p><span class="go mono small">Open the attack lab <span class="arr" aria-hidden="true">→</span></span></a>
+      <a class="card link" href="/alta#found"><p class="pill ok">closed</p><h3>Nine findings, each with a test</h3><p>A reopened line that could be paid twice, a replaced approval that stayed payable, the defaults in Alta's own CLI, and three more the first live payroll exposed.</p><span class="go mono small">Read the findings <span class="arr" aria-hidden="true">→</span></span></a>
+      <a class="card link" href="/alta#proof"><p class="pill ok">verifiable</p><h3>A payroll, read back from the chain</h3><p>Re-check the recorded payroll's credentials against the chain now, download the files, or connect an agent to the read-only MCP.</p><span class="go mono small">Check the chain <span class="arr" aria-hidden="true">→</span></span></a>
+    </div>
+    <div class="btns fade"><a class="btn primary lg" href="/alta">Open the Alta page <span class="arr" aria-hidden="true">→</span></a><a class="btn lg" href="/alta#try">Try to break it <span class="arr" aria-hidden="true">→</span></a></div>
+    <p class="small muted fade note">An earlier Alta (formerly Metal) integration still runs in the three-employer demo: when Harbour is short, it signs a capped mandate and the platform pulls exactly the shortfall. <a href="/app#/demo">Run it in the demo <span class="arr" aria-hidden="true">→</span></a></p>
+  </div>
+</section>
+
 <!-- 1 -->
 <section class="scene" id="email">
   <div class="wrap two">
     <div class="copy">
-      <p class="eyebrow mono">01 · The problem</p>
+      <p class="eyebrow mono">02 · The problem</p>
       <h2>The email that empties a payroll.</h2>
       <p>A contractor writes: I've changed banks, please use this account from Friday. In a payroll team that's a routine Tuesday. It's also how payroll gets stolen. The FBI counted $3.05 billion lost to business email compromise in 2025.</p>
       <p class="src">FBI IC3 2025 Annual Report, all business email compromise, not payroll only</p>
@@ -112,8 +130,8 @@
 <!-- findings -->
 <section class="scene" id="found">
   <div class="wrap">
-    <p class="eyebrow mono">02 · What I found</p>
-    <h2 class="fade">First I built the agent everyone builds, and attacked it.</h2>
+    <p class="eyebrow mono">03 · What I found</p>
+    <h2 class="fade">What goes wrong with the agent everyone builds.</h2>
     <p class="lead fade">Set up the way Airwallex's agent guide shows: an AI model, the Airwallex API as its tools, and a careful person approving every payment. On the live sandbox it paid the wrong account. Each id below is a real transfer you can look up. Every one was cancelled.</p>
     <ol class="finds">
       <li class="win split fade"><div class="bar mono"><span>bug 1 · the bank account is changed while the payment waits for approval</span><span class="tag">beats the human</span></div>
@@ -152,6 +170,14 @@
           <div class="col"><p class="k mono">Ringfence</p><p><span class="pill ok">12 of 12 blocked</span></p>
             <p>Each employer gets its own login, chosen by our code, never by the AI. We tried every login against every other account, and Airwallex refused all twelve.</p></div>
         </div></li>
+      <li class="win split fade"><div class="bar mono"><span>bug 4 · "release automatically when nothing changed"</span><span class="tag">no approval at all</span></div>
+        <div class="cols">
+          <div class="col"><p class="k mono">An amounts-only rule</p><p><span class="pill no">released with no approval</span></p>
+            <p>The rule compares contractors and amounts with last week. A contractor's bank details can change through a legitimate process, and the next payroll still looks identical, so it is released with no signature and no approved batch. The first payment to a new account is the one a person should see.</p></div>
+          <div class="col"><p class="k mono">Ringfence</p><p><span class="pill ok">needs a person</span></p>
+            <p>"Nothing changed" covers who is paid as well as how much. A run that includes a contractor with a confirmed bank change always waits for an approver.</p>
+            <p class="mono small muted">test: a payroll after a confirmed bank change is never auto-released</p></div>
+        </div></li>
     </ol>
     <p class="punch fade">The approval checks a label. The money follows wherever that label points.</p>
     <p class="lead fade">Plus two plain software bugs, both reproduced live.</p>
@@ -159,7 +185,7 @@
       <li>The transfer list ignores <code>page_num</code>. Pages 0, 1 and 2 returned the same 100 transfers, so anyone paid after the first 100 looked unpaid. <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/bench/probes/transfers-pagination-page-num-ignored.out.txt">output</a></li>
       <li>The SDK's retry drops the filter. Asking "did this payment land?" for a request id never used returned 201 transfers instead of none, so a payment that never happened looked paid. <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/bench/probes/node-sdk-retry-reconcile.out.txt">output</a></li>
     </ul>
-    <p class="small muted fade">Airwallex sandbox, 4–9 Nov 2026, our own test accounts, GBP 1–2 per payment, every transfer cancelled. Separation between employers held every time. <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/FINDINGS.md">All five findings, with receipts</a> · <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/docs/BENCH.md">The bench</a></p>
+    <p class="small muted fade">Airwallex sandbox, 4–9 Nov 2026, our own test accounts, GBP 1–2 per payment, every transfer cancelled. Separation between employers held every time. <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/FINDINGS.md">All seven findings, with receipts</a> · <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/build/docs/BENCH.md">The bench</a></p>
   </div>
 </section>
 
@@ -167,7 +193,7 @@
 <section class="scene" id="why">
   <div class="wrap two">
     <div class="copy">
-      <p class="eyebrow mono">03 · Why this track exists</p>
+      <p class="eyebrow mono">04 · Why this track exists</p>
       <h2>Why this track exists.</h2>
       <p>Airwallex's own agent tools stop short of sending money out. Kit 06 asks for the controls that make that step safe: the platform can technically make the transfer, so policy has to stop it.</p>
       <ol class="loop" id="loop">
@@ -198,7 +224,7 @@
 <!-- 3 -->
 <section class="scene" id="how">
   <div class="wrap">
-    <p class="eyebrow mono">04 · The gate</p>
+    <p class="eyebrow mono">05 · The gate</p>
     <h2 class="fade">The model proposes. Code decides.</h2>
     <div class="roles fade">
       <div class="card"><p class="n mono">1</p><h3>The model</h3><p>Reads timesheets and email. Proposes tool calls.</p><p class="mono small muted">cannot pick amounts, accounts or request ids</p></div>
@@ -222,7 +248,7 @@
 <!-- 4 -->
 <section class="scene" id="proof">
   <div class="wrap">
-    <p class="eyebrow mono">05 · The Gauntlet</p>
+    <p class="eyebrow mono">06 · The Gauntlet</p>
     <h2 class="fade">We tried to break it.</h2>
     <p class="lead fade">36 hostile documents, each read by two agents: Claude, and a test agent built to obey every attack. Then a network storm, 500 random sequences, every cross-account call and 200 ledger edits.</p>
     <div class="score fade" id="score">
@@ -244,7 +270,7 @@
 <!-- 5 -->
 <section class="scene" id="isolation">
   <div class="wrap">
-    <p class="eyebrow mono">06 · Isolation</p>
+    <p class="eyebrow mono">07 · Isolation</p>
     <h2 class="fade">Separated by Airwallex, not just by us.</h2>
     <p class="lead fade">Each employer gets its own token. We tried every token against every other account.</p>
     <div class="iso fade">
@@ -270,7 +296,7 @@ call   x-on-behalf-of: acct_…  another one</pre>
 <section class="scene" id="storm">
   <div class="wrap two">
     <div class="copy fade">
-      <p class="eyebrow mono">07 · Lost replies</p>
+      <p class="eyebrow mono">08 · Lost replies</p>
       <h2>Double clicks and lost replies.</h2>
       <p>We fired the same payroll many times at once and dropped replies on purpose. The transfer list is the referee.</p>
       <p class="small muted">Every payment carries one request id made from the run and the line. A second try with the same id gets the first transfer back.</p>
@@ -288,7 +314,7 @@ call   x-on-behalf-of: acct_…  another one</pre>
 <!-- 7 -->
 <section class="scene" id="ledger">
   <div class="wrap">
-    <p class="eyebrow mono">08 · The ledger</p>
+    <p class="eyebrow mono">09 · The ledger</p>
     <h2 class="fade">Check the ledger in your browser.</h2>
     <p class="lead fade">Every action is a row chained to the one before it. Edit any payload and watch the chain break.</p>
     <div class="win fade"><div class="bar mono"><span>ringfence / ledger</span><span class="tag">sha-256, recomputed in this tab</span></div>
@@ -303,7 +329,7 @@ call   x-on-behalf-of: acct_…  another one</pre>
 <!-- 8 -->
 <section class="scene" id="follow">
   <div class="wrap">
-    <p class="eyebrow mono">09 · One payment</p>
+    <p class="eyebrow mono">10 · One payment</p>
     <h2 class="fade">Follow one payment.</h2>
     <div class="two top fade">
       <ol class="tl" id="track">
@@ -329,7 +355,7 @@ call   x-on-behalf-of: acct_…  another one</pre>
 <!-- 9 -->
 <section class="scene" id="short">
   <div class="wrap">
-    <p class="eyebrow mono">10 · Funding</p>
+    <p class="eyebrow mono">11 · Funding</p>
     <div class="two top">
       <div class="copy fade">
         <h2>When an employer is short.</h2>
@@ -345,22 +371,6 @@ call   x-on-behalf-of: acct_…  another one</pre>
   </div>
 </section>
 
-<!-- 10: Alta -->
-<section class="scene" id="alta"><span id="metal"></span>
-  <div class="wrap">
-    <p class="eyebrow mono">11 · On chain</p>
-    <h2 class="fade">On Alta, the approval becomes the chain's law.</h2>
-    <p class="lead fade">A person approves one exact payroll batch. A separate approver's device signs one single-use mandate on the Alta testnet for each approved line. A compromised Ringfence server can then pay only those lines, once each, before the approval expires. Two enforcers hold the same rule: Ringfence's gate before the send, and the employer's account in the transaction itself. The executor is the same tested code as on Airwallex; only the client underneath it changes.</p>
-    <div class="astats fade" id="astats" hidden></div>
-    <div class="mcards fade">
-      <a class="card link" href="/alta#attacks"><p class="pill no">first we broke it</p><h3>Seven attacks, run live</h3><p>The attacker is the Ringfence server, holding every pull key. Each attack runs against a broad mandate and against the per-line mandates. Every cell is the chain's own answer.</p><span class="go mono small">Open the attack lab <span class="arr" aria-hidden="true">→</span></span></a>
-      <a class="card link" href="/alta#found"><p class="pill ok">then we fixed it</p><h3>Eight defects, each with a test</h3><p>A reopened line that could be paid twice, a replaced approval that stayed payable, the defaults in Alta's own CLI, and three more the first live payroll exposed.</p><span class="go mono small">Read the findings <span class="arr" aria-hidden="true">→</span></span></a>
-      <a class="card link" href="/alta#proof"><p class="pill">check it yourself</p><h3>A payroll, read back from the chain</h3><p>Re-check the recorded payroll's credentials against the chain now, download the files, or connect an agent to the read-only MCP.</p><span class="go mono small">Check the chain <span class="arr" aria-hidden="true">→</span></span></a>
-    </div>
-    <div class="btns fade"><a class="btn primary lg" href="/alta">Open the Alta page <span class="arr" aria-hidden="true">→</span></a><a class="btn lg" href="/alta#try">Try to break it <span class="arr" aria-hidden="true">→</span></a></div>
-    <p class="small muted fade note">An earlier Alta (formerly Metal) integration still runs in the three-employer demo: when Harbour is short, it signs a capped mandate and the platform pulls exactly the shortfall. <a href="/app#/demo">Run it in the demo <span class="arr" aria-hidden="true">→</span></a></p>
-  </div>
-</section>
 
 <!-- 11 -->
 <section class="scene" id="real">

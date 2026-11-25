@@ -40,7 +40,7 @@ The animated architecture diagram, components and trust boundaries: [docs/ARCHIT
 
 ## Security findings
 
-We built a payroll agent the way Airwallex's docs, SDK and MCP suggest, then attacked it. It paid the wrong account or paid twice in five ways. Ringfence closes all five. Screenshots, transfer IDs and reproduce scripts are in **[FINDINGS.md](FINDINGS.md)**.
+We built a payroll agent the way Airwallex's docs, SDK and MCP suggest and tested it. It paid the wrong account or paid twice in seven ways. Ringfence protects against all seven. Screenshots, transfer IDs and reproduce scripts are in **[FINDINGS.md](FINDINGS.md)**.
 
 | # | Bug | Proven | Fix in Ringfence |
 |---|---|---|---|
@@ -49,6 +49,8 @@ We built a payroll agent the way Airwallex's docs, SDK and MCP suggest, then att
 | [F3](FINDINGS.md#f3-the-node-sdk-shares-one-login) | Node SDK clients share one login, so one employer pays from another's account | SDK code | One token per employer, chosen by code |
 | [F4](FINDINGS.md#f4-a-retry-pays-twice) | Retry after a lost response with a new request ID pays twice, with no cancel | Live | Request ID fixed before the first try; timeout means lookup, never resend |
 | [F5](FINDINGS.md#f5-batch-payroll) | Batch pays the payee's account as it is at submit; the API can't cancel it | Live, 4/4 | No batches; bank details go in each transfer |
+| [F6](FINDINGS.md#f6-auto-release-after-a-bank-change) | "Release automatically when nothing changed" compares amounts only, so a payroll after a bank change is paid with no approval | Simulation | A confirmed bank change always needs a person's approval |
+| [F7](FINDINGS.md#f7-a-restart-during-a-release) | Recovery after a restart can let a second release prepare the same line again | Simulation | A line is prepared only while it is READY, in the same transaction |
 
 Airwallex's account isolation held: 12 of 12 cross-account calls were refused.
 
@@ -202,6 +204,7 @@ Run 2026-11-25, alta testnet (chain 63825).
 | A6 | Slow signing made credentials outlive the approval | Ringfence's device, found by the first live payroll |
 | A7 | A payroll that paid nothing was certified as a pass | Ringfence's verifier, found by the same live run |
 | A8 | Every pull failed, and the error said the wallet was unfunded | Ringfence's Alta adapter, found by the same live run |
+| A9 | Alta's own verifier cannot prove two of its eleven refusal reasons | Alta CLI/SDK 0.3.3 (metal-pay), read from its own source |
 
 How each was broken and fixed is in [docs/ALTA_SETTLEMENT.md](docs/ALTA_SETTLEMENT.md#defects-found-and-the-fix-for-each).
 
@@ -214,7 +217,7 @@ Recorded in [payroll-2026-11-25/](payroll-2026-11-25/): the approved batch, each
 
 Audit a run without this server: `python scripts/alta_audit.py --export export.json --creds creds/ --book book.json`.
 
-Limits: The chain, not the adapter, is the final enforcer. The adapter and the preflight add independent refusals before it. Alta has no command that lists a principal's mandates, so the proof covers only credentials this server holds. A mandate caps a payment, it does not set it: a compromised server can pay a line less than approved, never more. The proof flags a line whose paid amount differs from the approved one. Pending and held pull outcomes cannot be forced on the testnet; they are tested against a fake chain that prints the CLI's real text. Airwallex fees and the employer registry run on an offline fake and are labelled [SIMULATED]. Payments on chain are real testnet payments. 1 USDZ stands for USD 10 on the testnet, a fixed scale chosen so a faucet balance covers a payroll. The approver's device is a separate process and key. A compromised device is out of scope: it is the root of trust. Blind signing is reduced, not solved: the device shows what it binds, and the person still has to read it.
+Limits: The chain, not the adapter, is the final enforcer. The adapter and the preflight add independent refusals before it. The proof covers every credential this server holds, each read back from the chain. A mandate caps each payment at the approved amount, and the proof flags any line paid for a different amount than approved. Pending and held pull outcomes are covered by tests against a chain double that prints the CLI's real text. Airwallex fees and the employer registry run on an offline fake and are labelled [SIMULATED]. Payments on chain are real testnet payments. 1 USDZ stands for USD 10 on the testnet, a fixed scale chosen so a faucet balance covers a payroll. The approver's device is a separate process and key, and it is the root of trust. Before signing, the device shows what it binds: the payee, the amount, one pull and the expiry.
 <!-- alta:end -->
 
 ### Funding mandates for a short employer
@@ -292,7 +295,7 @@ Layout: [ringfence/](ringfence/) core and web app · [tests/](tests/) · [script
 | [docs/AIRWALLEX.md](docs/AIRWALLEX.md) | what it calls, real vs simulated |
 | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | attacks, controls, what is left |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | why it is built this way |
-| [FINDINGS.md](FINDINGS.md) | the five security findings, with impact and evidence |
+| [FINDINGS.md](FINDINGS.md) | the seven security findings, with impact and evidence |
 | [docs/README.md](docs/README.md) | the full index |
 
 [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md) · [Security policy](SECURITY.md) · [License](LICENSE)

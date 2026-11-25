@@ -59,6 +59,9 @@ class Orchestrator:
         reg, cs, run_id = ben.load_registry(), seed.contractors(tenant), run_id or self.run_id(pay_date)
         priced = {cid: price_line(cs[cid], h) for cid, h in hours.items()}  # KeyError = not this tenant's contractor
         diff_empty, new = inbox.diff_flags(tenant, {k: v.amount for k, v in priced.items()})
+        # "nothing changed" is about who is paid as well as how much: a confirmed bank change always needs a person's approval
+        moved = {r["contractor_id"] for r in self.L.query("SELECT contractor_id FROM quarantine WHERE tenant=? AND status='CONFIRMED'", (tenant,))}
+        new = new or bool(moved & set(priced))
         with self.L.tx() as tx:
             if store.get_run(tx, run_id, tenant):
                 raise Refused(f"run {run_id} already exists for {tenant}")

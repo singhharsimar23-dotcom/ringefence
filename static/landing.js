@@ -284,7 +284,7 @@
     const a = o.attacks, root = $("#astats");
     if (!a || !root) return;
     const paid = a.rows.filter((r) => r.outcome === "paid").length;
-    const items = [[new Set(a.rows.map((r) => r.attack)).size, "attacks run live"], [paid, "paid the attacker, unprotected side"], [a.rows.length - paid, "refused on chain"], [o.findings.length, "defects fixed, each with a test"]];
+    const items = [[new Set(a.rows.map((r) => r.attack)).size, "attacks run live"], [paid, "paid out, unprotected side"], [a.rows.length - paid, "refused on chain"], [o.findings.length, "findings closed, each with a test"]];
     for (const [n, t] of items) root.insertAdjacentHTML("beforeend", `<div><b class="mono">${n}</b><span class="small muted">${t}</span></div>`);
     root.hidden = false;
   }).catch(() => {});

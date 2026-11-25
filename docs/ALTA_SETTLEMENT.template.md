@@ -2,7 +2,7 @@
 
 Live page: `/alta` on the demo site. MCP: `/alta/mcp`. Network: Alta testnet (formerly Metal), chain 63825, token USDZ.
 
-This document is the full write-up: what was measured on the chain, how the design follows from it, every defect found while building it, the live attack results, how to audit a run yourself, and what it does not claim. Everything marked as run was run on the testnet; each result says where it ran.
+This document is the full write-up: what was measured on the chain, how the design follows from it, every defect found while building it, the live attack results, how to audit a run yourself, and its scope. Everything marked as run was run on the testnet; each result says where it ran.
 
 ## The idea
 

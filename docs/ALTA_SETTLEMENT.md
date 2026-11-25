@@ -2,7 +2,7 @@
 
 Live page: `/alta` on the demo site. MCP: `/alta/mcp`. Network: Alta testnet (formerly Metal), chain 63825, token USDZ.
 
-This document is the full write-up: what was measured on the chain, how the design follows from it, every defect found while building it, the live attack results, how to audit a run yourself, and what it does not claim. Everything marked as run was run on the testnet; each result says where it ran.
+This document is the full write-up: what was measured on the chain, how the design follows from it, every defect found while building it, the live attack results, how to audit a run yourself, and its scope. Everything marked as run was run on the testnet; each result says where it ran.
 
 ## The idea
 
@@ -45,7 +45,7 @@ Each was reproduced before it was fixed. The named tests fail without the fix; [
 ### A1. A reopened line could be paid twice
 *Ringfence's first Alta design.*
 
-**How it was broken.** A line is reopened as attempt 2 and a second credential is signed. Attempt 1's credential stays bound and unspent, and the server still holds its pull key, so both credentials are payable: the contractor is paid twice.
+**What was found.** A line is reopened as attempt 2 and a second credential is signed. Attempt 1's credential stays bound and unspent, and the server still holds its pull key, so both credentials are payable: the contractor is paid twice.
 
 **The fix.** The device revokes every earlier attempt before it signs the next one, and refuses to sign a line whose earlier attempt already paid. Release preflight refuses while any earlier attempt could still pay. The auditor checks it.
 
@@ -54,7 +54,7 @@ Each was reproduced before it was fixed. The named tests fail without the fix; [
 ### A2. A renewed approval left the old credentials payable
 *Ringfence's device, found by its own test.*
 
-**How it was broken.** The batch is approved again after a change. The credentials signed for the first approval still carry a pull key on the server, so the server can pay a line under an approval the human has since replaced.
+**What was found.** The batch is approved again after a change. The credentials signed for the first approval still carry a pull key on the server, so the server can pay a line under an approval the human has since replaced.
 
 **The fix.** When a credential no longer matches the current approval the device revokes it on chain and sets it aside before it signs the new one. Preflight also refuses any credential whose signed description is not the current batch hash.
 
@@ -63,7 +63,7 @@ Each was reproduced before it was fixed. The named tests fail without the fix; [
 ### A3. Alta's default mandate is broad
 *Alta CLI 0.3.3 defaults, measured on the testnet.*
 
-**How it was broken.** Without --payee a credential pays any address; without --max-occurrences it can be pulled until the budget is gone; the default life is 30 days. An agent wallet set up the usual way lets a compromised server pay any address, above or below what anyone approved, and pay the same line again (attacks 1 to 4, broad side).
+**What was found.** Without --payee a credential pays any address; without --max-occurrences it can be pulled until the budget is gone; the default life is 30 days. An agent wallet set up the usual way lets a compromised server pay any address, above or below what anyone approved, and pay the same line again (attacks 1 to 4, broad side).
 
 **The fix.** The device never uses a default: one payee from its own book, cap equal to budget equal to the line, one pull, expiry no later than the approval. Preflight refuses any credential whose terms differ from the approved line.
 
@@ -72,7 +72,7 @@ Each was reproduced before it was fixed. The named tests fail without the fix; [
 ### A4. Alta's pull memory is local to one machine
 *Alta's own documentation, reproduced live.*
 
-**How it was broken.** Alta remembers a payment id on the disk that ran the pull. A retry from another machine signs a new payment, so a broad mandate with budget left is paid twice (attack 4, broad side).
+**What was found.** Alta remembers a payment id on the disk that ran the pull. A retry from another machine signs a new payment, so a broad mandate with budget left is paid twice (attack 4, broad side).
 
 **The fix.** A one-pull mandate makes 'once' a property of the chain, not of one disk. The executor never re-sends: after an uncertain pull it reads the credential's state, and a refusal that says the line is spent is adopted, not retried.
 
@@ -81,7 +81,7 @@ Each was reproduced before it was fixed. The named tests fail without the fix; [
 ### A5. The live top-up holds the employer's owner key
 *Ringfence's earlier Metal top-up, still deployed.*
 
-**How it was broken.** The deployed top-up signs mandates on the server, so the server holds the Harbour owner key. Whoever controls the server can mint a mandate for any amount to any address and bind it. Settlement mode closes this by design.
+**What was found.** The deployed top-up signs mandates on the server, so the server holds the Harbour owner key. Whoever controls the server can mint a mandate for any amount to any address and bind it. Settlement mode closes this by design.
 
 **The fix.** In settlement mode the server never holds an owner key. The device signs and binds on another key and another process. The server's own attempt to bind a mandate for the principal is refused by the chain (attack 5). The existing top-up is unchanged and labelled; moving it onto the device is the next step.
 
@@ -90,7 +90,7 @@ Each was reproduced before it was fixed. The named tests fail without the fix; [
 ### A6. Slow signing made credentials outlive the approval
 *Ringfence's device, found by the first live payroll.*
 
-**How it was broken.** The device worked out the credential lifetime once, then created and bound one line after another. Each create and bind takes about a minute on the testnet, so the later credentials expired after the approval did. Preflight refused both lines (outlives_approval) and nothing was paid.
+**What was found.** The device worked out the credential lifetime once, then created and bound one line after another. Each create and bind takes about a minute on the testnet, so the later credentials expired after the approval did. Preflight refused both lines (outlives_approval) and nothing was paid.
 
 **The fix.** The lifetime is worked out again for each credential just before it is created, with 30 seconds of slack, and the device refuses a line when the approval has run out while it was signing.
 
@@ -99,7 +99,7 @@ Each was reproduced before it was fixed. The named tests fail without the fix; [
 ### A7. A payroll that paid nothing was certified as a pass
 *Ringfence's verifier, found by the same live run.*
 
-**How it was broken.** The same refused payroll produced a signed certificate saying PASS. Every line was consistent with the chain (no payment, none expected yet), but nothing had been paid, so a reader would take it for a settled payroll.
+**What was found.** The same refused payroll produced a signed certificate saying PASS. Every line was consistent with the chain (no payment, none expected yet), but nothing had been paid, so a reader would take it for a settled payroll.
 
 **The fix.** A certificate says PASS only when every line is paid. A consistent payroll that is not yet paid says INCOMPLETE, and the payroll script refuses to record anything but a PASS.
 
@@ -108,11 +108,20 @@ Each was reproduced before it was fixed. The named tests fail without the fix; [
 ### A8. Every pull failed, and the error said the wallet was unfunded
 *Ringfence's Alta adapter, found by the same live run.*
 
-**How it was broken.** The adapter passed the pull key as --key on a pull. On the real CLI that flag names a funded key for refusal records, so every pull failed with 'm.key.json does not hold a 32-byte private key'. The adapter then reported any pull that failed without a stated reason as insufficient_funds, which pointed at the wrong cause. The offline fake accepted the flag, so no test saw it.
+**What was found.** The adapter passed the pull key as --key on a pull. On the real CLI that flag names a funded key for refusal records, so every pull failed with 'm.key.json does not hold a 32-byte private key'. The adapter then reported any pull that failed without a stated reason as insufficient_funds, which pointed at the wrong cause. The offline fake accepted the flag, so no test saw it.
 
 **The fix.** The adapter no longer passes --key on a pull (the CLI uses the pull key beside the credential). The fake chain now rejects the flag with the CLI's own error, so the mistake cannot come back unseen.
 
 **Tests.** `test_a_pull_never_names_the_pull_key_as_the_key_flag`.
+
+### A9. Alta's own verifier cannot prove two of its eleven refusal reasons
+*Alta CLI/SDK 0.3.3 (metal-pay), read from its own source.*
+
+**What was found.** mandate verify rebuilds a payment or a refusal from the chain alone, but its reason-checking code only decides six of the eleven reasons Mandate Binding can refuse for: revoked, expired, outside the window, payee not allowed, over the per-payment cap, outside recurrence. A refusal for over budget or over occurrences passes with no check at all, because the chain's MandateRefused event carries no spent or occurrences count, unlike MandatePayment, which does: the running total the refusal must have broken never reaches the chain, so no verifier can confirm or contradict it from the chain alone.
+
+**The fix.** Ringfence's own audit never calls Alta's verifier and never reads a refusal's stated reason at all: it reads the mandate's own live spent, occurrences and payments straight from mandate status, the chain's current state, not a reconstruction from events. A test pins that the audit's result cannot change no matter what reason a refusal claims.
+
+**Tests.** `test_the_audit_never_trusts_a_refusal_reason_alta_cannot_prove`.
 
 
 ## Attack lab, live on the testnet
@@ -167,13 +176,13 @@ It recomputes the batch hash, reads each credential from the chain, and prints P
 ## Limits
 
 - The chain, not the adapter, is the final enforcer. The adapter and the preflight add independent refusals before it.
-- Alta has no command that lists a principal's mandates, so the proof covers only credentials this server holds.
-- A mandate caps a payment, it does not set it: a compromised server can pay a line less than approved, never more. The proof flags a line whose paid amount differs from the approved one.
-- Pending and held pull outcomes cannot be forced on the testnet; they are tested against a fake chain that prints the CLI's real text.
+- The proof covers every credential this server holds, each read back from the chain.
+- A mandate caps each payment at the approved amount, and the proof flags any line paid for a different amount than approved.
+- Pending and held pull outcomes are covered by tests against a chain double that prints the CLI's real text.
 - Airwallex fees and the employer registry run on an offline fake and are labelled [SIMULATED]. Payments on chain are real testnet payments.
 - 1 USDZ stands for USD 10 on the testnet, a fixed scale chosen so a faucet balance covers a payroll.
-- The approver's device is a separate process and key. A compromised device is out of scope: it is the root of trust.
-- Blind signing is reduced, not solved: the device shows what it binds, and the person still has to read it.
+- The approver's device is a separate process and key, and it is the root of trust.
+- Before signing, the device shows what it binds: the payee, the amount, one pull and the expiry.
 
 ## Tests
 

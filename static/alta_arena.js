@@ -76,7 +76,7 @@ function stats(a, nfind) {
   if (!a) return;
   const by = (side) => a.rows.filter((r) => r.outcome === "paid" && r.side === side).length;
   const unprot = a.rows.filter((r) => r.outcome === "paid").length;
-  const items = [[order().length, "attacks run live on the testnet"], [unprot, "paid the attacker on the unprotected side"],
+  const items = [[order().length, "attacks run live on the testnet"], [unprot, "paid out on the unprotected side"],
     [a.rows.length - unprot, "refused on chain, each with a transaction"], [nfind, "defects found and fixed, each with a test"]];
   const root = $("stats");
   for (const [n, label] of items) {

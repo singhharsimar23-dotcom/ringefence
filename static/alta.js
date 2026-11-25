@@ -19,7 +19,7 @@ function cell(row) {
   const c = h("div", "cell");
   if (!row) return h("td", "", "n/a");
   const paid = row.outcome === "paid";
-  const pill = h("span", "pill " + (paid ? "no" : "ok"), paid ? "paid the attacker" : row.outcome === "refused" ? "refused on chain" : row.outcome);
+  const pill = h("span", "pill " + (paid ? "no" : "ok"), paid ? "paid out" : row.outcome === "refused" ? "refused on chain" : row.outcome);
   c.append(pill);
   if (row.reason) c.append(h("span", "mono small", row.reason));
   if (row.note) c.append(h("span", "small muted", row.note));
@@ -56,7 +56,7 @@ function findings(list) {
   const root = $("finds");
   for (const f of list) {
     const d = h("dl");
-    for (const [k, t] of [["How it was broken", f.broke], ["The fix", f.fixed]]) d.append(h("dt", "", k), h("dd", "", t));
+    for (const [k, t] of [["What was found", f.broke], ["The fix", f.fixed]]) d.append(h("dt", "", k), h("dd", "", t));
     const refs = h("div", "ref");
     refs.append(h("span", "pill", f.where));
     for (const t of f.tests) refs.append(h("span", "mono small muted", t));
