@@ -91,8 +91,13 @@ const Play = (() => {
     <aside class="secline"><span class="k">${esc(T.pay.secTitle)}</span><span>${esc(T.pay.sec)}</span></aside>
     <section class="examples"><h2 class="sec-h">${esc(T.pay.startTitle)}</h2><p class="small muted">${esc(T.pay.startNote)}</p><div class="exs">${ex}</div></section>
     <section class="preview"><h2 class="sec-h">${esc(T.pay.previewTitle)}</h2><p class="small muted">${esc(T.pay.previewNote)}</p><div inert>${idle}</div></section>
-    ${info.metal ? metalCard() : ""}
+    ${info.metal ? metalCard() : ""}${altaCard()}
     <p class="small faint">${esc(T.retention)}</p>`;
+  }
+
+  function altaCard() {
+    return `<a class="metal-card" href="/alta#try"><p class="k">${esc(T.altaCardK)}</p><h2>${esc(T.altaCardH)}</h2>
+      <p>${esc(T.altaCardP)}</p><span class="go">${esc(T.altaCardGo)} &rarr;</span></a>`;
   }
 
   function metalCard() {

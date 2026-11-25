@@ -15,14 +15,16 @@
 <a class="skip" href="#main">Skip to the page</a>
 <header class="nav">
   <div class="wrap nav-in">
-    <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>Ringfence</a>
+    <a class="brand" href="/?home=1"><span class="mark" aria-hidden="true"></span>Ringfence</a>
     <nav aria-label="Page">
+      <a href="#try">Try it</a>
       <a href="#attacks">Attacks</a>
       <a href="#found">Findings</a>
       <a href="#proof">Proof</a>
       <a href="#agents">Agents</a>
       <a href="#limits">Limits</a>
       <a href="https://github.com/singhharsimar23-dotcom/ringefence/blob/main/docs/ALTA_SETTLEMENT.md">Write-up</a>
+      <a href="/?home=1">Overview</a>
       <a class="btn sm primary" href="/app#/try">Live demo</a>
     </nav>
   </div>
@@ -30,13 +32,47 @@
 
 <main id="main">
 <section class="scene hero" id="top">
+  <div class="gridfx" aria-hidden="true"></div>
   <div class="wrap">
     <p class="eyebrow mono"><span class="dot"></span>Alta testnet · chain 63825 · approval-bound settlement</p>
     <h1>The approval becomes the chain's law.</h1>
     <p class="sub">A person approves one exact payroll batch. Ringfence compiles each line into a single-use mandate on Alta, signed on a separate device. A compromised Ringfence server can then pay only those lines, once each, before the approval expires.</p>
     <div class="btns">
-      <a class="btn primary lg" href="#proof">Check the chain now <span class="arr" aria-hidden="true">→</span></a>
-      <a class="btn lg" href="#attacks">See the attacks <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn primary lg" href="#try">Try to break it <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn lg" href="#proof">Check the chain now <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn lg" href="/app#/try">Open the live demo <span class="arr" aria-hidden="true">→</span></a>
+    </div>
+    <p class="small muted ticker mono" id="ticker" aria-live="off"></p>
+  </div>
+</section>
+
+<section class="scene" id="try">
+  <div class="wrap">
+    <p class="eyebrow mono">Try it</p>
+    <h2>You are the compromised server. Try to take the money.</h2>
+    <p class="lead">Pick an attack and run it against a broad mandate, the way an agent wallet is usually set up, and against Ringfence's per-line mandates. Each answer below is the testnet's own, recorded when the attack ran live, with its transaction.</p>
+    <div class="arena">
+      <div class="picks" id="picks" role="radiogroup" aria-label="Attack"></div>
+      <div class="stage" id="stage">
+        <div class="lanes">
+          <div class="lane" id="lane-a">
+            <p class="k mono small">broad mandate</p>
+            <div class="rail"><span class="node">server</span><span class="wire"><i class="pkt"></i></span><span class="node chain">chain</span><span class="node dest" id="dest-a">wallet</span></div>
+            <p class="verdict mono" id="v-a">ready</p><p class="small muted" id="n-a"></p>
+          </div>
+          <div class="lane" id="lane-b">
+            <p class="k mono small">Ringfence, per-line mandates</p>
+            <div class="rail"><span class="node">server</span><span class="wire"><i class="pkt"></i></span><span class="node chain">chain</span><span class="node dest" id="dest-b">wallet</span></div>
+            <p class="verdict mono" id="v-b">ready</p><p class="small muted" id="n-b"></p>
+          </div>
+        </div>
+        <div class="btns left">
+          <button class="btn primary" id="run" type="button">Run the attack</button>
+          <button class="btn" id="runall" type="button">Run all seven</button>
+        </div>
+        <div class="score mono"><span>Lost, unprotected side <b id="s-a">USD 0</b></span><span>Lost, Ringfence side <b id="s-b">USD 0</b></span></div>
+        <p class="small muted" id="stage-note">Replayed from the recorded run. Each attack binds mandates and costs gas, so it is not re-run per click; section 4 reads the chain live.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -126,7 +162,8 @@
   </div>
 </section>
 </main>
-<footer class="wrap foot"><p class="small muted"><a href="/">Ringfence</a> · <a href="/app#/try">Live demo</a> · <a href="https://github.com/singhharsimar23-dotcom/ringefence">GitHub</a></p></footer>
+<footer class="wrap foot"><p class="small muted"><a href="/?home=1">Ringfence</a> · <a href="/app#/try">Live demo</a> · <a href="https://github.com/singhharsimar23-dotcom/ringefence">GitHub</a></p></footer>
+<script src="/static/alta_arena.js"></script>
 <script src="/static/alta.js"></script>
 </body>
 </html>

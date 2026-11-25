@@ -3,6 +3,11 @@ __HOST__ {
 	request_body {
 		max_size 64KB
 	}
+	@home {
+		path /
+		not query home=1
+	}
+	redir @home /alta 302
 	handle /alta* {
 		reverse_proxy 127.0.0.1:8010
 	}

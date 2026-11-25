@@ -111,12 +111,15 @@ async function price(ev) {
 }
 
 (async () => {
+  reveal();
   $("mcp-cmd").textContent = `claude mcp add --transport http ringfence-alta ${location.origin}/alta/mcp`;
   $("recheck").addEventListener("click", recheck);
   $("price-f").addEventListener("submit", price);
   try {
     const o = await (await fetch("/alta/api/overview")).json();
     attacks(o.attacks);
+    setupArena(o.attacks);
+    ticker(o.attacks);
     findings(o.findings);
     payroll(o.payroll);
     for (const t of o.limits) $("limits-l").append(h("li", "", t));
