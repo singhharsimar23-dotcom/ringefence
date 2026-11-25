@@ -1,6 +1,6 @@
 # Security findings
 
-Before building Ringfence, we built a reference payroll agent the way Airwallex's docs, SDK and MCP suggest, and tried to make it pay the wrong account. These are the seven issues that can cost a company real money. F1 to F5 were proven on the Airwallex sandbox or in Airwallex's published SDK code. F6 and F7 are in how payroll automation decides what is safe to pay, and were reproduced in simulation. Each is closed in Ringfence.
+Before building Ringfence, we built a reference payroll agent the way Airwallex's docs, SDK and MCP suggest, and tested whether it could be made to pay the wrong account. These are the seven issues that can cost a company real money. F1 to F5 were proven on the Airwallex sandbox or in Airwallex's published SDK code. F6 and F7 are in how payroll automation decides what is safe to pay, and were reproduced in simulation. Each is closed in Ringfence.
 
 **Scope.** Airwallex sandbox only, our own accounts, amounts of GBP 2 or less. Every test transfer was cancelled or reversed, and every test payee was deleted.
 

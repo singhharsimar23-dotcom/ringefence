@@ -178,7 +178,7 @@ Live page: `/alta`. MCP: `/alta/mcp`. Full write-up: [docs/ALTA_SETTLEMENT.md](d
 
 On a bank rail, Ringfence's gate is the only enforcer. On Alta the human's approval is compiled into the payment: an approver's device (a separate process and key) signs one single-use mandate per approved line, with the approved batch hash in its signed description. A compromised Ringfence server can then pay only the approved lines, once each, before the approval expires. The executor is the unchanged, mutation-tested one; only the client underneath it changes ([alta.py](ringfence/alta.py)).
 
-**First we broke it.** The attacker is the Ringfence server (every pull key, no owner key). Each attack ran live on the testnet against a broad mandate and against Ringfence's per-line mandates:
+**Seven attack types, run live.** Each is played from the Ringfence server's side (every pull key, no owner key) on the testnet, against a broad mandate and against Ringfence's per-line mandates:
 
 Run 2026-11-25, alta testnet (chain 63825).
 
@@ -206,7 +206,7 @@ Run 2026-11-25, alta testnet (chain 63825).
 | A8 | Every pull failed, and the error said the wallet was unfunded | Ringfence's Alta adapter, found by the same live run |
 | A9 | Alta's own verifier cannot prove two of its eleven refusal reasons | Alta CLI/SDK 0.3.3 (metal-pay), read from its own source |
 
-How each was broken and fixed is in [docs/ALTA_SETTLEMENT.md](docs/ALTA_SETTLEMENT.md#defects-found-and-the-fix-for-each).
+What was found and how each is closed is in [docs/ALTA_SETTLEMENT.md](docs/ALTA_SETTLEMENT.md#defects-found-and-the-fix-for-each).
 
 Recorded in [payroll-2026-11-25/](payroll-2026-11-25/): the approved batch, each credential file (never a pull key), the line report and the signed certificate. Result: **PASS**. The Airwallex fee step ran on the offline fake and is [SIMULATED]; the payments are real testnet payments.
 

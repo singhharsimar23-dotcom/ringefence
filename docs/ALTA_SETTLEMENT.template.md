@@ -46,7 +46,7 @@ Each was reproduced before it was fixed. The named tests fail without the fix; [
 
 ## Attack lab, live on the testnet
 
-The attacker is the Ringfence server: every pull key, no owner key. Each attack runs against a broad mandate (any payee, budget equal to the whole batch, cap equal to the largest line, unlimited pulls: what an agent wallet is usually given) and against Ringfence's per-line mandates. Attacks 6 and 7 compare Ringfence before and after the fix. Amounts are 0.05 and 0.04 USDZ.
+Each attack is played from the Ringfence server's side: every pull key, no owner key. Each runs against a broad mandate (any payee, budget equal to the whole batch, cap equal to the largest line, unlimited pulls: what an agent wallet is usually given) and against Ringfence's per-line mandates. Attacks 6 and 7 compare Ringfence before and after the fix. Amounts are 0.05 and 0.04 USDZ.
 
 <<ATTACKS>>
 
