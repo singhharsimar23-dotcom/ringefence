@@ -91,13 +91,27 @@ const Play = (() => {
     <aside class="secline"><span class="k">${esc(T.pay.secTitle)}</span><span>${esc(T.pay.sec)}</span></aside>
     <section class="examples"><h2 class="sec-h">${esc(T.pay.startTitle)}</h2><p class="small muted">${esc(T.pay.startNote)}</p><div class="exs">${ex}</div></section>
     <section class="preview"><h2 class="sec-h">${esc(T.pay.previewTitle)}</h2><p class="small muted">${esc(T.pay.previewNote)}</p><div inert>${idle}</div></section>
-    ${info.metal ? metalCard() : ""}${altaCard()}
+    ${altaCard()}${info.metal ? metalCard() : ""}
     <p class="small faint">${esc(T.retention)}</p>`;
   }
 
+  let altaNums = null, altaAsked = false;
+  const altaNumsHtml = () => altaNums.map(([n, l]) => `<div><b>${n}</b><span>${esc(l)}</span></div>`).join("");
+  function loadAlta() {
+    if (altaAsked) return;
+    altaAsked = true;
+    fetch("/alta/api/overview").then((r) => r.json()).then((o) => {
+      const rows = o.attacks ? o.attacks.rows : [], paid = rows.filter((r) => r.outcome === "paid").length;
+      altaNums = [[new Set(rows.map((r) => r.attack)).size, T.altaN[0]], [paid, T.altaN[1]], [rows.length - paid, T.altaN[2]], [o.findings.length, T.altaN[3]]];
+      const el = $("#alta-an");
+      if (el) { el.innerHTML = altaNumsHtml(); el.hidden = false; }
+    }).catch(() => { altaAsked = false; });
+  }
   function altaCard() {
-    return `<a class="metal-card" href="/alta#try"><p class="k">${esc(T.altaCardK)}</p><h2>${esc(T.altaCardH)}</h2>
-      <p>${esc(T.altaCardP)}</p><span class="go">${esc(T.altaCardGo)} &rarr;</span></a>`;
+    loadAlta();
+    return `<section class="alta-card"><p class="k">${esc(T.altaCardK)}</p><h2>${esc(T.altaCardH)}</h2>
+      <p>${esc(T.altaCardP)}</p><div class="an" id="alta-an"${altaNums ? "" : " hidden"}>${altaNums ? altaNumsHtml() : ""}</div>
+      <a class="go" href="/alta#try">${esc(T.altaCardGo)} &rarr;</a></section>`;
   }
 
   function metalCard() {

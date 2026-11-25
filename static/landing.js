@@ -236,7 +236,7 @@
       && (KEEP.has(r.kind) || (r.detail && (r.detail.transfer_id === id || (rid && r.detail.request_id === rid)))));
     const lbl = (r) => {
       if (r.reality === "ours" || (r.simulated && !r.reality)) return "[SIMULATED]";
-      if (r.reality === "chain") return "Metal testnet";
+      if (r.reality === "chain") return "Alta testnet";
       if (r.reality === "live" || r.reality === "awx_sim") return fake ? "offline double" : r.reality === "live" ? "Airwallex" : "Airwallex simulator";
       return "ledger";
     };
@@ -275,20 +275,19 @@
     mark("#sh-rel", got && sent ? got : null, `${sent} payment${sent === 1 ? "" : "s"} released after the money landed.`);
   });
 
-  /* 10: Metal, the on-chain rows this server wrote */
+  /* 11: the Alta numbers come from the recorded attack lab; hidden if the Alta app does not answer */
   state.then((s) => {
-    const m = s && s.metal, ul = $("#sh-metal");
-    if (m == null) { set("#mt-state", "off on this server"); ul.innerHTML = '<li class="muted">Metal is switched off on this server. The live demo runs it.</li>'; return; }
-    set("#mt-state", m.length ? `${m.length} on chain` : "none since the last reset");
-    if (!m.length) { ul.innerHTML = '<li class="muted">No Metal transactions since the last reset. <a href="/app#/demo">Run Pay from crypto wallet</a>.</li>'; return; }
-    ul.innerHTML = m.slice(-6).reverse().map((x) => {
-      const what = x.kind === "METAL_PULL" ? `paid ${x.usdz} USDZ` : `refused ${x.usdz} USDZ · ${x.flag || x.code || "refused"}`;
-      const link = x.explorer_url ? `<a href="${esc(x.explorer_url)}" target="_blank" rel="noopener">${esc(String(x.tx).slice(0, 14))}… <span class="arr" aria-hidden="true">→</span></a>` : '<span class="muted">no tx</span>';
-      return `<li><span>#${esc(x.seq)} ${esc(x.kind)} · ${esc(what)}</span>${link}</li>`;
-    }).join("");
-    const chain = m.find((x) => x.explorer_url), td = $('[data-real="chain"]');
+    const m = (s && s.metal) || [], chain = m.find((x) => x.explorer_url), td = $('[data-real="chain"]');
     if (chain && td) td.innerHTML = `<a href="${esc(chain.explorer_url)}" target="_blank" rel="noopener">${esc(String(chain.tx).slice(0, 18))}…</a>`;
   });
+  j("/alta/api/overview").then((o) => {
+    const a = o.attacks, root = $("#astats");
+    if (!a || !root) return;
+    const paid = a.rows.filter((r) => r.outcome === "paid").length;
+    const items = [[new Set(a.rows.map((r) => r.attack)).size, "attacks run live"], [paid, "paid the attacker, unprotected side"], [a.rows.length - paid, "refused on chain"], [o.findings.length, "defects fixed, each with a test"]];
+    for (const [n, t] of items) root.insertAdjacentHTML("beforeend", `<div><b class="mono">${n}</b><span class="small muted">${t}</span></div>`);
+    root.hidden = false;
+  }).catch(() => {});
 
   /* 12: composer, examples fill the box, then the text goes to the app's Try tab */
   $("#ex").addEventListener("click", (e) => {
@@ -319,7 +318,7 @@
       start: "top 92%", once: true, batchMax: 6,
       onEnter: (els) => gsap.to(els, { opacity: 1, y: 0, duration: 0.35, stagger: 0.05, ease: "power1.out", overwrite: true }),
     });
-    once("#metal", () => gsap.from(".mflow > *", { opacity: 0, x: -12, duration: 0.3, stagger: 0.08 }));
+    once("#alta", () => gsap.from(".mflow > *", { opacity: 0, x: -12, duration: 0.3, stagger: 0.08 }));
     /* a page loaded mid-way (anchor link) must not leave anything hidden */
     addEventListener("load", () => ScrollTrigger.refresh());
   } catch (_) { document.documentElement.classList.remove("js"); }

@@ -108,13 +108,13 @@ SCENARIO_EVIDENCE = {
 }
 SCENARIO_EVIDENCE["harbour_topup"] = SCENARIO_EVIDENCE["topup"]
 SCENARIO_EVIDENCE["metal_topup"] = ("Harbour Foods is short, so we take the missing amount from its crypto wallet.",
-                                    "METAL_MANDATE", "The Metal blockchain",
+                                    "METAL_MANDATE", "The Alta blockchain",
                                     "Harbour Foods allowed one payment: the exact missing amount, once, to us only.")
 SCENARIO_EVIDENCE["metal_overpull"] = ("The agent tries to take 1 coin more than Harbour Foods allowed.",
-                                       "METAL_MANDATE_CAP", "The Metal blockchain",
+                                       "METAL_MANDATE_CAP", "The Alta blockchain",
                                        "The blockchain refused and recorded the refusal. Our own checks would have stopped it too.")
 SCENARIO_EVIDENCE["metal_poison"] = ("An email asks the platform to send Harbour's money to a lookalike wallet (address poisoning).",
-                                     "METAL_MANDATE_PAYEE", "Our checks, then the Metal blockchain",
+                                     "METAL_MANDATE_PAYEE", "Our checks, then the Alta blockchain",
                                      "We compare the whole address, not just the start and end, so the fake is caught. The blockchain only pays the one wallet Harbour Foods named, so it refuses too.")
 METAL_FALLBACK = "Crypto wallet didn't answer, so we used Airwallex's simulated deposit."
 ALREADY_FUNDED = "{t}'s top-up for this run was already sent. Nothing more was added."
@@ -192,7 +192,7 @@ LINE_PILL = {
 
 
 # What is real, what is the sandbox's simulator, what we made up. One map; the browser reads it from /api/state.
-REALITY = {"live": "Live on Airwallex", "chain": "On Metal testnet", "awx_sim": "Airwallex simulator", "ours": "Simulated by us",
+REALITY = {"live": "Live on Airwallex", "chain": "On Alta testnet", "awx_sim": "Airwallex simulator", "ours": "Simulated by us",
            "fake": "Offline test double"}
 CARD_REALITY = {
     "double_click": "live", "network_drop": "live", "cross_tenant_call": "live", "tamper_ledger": "ours", "rate_move": "ours",
@@ -391,7 +391,7 @@ def timeline_row(e: dict) -> dict | None:
         if not row[1].startswith("[SIMULATED]"):
             row = ("Observe", "[SIMULATED] " + row[1])
     elif k == "METAL_PULL":
-        row = ("Act", f"Paid {p['usdz']} test coins from {T}'s crypto wallet on the Metal blockchain.")
+        row = ("Act", f"Paid {p['usdz']} test coins from {T}'s crypto wallet on the Alta blockchain.")
     elif k == "METAL_REFUSED" and p.get("flag") == "address_poisoning":
         row = ("Decide", f"Blocked a fake lookalike wallet ({p['to'][:10]}…{p['to'][-4:]}). The blockchain refused it too.")
     elif k == "METAL_REFUSED":

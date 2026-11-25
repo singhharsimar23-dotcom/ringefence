@@ -4,8 +4,8 @@
   --bg:#000;--s1:#0a0a0a;--s2:#111;--s3:#1a1a1a;
   --line:rgba(255,255,255,.08);--line-2:rgba(255,255,255,.14);--line-3:rgba(255,255,255,.28);
   --ink:#fff;--ink-2:#a3a3a3;--ink-3:#8a8a8a;
-  --ok:#4ade80;--hold:#fbbf24;--no:#f87171;--live:#4ade80;
-  --nw:oklch(74% .1 250);--ks:oklch(78% .1 190);--hb:oklch(82% .11 80);
+  --ok:#fff;--hold:#8a8a8a;--no:#fff;--live:#a3a3a3;
+  --nw:#fff;--ks:#a3a3a3;--hb:#6b6b6b;
   --font:"Geist",system-ui,sans-serif;--mono:"Geist Mono",ui-monospace,monospace;
   --r:12px;--r-lg:16px;--max:1160px;--ease:cubic-bezier(.2,.7,.2,1);
 }
@@ -83,9 +83,9 @@ a.card:hover,a.tile:hover,a.door:hover,.emp:hover .win{translate:0 -3px;backgrou
 .split .col{padding:16px}
 .split .col+.col{border-left:1px solid var(--line)}
 .pill{display:inline-block;padding:2px 10px;border-radius:999px;border:1px solid var(--line-2);font-size:13px;color:var(--ink);margin:0 0 10px}
-.pill.hold{border-color:var(--hold);color:var(--hold)}
-.pill.ok{border-color:var(--ok);color:var(--ok)}
-.pill.no{border-color:var(--no);color:var(--no)}
+.pill.hold{border-style:dashed;border-color:var(--ink-3);color:var(--ink-2)}
+.pill.ok{border-color:var(--ink);color:var(--ink)}
+.pill.no{background:#fff;border-color:#fff;color:#000}
 .card{padding:22px;display:block;text-decoration:none;color:var(--ink-2)}
 .card .n{color:var(--ink-3);margin-bottom:16px}
 .card .go{color:var(--ink);display:inline-flex;margin-top:4px}
@@ -102,10 +102,9 @@ a.card:hover,a.tile:hover,a.door:hover,.emp:hover .win{translate:0 -3px;backgrou
 .bals b{color:var(--ink);font-weight:400}
 .meta{color:var(--ink-3);margin:14px 0 0;padding-top:10px;border-top:1px solid var(--line)}
 .strip{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;color:var(--ink-2);margin:0}
-.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--live);margin-right:8px;vertical-align:middle;animation:pulse 1.6s ease-in-out infinite}
+.dot{display:inline-block;width:6px;height:6px;border-radius:1px;background:var(--live);margin-right:8px;vertical-align:middle}
 .eyebrow .dot{margin-right:0}
-.dot.off{background:var(--ink-3);animation:none}
-@keyframes pulse{50%{opacity:.35}}
+.dot.off{background:transparent;box-shadow:inset 0 0 0 1px var(--ink-3)}
 
 /* results band */
 .band-s{padding:56px 0 72px}
@@ -247,7 +246,7 @@ a.card:hover,a.tile:hover,a.door:hover,.emp:hover .win{translate:0 -3px;backgrou
 .real .mono{overflow-wrap:anywhere}
 .real .cp{margin-left:8px;height:24px;padding:0 10px;font-size:12px}
 .lv{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:10px;vertical-align:1px}
-.lv.live{background:var(--ok)}.lv.sim{background:var(--nw)}.lv.chain{background:var(--hb)}.lv.ours{background:var(--ink-3)}
+.lv.live{background:#fff}.lv.sim{background:var(--ink-3)}.lv.chain{box-shadow:inset 0 0 0 2px #fff}.lv.ours{box-shadow:inset 0 0 0 1px var(--ink-3)}
 
 /* try */
 .doors{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;margin-top:8px}
@@ -313,3 +312,9 @@ a.door{border-color:var(--line-3)}
 .finds .gap{margin-top:12px}
 
 .also{margin-top:72px;font-size:26px}
+
+.astats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:8px 0 24px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.astats[hidden]{display:none}
+.astats>div{padding:22px 20px;border-left:1px solid var(--line);display:grid;gap:6px}.astats>div:first-child{border-left:0}
+.astats b{font:500 44px/1 var(--mono);letter-spacing:-.03em;color:var(--ink)}
+.note{margin-top:28px;max-width:760px}

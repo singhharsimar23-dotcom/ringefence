@@ -99,13 +99,27 @@ async function recheck() {
   b.disabled = false;
 }
 
+function fail(msg) {
+  for (const id of ["stats", "picks", "finds", "limits-l"]) $(id).replaceChildren();
+  $("atk-meta").textContent = $("pr-state").textContent = msg;
+  $("pr-lines").replaceChildren(h("li", "muted", msg));
+  for (const id of ["run", "runall", "recheck"]) $(id).disabled = true;
+}
+
+const say = (d) => (Array.isArray(d) ? d.map((x) => x.msg || String(x)).join("; ") : String(d || "Could not price that"));
+
 async function price(ev) {
   ev.preventDefault();
   const f = new FormData(ev.target), out = $("price-out");
   out.replaceChildren();
-  const r = await fetch("/alta/api/price", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Object.fromEntries(f)) });
-  const j = await r.json();
-  if (!r.ok) return out.append(h("li", "muted", j.detail));
+  let r, j;
+  try {
+    r = await fetch("/alta/api/price", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Object.fromEntries(f)) });
+    j = await r.json();
+  } catch (e) {
+    return out.append(h("li", "muted", "Could not reach the server: " + e.message));
+  }
+  if (!r.ok) return out.append(h("li", "muted", say(j.detail)));
   for (const l of j.lines) out.append(h("li", "", h("span", "", `${l.contractor_id}  ${l.hours} h`), h("span", "", `USD ${l.usd}  =  ${l.usdz} USDZ`)));
   out.append(h("li", "muted", `Total ${j.total_usdz} USDZ. ${j.note}.`));
 }
@@ -124,6 +138,6 @@ async function price(ev) {
     payroll(o.payroll);
     for (const t of o.limits) $("limits-l").append(h("li", "", t));
   } catch (e) {
-    $("atk-meta").textContent = "Could not load the results: " + e.message;
+    fail("Could not load the results: " + e.message);
   }
 })();

@@ -20,7 +20,7 @@ def test_every_scenario_card_has_a_known_level():
     assert set(ALL_SCENARIOS) <= set(copy.CARD_REALITY)
     assert set(copy.CARD_REALITY.values()) <= set(copy.REALITY)
     assert {k: v for k, v in copy.REALITY.items() if k != "fake"} == {
-        "live": "Live on Airwallex", "chain": "On Metal testnet", "awx_sim": "Airwallex simulator", "ours": "Simulated by us"}
+        "live": "Live on Airwallex", "chain": "On Alta testnet", "awx_sim": "Airwallex simulator", "ours": "Simulated by us"}
 
 
 def test_state_exports_the_map_and_each_card_and_payout_carries_its_level(c):

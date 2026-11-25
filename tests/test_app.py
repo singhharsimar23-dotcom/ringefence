@@ -263,7 +263,7 @@ def test_live_demo_opens_try_it_with_the_guide(c):
     assert '<a class="btn primary lg" href="/app#/try">Open the live demo' in land
     assert app.index("/static/copy.js") < app.index("/static/guide.js") and c.get("/static/guide.js").status_code == 200
     copy_js = c.get("/static/copy.js").text
-    assert "T.guide = {" in copy_js and "T.tips = {" in copy_js and "Blockchain, on Metal" in copy_js
+    assert "T.guide = {" in copy_js and "T.tips = {" in copy_js and "Blockchain, on Alta" in copy_js
 
 
 def test_gauntlet_endpoints_serve_recorded_results_or_say_none(c, tmp_path, monkeypatch):
