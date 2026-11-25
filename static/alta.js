@@ -119,7 +119,7 @@ async function price(ev) {
     const o = await (await fetch("/alta/api/overview")).json();
     attacks(o.attacks);
     setupArena(o.attacks);
-    ticker(o.attacks);
+    stats(o.attacks, o.findings.length);
     findings(o.findings);
     payroll(o.payroll);
     for (const t of o.limits) $("limits-l").append(h("li", "", t));

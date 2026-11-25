@@ -22,6 +22,7 @@ function setupArena(a) {
   }
   choose(order()[0]);
   $("run").addEventListener("click", () => play(arena.sel));
+  new IntersectionObserver((es, io) => { if (es[0].isIntersecting) { io.disconnect(); play(order()[0]); } }, { threshold: 0.5 }).observe($("stage"));
   $("runall").addEventListener("click", async () => {
     for (const n of order()) { await play(n); await wait(450); }
   });
@@ -71,16 +72,20 @@ async function play(n) {
   $("run").disabled = $("runall").disabled = false;
 }
 
-function ticker(a) {
+function stats(a, nfind) {
   if (!a) return;
-  const paid = a.rows.filter((r) => r.outcome === "paid").length;
-  const lines = [`${order().length} attacks, run live on the Alta testnet`, `${paid} payments the attacker got, all on the unprotected side`,
-    `${a.rows.length - paid} refusals, each with a transaction`];
-  let i = 0;
-  const t = $("ticker");
-  const tick = () => { t.classList.remove("on"); setTimeout(() => { t.textContent = lines[i++ % lines.length]; t.classList.add("on"); }, 250); };
-  tick();
-  setInterval(tick, 3200);
+  const by = (side) => a.rows.filter((r) => r.outcome === "paid" && r.side === side).length;
+  const unprot = a.rows.filter((r) => r.outcome === "paid").length;
+  const items = [[order().length, "attacks run live on the testnet"], [unprot, "paid the attacker on the unprotected side"],
+    [a.rows.length - unprot, "refused on chain, each with a transaction"], [nfind, "defects found and fixed, each with a test"]];
+  const root = $("stats");
+  for (const [n, label] of items) {
+    const b = h("b", "", "0");
+    root.append(h("div", "", b, h("span", "small muted", label)));
+    let t = 0;
+    const step = () => { t += 1; b.textContent = String(Math.round((n * Math.min(t, 24)) / 24)); if (t < 24) setTimeout(step, 40); };
+    setTimeout(step, 300);
+  }
 }
 
 function reveal() {
