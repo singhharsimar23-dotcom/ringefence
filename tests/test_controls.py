@@ -320,3 +320,11 @@ def test_a_payroll_after_a_confirmed_bank_change_is_never_auto_released(orch, fa
     assert fake.accounts[acct("kestrel")].transfers == {}
     orch.approve(rid, "kestrel", "priya", role(L, "kestrel"))
     assert orch.advance(rid, "kestrel") == "RELEASED"
+
+
+def test_a_run_created_before_the_bank_change_is_confirmed_is_not_auto_released_either(orch, fake, L):
+    rid = orch.create_run("kestrel", PAY)
+    q = orch.propose_bank_change(rid, "kestrel", "noah", NEW_BANK, "email-9", "maya")
+    orch.confirm_bank_change("kestrel", q["id"], "priya", role(L, "kestrel"), "call-4411")
+    assert orch.submit(rid, "kestrel") == "AWAITING_APPROVAL"
+    assert fake.accounts[acct("kestrel")].transfers == {}

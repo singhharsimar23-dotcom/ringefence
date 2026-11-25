@@ -253,6 +253,7 @@ class Orchestrator:
                 ln = store.get_line(tx, run["run_id"], tenant, cid)
                 if ln and ln["state"] in ("PLANNED", "READY"):
                     store.set_line(tx, run["run_id"], tenant, cid, "PLANNED", beneficiary_id=new_id)
+                    store.set_run(tx, run["run_id"], tenant, any_new_or_changed=True)  # a moved payee is never "nothing changed"
                     if run["state"] == "READY":
                         for other in store.get_lines(tx, run["run_id"], tenant, states=("READY",)):
                             store.set_line(tx, run["run_id"], tenant, other["contractor_id"], "PLANNED")
